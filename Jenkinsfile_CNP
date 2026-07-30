@@ -1,0 +1,12 @@
+#!groovy
+
+@Library("Infrastructure")
+
+def type = "java"
+def product = "apim"
+def component = "marketplace"
+
+withPipeline(type, product, component) {
+  enableAksStagingDeployment()
+  disableLegacyDeployment()
+}

@@ -1,4 +1,4 @@
-* @hmcts/platform-operations @hmcts/developer-enablement
+* @hmcts/dts-api-marketplace @hmcts/platform-operations @hmcts/developer-enablement
 
 # Ignore files updated by Renovate
 gradle/wrapper/gradle-wrapper.properties

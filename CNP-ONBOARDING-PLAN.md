@@ -230,7 +230,7 @@ module "vault" {
 |---|------|--------|-------|
 | 4.1 | Verify apim namespace kustomizations are on Flux **master** (not just a branch) | ✅ Done | `apps/apim/base/kustomization.yaml` and env overlays confirmed on master |
 | 4.2 | Create `apps/apim/apim-marketplace/apim-marketplace.yaml` (HelmRelease) | ○ Todo | See snippet below |
-| 4.3 | Generate image policy files | ○ Todo | Run: `/opt/homebrew/bin/bash ./bin/v2/add-image-policies.sh apim apim marketplace` (needs `brew install yq` and `brew install fluxcd/tap/flux`) |
+| 4.3 | Generate image policy files via script | ○ Todo | `cd cnp-flux-config && /opt/homebrew/bin/bash ./bin/v2/add-image-policies.sh apim apim marketplace` — creates `apps/apim/apim-marketplace/image-policy.yaml`, `image-repo.yaml` AND `apps/apim/automation/kustomization.yaml`, AND wires `../../apim/automation` into `apps/flux-system/automation/kustomization.yaml`. **Do NOT create these files manually** — the automation folder must be in flux-system/automation or the CI test `Fluxv2 Image Automation` will fail with `No ImagePolicy for apim-marketplace in clusters/ptl-intsvc/base`. Prereqs: `brew install yq` |
 | 4.4 | Add HelmRelease to `apps/apim/base/kustomization.yaml` resources | ○ Todo | |
 | 4.5 | Add env-specific patch files (`aat.yaml`, `demo.yaml`, `preview.yaml`) | ○ Todo | Set correct `ingressHost` per env |
 | 4.6 | Run Flux dry-run tests locally before raising PR | ○ Todo | `./tests/dry-run-kustomize.sh preview 00` |
@@ -282,12 +282,16 @@ spec:
 
 | # | Step | Status | Notes |
 |---|------|--------|-------|
+| 6.0 | Get seed job approved and run | ○ Todo | The seed job (`build.hmcts.net/job/Seed%20Job/`) fails with `script not yet approved for use` until a Jenkins admin approves `organisations-beta.groovy` in Manage Jenkins → In-process Script Approval. Raise in `#platops-help` on Slack. Once approved, click **Build Now** on the seed job and wait for it to go green — this bakes `service-api-marketplace` into the org folder's repo allowlist (loaded from `deployment-controls.yml` on `cnp-jenkins-config` master). |
+| 6.0a | Trigger Jenkins org scan so the job is discovered | ○ Todo | Go to `build.hmcts.net/job/HMCTS_j_to_z/` → **Scan Organization Now** (left sidebar). The job folder for `service-api-marketplace` will appear but will be empty ("no branches found"). |
+| 6.0b | Scan the repository to queue the first build | ○ Todo | Click into `HMCTS_j_to_z/service-api-marketplace` → **Scan Repository Now** (left sidebar). Jenkins will find `Jenkinsfile_CNP` on `master` and queue the build. |
 | 6.1 | Raise a PR to trigger first Jenkins build | ○ Todo | Watch at `build.hmcts.net/job/HMCTS_j_to_z/job/service-api-marketplace/` |
 | 6.2 | Jenkins stages: Checkout → Build → Test → Docker push to ACR → Terraform → Deploy preview | ○ Todo | Terraform creates `apim-aat-mi` MI and `apim-aat` vault in `DCD-CNP-DEV` subscription |
 | 6.3 | After Terraform: run Phase 4.7 workload identity script, raise Flux PR | ○ Todo | |
 
 **Known failure points from last time:**
 
+- **Old ACR registry references:** Jenkins runs `check-old-acr-references.sh` which fails if `hmctspublic` appears in `Chart.yaml` or `values.yaml`. The platform has migrated to `hmctsprod.azurecr.io` for service images. Use `hmctsprod` everywhere — the official `add-image-policies.sh` script still defaults to `hmctspublic` (not yet updated), so override it: `./add-image-policies.sh apim apim marketplace hmctsprod`. Also update the Flux `image-repo.yaml` and `apim-marketplace.yaml` HelmRelease image field to use `hmctsprod`.
 - **DNS staging check:** Jenkins checks for CNAME `apim-marketplace-staging` in `aat.platform.hmcts.net` (sub `DTS-CFTPTL-INTSVC`). Created after Flux deploys. Transient on first run — retry after Flux reconciles.
 - **Namespace not found:** `namespaces "apim" not found` means Flux namespace PR not merged or not yet reconciled on the cluster.
 - **Terraform whitelist 404:** `terraform-infra-approvals/service-api-marketplace.json` missing. Must be merged before this run.

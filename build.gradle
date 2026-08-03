@@ -132,11 +132,6 @@ repositories {
   }
 }
 
-ext {
-  log4JVersion = "2.25.1"
-  logbackVersion = "1.5.18"
-}
-
 ext['snakeyaml.version'] = '2.0'
 
 dependencies {
@@ -146,10 +141,9 @@ dependencies {
 
   implementation group: 'com.github.hmcts.java-logging', name: 'logging', version: '6.1.9'
 
-  implementation group: 'org.apache.logging.log4j', name: 'log4j-api', version: log4JVersion
-  implementation group: 'org.apache.logging.log4j', name: 'log4j-to-slf4j', version: log4JVersion
-  implementation group: 'ch.qos.logback', name: 'logback-classic', version: logbackVersion
-  implementation group: 'ch.qos.logback', name: 'logback-core', version: logbackVersion
+  implementation 'org.apache.logging.log4j:log4j-to-slf4j'
+  implementation 'ch.qos.logback:logback-classic'
+  implementation 'ch.qos.logback:logback-core'
 
   testImplementation group: 'org.springframework.boot', name: 'spring-boot-starter-test'
   testImplementation group: 'org.springframework.boot', name: 'spring-boot-starter-webmvc-test'

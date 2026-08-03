@@ -235,6 +235,25 @@ module "vault" {
 | 4.5 | Add env-specific patch files (`aat.yaml`, `demo.yaml`, `preview.yaml`) | ○ Todo | Set correct `ingressHost` per env |
 | 4.6 | Run Flux dry-run tests locally before raising PR | ○ Todo | `./tests/dry-run-kustomize.sh preview 00` |
 | 4.7 | Workload Identity wiring — **only after step 6.1 Terraform runs** | ○ Todo | `/opt/homebrew/bin/bash ./bin/workload-identity/add-wl-identity.sh --namespace apim --mi-name apim-aat` ⚠️ Requires bash4 (`brew install bash`) — macOS ships bash 3.2 which lacks associative arrays |
+| 4.7a | Grant MI access to Key Vault and re-enable vault mount in chart | ○ Todo | See note below — `keyVaults` removed from `values.yaml` for initial onboarding; must be re-added once RBAC is set up |
+
+> **Step 4.7a — Re-enabling vault mount after workload identity is set up:**
+>
+> `keyVaults` was removed from `charts/apim-marketplace/values.yaml` to unblock initial onboarding (pod was stuck in `Init:0/1` — `MountVolume.SetUp failed` for `AppInsightsInstrumentationKey` from `apim-aat.vault.azure.net`).
+>
+> To re-enable once workload identity is wired:
+> 1. Confirm the Managed Identity has **Key Vault Secrets User** RBAC role on `apim-aat` vault (check in Azure Portal or via `az role assignment list`)
+> 2. Confirm `AppInsightsInstrumentationKey` secret exists in `apim-aat.vault.azure.net`
+> 3. Re-add to `charts/apim-marketplace/values.yaml`:
+> ```yaml
+> java:
+>   aadIdentityName: apim
+>   keyVaults:
+>     apim:
+>       secrets:
+>         - name: AppInsightsInstrumentationKey
+>           alias: azure.application-insights.instrumentation-key
+> ```
 
 ```yaml
 # apps/apim/apim-marketplace/apim-marketplace.yaml
@@ -296,6 +315,7 @@ spec:
 - **Namespace not found:** `namespaces "apim" not found` means Flux namespace PR not merged or not yet reconciled on the cluster.
 - **Terraform whitelist 404:** `terraform-infra-approvals/service-api-marketplace.json` missing. Must be merged before this run.
 - **Prod approval gate:** Master builds will fail prod stage with "not approved for environment prod". Expected — separate `environment-approvals.yml` PR needed when ready.
+- **Vault mount failure (AKS preview deploy stuck in Init:0/1):** `MountVolume.SetUp failed for volume "vault-apim"` — the pod identity doesn't have Key Vault Secrets User RBAC on `apim-aat.vault.azure.net`. Workaround: remove `keyVaults` and `aadIdentityName` from `charts/apim-marketplace/values.yaml` for initial onboarding. Re-add once workload identity RBAC is set up (see step 4.7a).
 
 ---
 

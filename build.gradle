@@ -139,7 +139,7 @@ dependencies {
   implementation group: 'org.springframework.boot', name: 'spring-boot-starter-actuator'
   implementation group: 'org.springframework.boot', name: 'spring-boot-starter-aspectj'
 
-  implementation group: 'com.github.hmcts.java-logging', name: 'logging', version: '6.1.9'
+  implementation group: 'com.github.hmcts.java-logging', name: 'logging', version: '8.0.0'
 
   implementation 'org.apache.logging.log4j:log4j-to-slf4j'
   implementation 'ch.qos.logback:logback-classic'

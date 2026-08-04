@@ -1,39 +1,28 @@
 package uk.gov.hmcts.cp.controllers;
 
-import io.restassured.RestAssured;
-import io.restassured.http.ContentType;
-import io.restassured.response.Response;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.context.SpringBootTest;
 
-import static io.restassured.RestAssured.given;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
+import static org.assertj.core.api.Assertions.assertThat;
+
 class SampleFunctionalTest {
-    protected static final String CONTENT_TYPE_VALUE = "application/json";
 
-    @Value("${TEST_URL:http://localhost:8080}")
-    private String testUrl;
-
-    @BeforeEach
-    public void setUp() {
-        RestAssured.baseURI = testUrl;
-        RestAssured.useRelaxedHTTPSValidation();
-    }
+    private final String testUrl = System.getenv().getOrDefault("TEST_URL", "http://localhost:8080");
 
     @Test
-    void functionalTest() {
-        Response response = given()
-            .contentType(ContentType.JSON)
-            .when()
-            .get()
-            .then()
-            .extract().response();
+    void calling_root_should_return_welcome_message() throws Exception {
+        var client = HttpClient.newHttpClient();
+        var request = HttpRequest.newBuilder()
+            .uri(URI.create(testUrl))
+            .GET()
+            .build();
+        var response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
-        Assertions.assertEquals(200, response.statusCode());
-        Assertions.assertTrue(response.asString().startsWith("Welcome"));
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).startsWith("Welcome");
     }
 }

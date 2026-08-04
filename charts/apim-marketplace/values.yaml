@@ -3,3 +3,4 @@ java:
   image: 'hmctsprod.azurecr.io/apim/marketplace:latest'
   ingressHost: apim-marketplace-{{ .Values.global.environment }}.service.core-compute-{{ .Values.global.environment }}.internal
   environment:
+    APPLICATIONINSIGHTS_ENABLED: "false"

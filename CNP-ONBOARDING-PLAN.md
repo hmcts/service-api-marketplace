@@ -316,6 +316,7 @@ spec:
 - **Terraform whitelist 404:** `terraform-infra-approvals/service-api-marketplace.json` missing. Must be merged before this run.
 - **Prod approval gate:** Master builds will fail prod stage with "not approved for environment prod". Expected — separate `environment-approvals.yml` PR needed when ready.
 - **Vault mount failure (AKS preview deploy stuck in Init:0/1):** `MountVolume.SetUp failed for volume "vault-apim"` — the pod identity doesn't have Key Vault Secrets User RBAC on `apim-aat.vault.azure.net`. Workaround: remove `keyVaults` and `aadIdentityName` from `charts/apim-marketplace/values.yaml` for initial onboarding. Re-add once workload identity RBAC is set up (see step 4.7a).
+- **Startup probe failing on port 8080 (app running on 4550):** The CNP java chart probes `/health/liveness` on the `applicationPort` (8080). The Spring Boot template defaults `server.port: 4550` for local dev. In AKS the app must listen on 8080 — set `server.port: 8080` in `application.yaml`. Also ensure `management.endpoints.web.base-path: /` so the probe path `/health/liveness` resolves correctly (default actuator path is `/actuator/health/liveness`).
 
 ---
 

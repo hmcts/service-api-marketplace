@@ -230,11 +230,30 @@ module "vault" {
 |---|------|--------|-------|
 | 4.1 | Verify apim namespace kustomizations are on Flux **master** (not just a branch) | ✅ Done | `apps/apim/base/kustomization.yaml` and env overlays confirmed on master |
 | 4.2 | Create `apps/apim/apim-marketplace/apim-marketplace.yaml` (HelmRelease) | ○ Todo | See snippet below |
-| 4.3 | Generate image policy files | ○ Todo | Run: `/opt/homebrew/bin/bash ./bin/v2/add-image-policies.sh apim apim marketplace` (needs `brew install yq` and `brew install fluxcd/tap/flux`) |
+| 4.3 | Generate image policy files via script | ○ Todo | `cd cnp-flux-config && /opt/homebrew/bin/bash ./bin/v2/add-image-policies.sh apim apim marketplace` — creates `apps/apim/apim-marketplace/image-policy.yaml`, `image-repo.yaml` AND `apps/apim/automation/kustomization.yaml`, AND wires `../../apim/automation` into `apps/flux-system/automation/kustomization.yaml`. **Do NOT create these files manually** — the automation folder must be in flux-system/automation or the CI test `Fluxv2 Image Automation` will fail with `No ImagePolicy for apim-marketplace in clusters/ptl-intsvc/base`. Prereqs: `brew install yq` |
 | 4.4 | Add HelmRelease to `apps/apim/base/kustomization.yaml` resources | ○ Todo | |
 | 4.5 | Add env-specific patch files (`aat.yaml`, `demo.yaml`, `preview.yaml`) | ○ Todo | Set correct `ingressHost` per env |
 | 4.6 | Run Flux dry-run tests locally before raising PR | ○ Todo | `./tests/dry-run-kustomize.sh preview 00` |
 | 4.7 | Workload Identity wiring — **only after step 6.1 Terraform runs** | ○ Todo | `/opt/homebrew/bin/bash ./bin/workload-identity/add-wl-identity.sh --namespace apim --mi-name apim-aat` ⚠️ Requires bash4 (`brew install bash`) — macOS ships bash 3.2 which lacks associative arrays |
+| 4.7a | Grant MI access to Key Vault and re-enable vault mount in chart | ○ Todo | See note below — `keyVaults` removed from `values.yaml` for initial onboarding; must be re-added once RBAC is set up |
+
+> **Step 4.7a — Re-enabling vault mount after workload identity is set up:**
+>
+> `keyVaults` was removed from `charts/apim-marketplace/values.yaml` to unblock initial onboarding (pod was stuck in `Init:0/1` — `MountVolume.SetUp failed` for `AppInsightsInstrumentationKey` from `apim-aat.vault.azure.net`).
+>
+> To re-enable once workload identity is wired:
+> 1. Confirm the Managed Identity has **Key Vault Secrets User** RBAC role on `apim-aat` vault (check in Azure Portal or via `az role assignment list`)
+> 2. Confirm `AppInsightsInstrumentationKey` secret exists in `apim-aat.vault.azure.net`
+> 3. Re-add to `charts/apim-marketplace/values.yaml`:
+> ```yaml
+> java:
+>   aadIdentityName: apim
+>   keyVaults:
+>     apim:
+>       secrets:
+>         - name: AppInsightsInstrumentationKey
+>           alias: azure.application-insights.instrumentation-key
+> ```
 
 ```yaml
 # apps/apim/apim-marketplace/apim-marketplace.yaml
@@ -282,16 +301,23 @@ spec:
 
 | # | Step | Status | Notes |
 |---|------|--------|-------|
+| 6.0 | Get seed job approved and run | ○ Todo | The seed job (`build.hmcts.net/job/Seed%20Job/`) fails with `script not yet approved for use` until a Jenkins admin approves `organisations-beta.groovy` in Manage Jenkins → In-process Script Approval. Raise in `#platops-help` on Slack. Once approved, click **Build Now** on the seed job and wait for it to go green — this bakes `service-api-marketplace` into the org folder's repo allowlist (loaded from `deployment-controls.yml` on `cnp-jenkins-config` master). |
+| 6.0a | Trigger Jenkins org scan so the job is discovered | ○ Todo | Go to `build.hmcts.net/job/HMCTS_j_to_z/` → **Scan Organization Now** (left sidebar). The job folder for `service-api-marketplace` will appear but will be empty ("no branches found"). |
+| 6.0b | Scan the repository to queue the first build | ○ Todo | Click into `HMCTS_j_to_z/service-api-marketplace` → **Scan Repository Now** (left sidebar). Jenkins will find `Jenkinsfile_CNP` on `master` and queue the build. |
 | 6.1 | Raise a PR to trigger first Jenkins build | ○ Todo | Watch at `build.hmcts.net/job/HMCTS_j_to_z/job/service-api-marketplace/` |
 | 6.2 | Jenkins stages: Checkout → Build → Test → Docker push to ACR → Terraform → Deploy preview | ○ Todo | Terraform creates `apim-aat-mi` MI and `apim-aat` vault in `DCD-CNP-DEV` subscription |
 | 6.3 | After Terraform: run Phase 4.7 workload identity script, raise Flux PR | ○ Todo | |
 
 **Known failure points from last time:**
 
+- **Old ACR registry references:** Jenkins runs `check-old-acr-references.sh` which fails if `hmctspublic` appears in `Chart.yaml` or `values.yaml`. The platform has migrated to `hmctsprod.azurecr.io` for service images. Use `hmctsprod` everywhere — the official `add-image-policies.sh` script still defaults to `hmctspublic` (not yet updated), so override it: `./add-image-policies.sh apim apim marketplace hmctsprod`. Also update the Flux `image-repo.yaml` and `apim-marketplace.yaml` HelmRelease image field to use `hmctsprod`.
 - **DNS staging check:** Jenkins checks for CNAME `apim-marketplace-staging` in `aat.platform.hmcts.net` (sub `DTS-CFTPTL-INTSVC`). Created after Flux deploys. Transient on first run — retry after Flux reconciles.
 - **Namespace not found:** `namespaces "apim" not found` means Flux namespace PR not merged or not yet reconciled on the cluster.
 - **Terraform whitelist 404:** `terraform-infra-approvals/service-api-marketplace.json` missing. Must be merged before this run.
 - **Prod approval gate:** Master builds will fail prod stage with "not approved for environment prod". Expected — separate `environment-approvals.yml` PR needed when ready.
+- **Vault mount failure (AKS preview deploy stuck in Init:0/1):** `MountVolume.SetUp failed for volume "vault-apim"` — the pod identity doesn't have Key Vault Secrets User RBAC on `apim-aat.vault.azure.net`. Workaround: remove `keyVaults` and `aadIdentityName` from `charts/apim-marketplace/values.yaml` for initial onboarding. Re-add once workload identity RBAC is set up (see step 4.7a).
+- **Startup probe failing on port 8080 (app running on 4550):** The CNP java chart probes `/health/liveness` on the `applicationPort` (8080). The Spring Boot template defaults `server.port: 4550` for local dev. In AKS the app must listen on 8080 — set `server.port: 8080` in `application.yaml`. Also ensure `management.endpoints.web.base-path: /` so the probe path `/health/liveness` resolves correctly (default actuator path is `/actuator/health/liveness`).
+- **Smoke test NPE with Java 25 (rest-assured Groovy HTTP builder):** `groovyx.net.http.HTTPBuilder` (used internally by rest-assured) throws `NullPointerException` in `ClosureMetaClass.invokeOnDelegationObject` on Java 25 — adding `--add-opens` does not fix it. Solution: replace rest-assured in the smoke test with `java.net.http.HttpClient` (built-in since Java 11) and remove `@SpringBootTest` — smoke tests should hit a deployed URL (`TEST_URL` env var), not start a local Spring context. Default `TEST_URL` to `http://localhost:8080` to match the server port.
 
 ---
 

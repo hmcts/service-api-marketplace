@@ -104,6 +104,7 @@ sonarqube {
   properties {
     property "sonar.projectName", "HMCTS :: API Marketplace"
     property "sonar.projectKey", "uk.gov.hmcts.cp:service-api-marketplace"
+    property "sonar.coverage.exclusions", "**/Application.java"
   }
 }
 

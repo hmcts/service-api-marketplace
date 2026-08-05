@@ -2,6 +2,8 @@ provider "azurerm" {
   features {}
 }
 
+data "azurerm_client_config" "current" {}
+
 data "azurerm_user_assigned_identity" "jenkins" {
   name                = "jenkins-${var.env == "sandbox" ? "sbox" : var.env}-mi"
   resource_group_name = "managed-identities-${var.env}-rg"

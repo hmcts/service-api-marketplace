@@ -29,12 +29,6 @@ resource "azurerm_resource_group" "rg" {
   tags     = local.tags
 }
 
-data "azurerm_subnet" "postgres" {
-  name                 = "core-infra-subnet-0-${var.env}"
-  resource_group_name  = "core-infra-${var.env}"
-  virtual_network_name = "core-infra-vnet-${var.env}"
-  provider             = azurerm.postgres_network
-}
 
 module "postgresql_flexible" {
   providers = {

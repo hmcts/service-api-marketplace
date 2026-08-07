@@ -32,3 +32,9 @@ variable "additional_managed_identities_access" {
   type    = list(string)
   default = []
 }
+
+variable "aks_subscription_id" {}
+
+variable "pgsql_sku" {
+  default = "GP_Standard_D2s_v3"
+}

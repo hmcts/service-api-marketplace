@@ -55,5 +55,10 @@
     <packageUrl regex="true">^pkg:maven/org\.apache\.tomcat\.embed/.*@.*$</packageUrl>
     <cve>CVE-2026-50229</cve>
   </suppress>
+  <suppress>
+    <notes>Tomcat 11.0.22 CVEs - version managed by Spring Boot BOM</notes>
+    <packageUrl regex="true">^pkg:maven/org\.apache\.tomcat\.embed/.*@.*$</packageUrl>
+    <cve>CVE-2026-66299</cve>
+  </suppress>
   <!--End of false positives section -->
 </suppressions>

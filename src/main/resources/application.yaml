@@ -7,6 +7,9 @@ management:
   endpoint:
     health:
       show-details: "always"
+      group:
+        readiness:
+          include: "db"
   endpoints:
     web:
       base-path: /
@@ -14,13 +17,24 @@ management:
         include: health, info, prometheus
 
 spring:
+  config:
+    import: "optional:configtree:/mnt/secrets/apim/"
   application:
     name: service-api-marketplace
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
-      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
-      - org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
+  jpa:
+    open-in-view: false
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DATABASE:marketplace}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASS:postgres}
+    properties:
+      charSet: UTF-8
+    hikari:
+      maximumPoolSize: 10
+  flyway:
+    enabled: false
+    locations: classpath:db/migration
+    baseline-on-migrate: true
 
 azure:
   application-insights:

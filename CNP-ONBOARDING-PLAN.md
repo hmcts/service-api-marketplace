@@ -332,15 +332,43 @@ spec:
 
 ---
 
-## Phase 8 — PostgreSQL (separate ticket, follow-on)
+## Phase 8a — PostgreSQL infrastructure (ticket AMP-944, PR #18 `fix/AMP-944-postgres`)
+
+> **Two-phase approach:** Infrastructure (postgres server + vault secrets) is wired in this PR.
+> App-level wiring (datasource, vault mounts) is deferred to Phase 8b when actual JPA code exists.
+> This avoids the bootstrap problem where the pod fails to start because vault secrets don't yet exist.
+>
+> **Bootstrap problem note:** `withPipeline` + `enableAksStagingDeployment()` only runs `terraform plan` for PRs — `terraform apply` fires on master. So vault secrets don't exist until after the PR merges. Mounting them in PRs causes `Init:0/1` (`MountVolume.SetUp failed`). Platops ticket DTSPO-34206 raised to confirm approach.
+>
+> **Pattern reference:** `cnp-plum-recipes-service` uses a separate shared-infra repo so postgres secrets pre-exist before any PR. We manage infra in the app repo, so Phase 8a must merge first.
 
 | # | Step | Status | Notes |
 |---|------|--------|-------|
-| 8.1 | Add `terraform-module-postgresql-flexible` to `infrastructure/main.tf` | ○ Todo | Copy pattern from `cnp-plum-recipes-service/infrastructure/main.tf`. Needs `postgres_network` provider alias (already added in step 2.9) and subnet `core-infra-subnet-0-{env}` |
-| 8.2 | Store DB credentials as vault secrets | ○ Todo | `marketplace-POSTGRES-USER`, `-PASS`, `-HOST`, `-PORT`, `-DATABASE` in `apim-{env}` vault |
-| 8.3 | Wire vault secrets into Helm chart `values.yaml` | ○ Todo | Add `keyVaults.apim.secrets` entries for each credential |
-| 8.4 | Update `terraform-infra-approvals/service-api-marketplace.json` | ○ Todo | Add postgres module to whitelist |
-| 8.5 | Wire Spring Boot datasource in `application.yaml` | ○ Todo | Uncomment datasource config, set env var names to match vault aliases |
+| 8.1 | Add `terraform-module-postgresql-flexible` to `infrastructure/main.tf` | ✅ Done | Follows `cnp-plum-recipes-service` pattern. Module uses `subnet_suffix = "expanded"` — no need to pass `subnet_id`. `postgres_network` provider alias in `main.tf` only (not `state.tf`) |
+| 8.2 | Store DB credentials as vault secrets in terraform | ✅ Done | `marketplace-POSTGRES-USER/PASS/HOST/PORT/DATABASE` written from module outputs to `apim-{env}` vault |
+| 8.3 | Update `terraform-infra-approvals/service-api-marketplace.json` | ✅ Done | Added `azurerm_key_vault_secret` resource type and `terraform-module-postgresql-flexible` module. Merged to cnp-jenkins-config master 16h+ ago |
+| 8.4 | Add `aks_subscription_id` + `pgsql_sku` to `variables.tf` and `aat.tfvars` | ✅ Done | `aks_subscription_id = "96c274ce-846d-4e48-89a7-d528432298a7"` (safe to commit — already public in this file) |
+| 8.5 | Pin postgresql JDBC driver to 42.7.12 in `build.gradle` | ✅ Done | OWASP CVE-2026-54291 + CVE-2026-66299 affect 42.7.4–42.7.11 |
+| 8.6 | Add TestContainers for integration tests | ✅ Done | `TestContainersInitialise.java` + `RootIntegrationTest.java` in `integration` package |
+| 8.7 | Remove `keyVaults` / `aadIdentityName` from `values.yaml` | ✅ Done | Deferred to Phase 8b — secrets don't exist in vault until master terraform apply runs |
+| 8.8 | Remove datasource + `readiness.include: "db"` from `application.yaml` | ✅ Done | Deferred to Phase 8b |
+
+---
+
+## Phase 8b — Wire app to use DB (follow-up PR, after Phase 8a merges)
+
+> **Prerequisite:** Phase 8a must be merged and master build must have run so that:
+> - `apim-flexible-data-aat` resource group and postgres server exist
+> - `marketplace-POSTGRES-*` secrets exist in `apim-aat` vault
+
+| # | Step | Status | Notes |
+|---|------|--------|-------|
+| 8b.1 | Re-add `aadIdentityName: apim` + `keyVaults` to `values.yaml` | ○ Todo | Mount `marketplace-POSTGRES-USER/PASS/HOST/PORT/DATABASE` from `apim` vault |
+| 8b.2 | Re-add datasource + flyway config to `application.yaml` | ○ Todo | `spring.config.import: optional:configtree:/mnt/secrets/apim/`, datasource using `${POSTGRES_*}` env vars |
+| 8b.3 | Re-add `readiness.include: "db"` to `application.yaml` | ○ Todo | Only once DB connectivity is verified in AAT |
+| 8b.4 | Write first Flyway migration `V1__init.sql` | ○ Todo | Enable `spring.flyway.enabled: true` once migration is written |
+| 8b.5 | Add JPA entities and repositories | ○ Todo | First actual DB code |
+| 8b.6 | Integration tests via TestContainers | ○ Todo | TestContainers already wired — add test cases against real schema |
 
 ---
 

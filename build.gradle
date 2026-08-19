@@ -157,6 +157,11 @@ dependencies {
   implementation 'ch.qos.logback:logback-classic'
   implementation 'ch.qos.logback:logback-core'
 
+  compileOnly 'org.projectlombok:lombok:1.18.46'
+  annotationProcessor 'org.projectlombok:lombok:1.18.46'
+  testCompileOnly 'org.projectlombok:lombok:1.18.46'
+  testAnnotationProcessor 'org.projectlombok:lombok:1.18.46'
+
   testImplementation group: 'org.springframework.boot', name: 'spring-boot-starter-test'
   testImplementation group: 'org.springframework.boot', name: 'spring-boot-starter-webmvc-test'
   testImplementation group: 'io.rest-assured', name: 'rest-assured', version: '5.5.7'

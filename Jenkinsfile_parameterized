@@ -1,0 +1,18 @@
+#!groovy
+@Library('Infrastructure') _
+
+properties([
+    parameters([
+        string(name: 'PRODUCT_NAME', defaultValue: 'apim', description: ''),
+        string(name: 'ENVIRONMENT', defaultValue: 'sandbox', description: 'Suffix for resources created'),
+        choice(name: 'SUBSCRIPTION', choices: 'sandbox\nnonprod\nprod', description: 'Azure subscriptions available to build in')
+    ])
+])
+
+productName = params.PRODUCT_NAME
+subscription = params.SUBSCRIPTION
+environment = params.ENVIRONMENT
+
+echo "Building '${productName}' in '${environment}'"
+
+withParameterizedInfraPipeline(productName, environment, subscription) {}

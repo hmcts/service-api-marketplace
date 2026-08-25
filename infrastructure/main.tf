@@ -42,8 +42,9 @@ module "postgresql_flexible" {
   component     = var.component
   business_area = "CFT"
   location      = var.location
-  subnet_suffix = var.pgsql_subnet_suffix
-  public_access = var.pgsql_public_access
+  subnet_suffix              = var.pgsql_subnet_suffix
+  public_access              = var.pgsql_public_access
+  pgsql_delegated_subnet_id  = var.pgsql_public_access ? "bypass" : ""
 
   common_tags          = local.tags
   admin_user_object_id = var.jenkins_AAD_objectId

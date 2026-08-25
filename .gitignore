@@ -23,3 +23,9 @@ bin/main/application.yaml
 
 applicationinsights-agent-*.jar
 *.log
+
+### Terraform ###
+**/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl

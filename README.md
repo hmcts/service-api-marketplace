@@ -171,6 +171,68 @@ docker image rm <image-id>
 
 There is no need to remove postgres and java or similar core images.
 
+## AAT Deployment
+
+The service is deployed to the `apim` namespace on `cft-aat-00-aks` via Flux (`cnp-flux-config`).
+
+### Infrastructure
+
+Terraform provisions a PostgreSQL Flexible Server and Key Vault in the CFT AAT subscription.
+The pipeline picks this up automatically from `infrastructure/aat.tfvars`.
+The Key Vault is named `apim-marketplace-aat` and holds the postgres credentials as secrets.
+
+### Workload identity
+
+The managed identity client-id is wired into the cluster via
+`apps/apim/serviceaccount/aat.yaml` in `cnp-flux-config` (client-id: `579ca499-1b6c-4ebf-befa-0ce7a5173265`).
+Pods in the `apim` namespace inherit this via the `azure.workload.identity/use: "true"` label.
+
+### Ingress
+
+The internal ingress host is:
+`apim-marketplace-aat.service.core-compute-aat.internal`
+
+## Sandbox (sbox) Deployment
+
+The service is deployed to the `apim` namespace on `cft-sbox-00-aks` via Flux (`cnp-flux-config`).
+It is fronted by `sps-api-mgmt-sbox` (SPS APIM sbox) in the DTS-SPS-SBOX subscription.
+
+### Infrastructure
+
+Terraform provisions a PostgreSQL Flexible Server and Key Vault in the DCD-CFT-Sandbox subscription.
+The pipeline picks this up automatically from `infrastructure/sandbox.tfvars`.
+
+After the pipeline runs for the first time in sandbox, collect the managed identity client-id:
+
+```bash
+az identity list --subscription bf308a5c-0624-4334-8ff8-8dca9fd43783 \
+  --query "[?contains(name, 'apim-marketplace')].{name:name, clientId:clientId}" -o table
+```
+
+### Wiring workload identity (post-terraform)
+
+Create `apps/apim/serviceaccount/sandbox.yaml` in `cnp-flux-config` with the client-id above:
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ${NAMESPACE}
+  namespace: ${NAMESPACE}
+  annotations:
+    azure.workload.identity/client-id: "<client-id-from-terraform>"
+```
+
+Then add it as a patch in `apps/apim/sbox/base/kustomization.yaml` and remove the
+`global.enableKeyVaults: false` override from `apps/apim/apim-marketplace/sbox.yaml`.
+
+### Ingress
+
+The internal ingress host is:
+`apim-marketplace-sandbox.service.core-compute-sandbox.internal`
+
+Register this as a backend in `sps-api-mgmt-sbox` to route traffic from SPS APIM.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details

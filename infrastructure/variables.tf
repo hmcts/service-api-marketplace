@@ -38,3 +38,7 @@ variable "aks_subscription_id" {}
 variable "pgsql_sku" {
   default = "GP_Standard_D2s_v3"
 }
+
+variable "pgsql_subnet_suffix" {
+  default = null
+}

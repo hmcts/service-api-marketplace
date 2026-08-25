@@ -89,7 +89,7 @@ resource "azurerm_key_vault_secret" "postgres_database" {
 
 module "vault" {
   source                               = "git@github.com:hmcts/cnp-module-key-vault?ref=master"
-  name                                 = "${var.product}-${var.env}"
+  name                                 = var.vault_name != "" ? var.vault_name : "${var.product}-${var.env}"
   product                              = var.product
   env                                  = var.env
   tenant_id                            = var.tenant_id

@@ -2,6 +2,7 @@ package uk.gov.hmcts.cp.controllers;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
+import uk.gov.hmcts.cp.domain.HealthResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.HttpStatus.OK;
@@ -16,5 +17,13 @@ class RootControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(OK);
         assertThat(response.getBody()).startsWith("Welcome");
+    }
+
+    @Test
+    void calling_health_should_return_200_with_status_ok() {
+        ResponseEntity<HealthResponse> response = controller.health();
+
+        assertThat(response.getStatusCode()).isEqualTo(OK);
+        assertThat(response.getBody().status()).isEqualTo("ok");
     }
 }

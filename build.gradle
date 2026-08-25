@@ -151,6 +151,11 @@ dependencies {
   testImplementation 'org.testcontainers:postgresql:1.21.4'
   testImplementation 'org.testcontainers:junit-jupiter:1.21.4'
 
+  // Bean validation on inbound request bodies - drives the 400 responses in the marketplace OpenAPI spec
+  implementation 'org.springframework.boot:spring-boot-starter-validation'
+  // Encodes caller-supplied values before they reach log lines, preventing log injection
+  implementation 'org.owasp.encoder:encoder:1.4.0'
+
   implementation group: 'com.github.hmcts.java-logging', name: 'logging', version: '8.0.0'
 
   implementation 'org.apache.logging.log4j:log4j-to-slf4j'

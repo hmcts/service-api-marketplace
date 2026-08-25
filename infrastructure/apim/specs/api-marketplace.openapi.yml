@@ -1,0 +1,571 @@
+openapi: 3.0.3
+
+info:
+  title: API Marketplace
+  description: >-
+    Public API for the HMCTS API Marketplace. Covers account registration and
+    sign-in for marketplace users, and the inbound request forms used to ask for
+    access to an existing API.
+  version: 0.0.0
+  contact:
+    email: no-reply@hmcts.com
+  license:
+    name: MIT
+    url: 'https://opensource.org/licenses/MIT'
+
+servers:
+  - description: Service root
+    url: /
+
+tags:
+  - name: root
+    description: Service root
+  - name: authentication
+    description: Account registration and sign-in
+  - name: requests
+    description: Inbound marketplace request forms
+
+paths:
+  /:
+    get:
+      summary: Service root
+      description: Returns a static welcome message. Used as a liveness sanity check.
+      operationId: getRoot
+      tags:
+        - root
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Welcome to api-marketplace
+
+  /api/health:
+    get:
+      summary: Health check
+      description: >-
+        Lightweight health check for the marketplace front end. This is separate
+        from the Spring Boot Actuator health endpoint, which remains the probe
+        used by Kubernetes.
+      operationId: getHealth
+      tags:
+        - root
+      responses:
+        '200':
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/register:
+    post:
+      summary: Create a marketplace account
+      description: >-
+        Registers a new marketplace user and returns a signed bearer token so the
+        caller is immediately signed in. The password is hashed with bcrypt before
+        storage and is never returned.
+      operationId: register
+      tags:
+        - authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Account created and caller signed in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationResponse'
+        '400':
+          description: Missing or invalid fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Password must be at least 12 characters long.
+        '409':
+          description: >-
+            The account could not be created. Deliberately vague so the response
+            cannot be used to confirm whether an email address is registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: An account with these details could not be created.
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/login:
+    post:
+      summary: Sign in
+      description: >-
+        Verifies an email address and password and returns a signed bearer token.
+        Failures do not distinguish between an unknown email address and a wrong
+        password.
+      operationId: login
+      tags:
+        - authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationResponse'
+        '400':
+          description: Email address or password not supplied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Email and password are required.
+        '401':
+          description: Incorrect credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Incorrect email or password.
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/logout:
+    post:
+      summary: Sign out
+      description: >-
+        No-op retained for front-end compatibility. Tokens are bearer tokens held
+        by the client, so signing out means the client discards its own copy.
+        Tokens are not revoked server-side and remain valid until they expire.
+      operationId: logout
+      tags:
+        - authentication
+      responses:
+        '200':
+          description: Acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+
+  /api/me:
+    get:
+      summary: Get the signed-in user
+      description: Returns the account identified by the bearer token.
+      operationId: getCurrentUser
+      tags:
+        - authentication
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The signed-in user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Token missing, invalid, or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Session expired. Please sign in again.
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/requests/access:
+    post:
+      summary: Request access to an existing API
+      description: >-
+        Submits a request for access to an API already listed in the marketplace.
+        The request is stored and a reference is returned for the requester to
+        quote. Notification of the API owner is handled separately and its failure
+        does not fail this call.
+      operationId: createAccessRequest
+      tags:
+        - requests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessRequest'
+      responses:
+        '201':
+          description: Request stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessRequestResponse'
+        '400':
+          description: Missing or invalid fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Enter a valid email address.
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/requests/onboarding:
+    post:
+      summary: Submit an API onboarding request
+      description: >-
+        Existing onboarding request endpoint, ported from
+        service-marketplace-onboarding. Overlaps with POST /api/requests/access —
+        see the repository README for the consolidation decision.
+      operationId: createOnboardingRequest
+      tags:
+        - requests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardingRequest'
+      responses:
+        '201':
+          description: Request stored
+        '400':
+          description: Missing or invalid fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        Signed JWT issued by POST /api/register or POST /api/login, sent as
+        `Authorization: Bearer <token>`. Valid for 7 days.
+
+  responses:
+    TooManyRequests:
+      description: >-
+        Rate limit exceeded. Applies to the unauthenticated endpoints, which
+        permit 20 requests per 15 minutes per client IP.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Too many attempts. Please try again later.
+    InternalServerError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Something went wrong. Please try again.
+
+  schemas:
+
+    HealthResponse:
+      description: Service health
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          description: Health status
+          enum:
+            - ok
+          example: ok
+
+    LogoutResponse:
+      description: Sign-out acknowledgement
+      type: object
+      required:
+        - ok
+      properties:
+        ok:
+          type: boolean
+          description: Always true
+          example: true
+
+    Role:
+      description: >-
+        Marketplace role. A consumer requests access to APIs; a producer
+        publishes them.
+      type: string
+      enum:
+        - consumer
+        - producer
+      example: consumer
+
+    RegisterRequest:
+      description: New marketplace account
+      type: object
+      required:
+        - firstName
+        - lastName
+        - email
+        - role
+        - password
+      properties:
+        firstName:
+          type: string
+          description: Given name
+          minLength: 1
+          example: Colin
+        lastName:
+          type: string
+          description: Family name
+          minLength: 1
+          example: Greenwood
+        email:
+          type: string
+          format: email
+          description: >-
+            Email address, used as the sign-in identifier. Stored and compared in
+            lower case.
+          example: colin.greenwood@example.com
+        organisation:
+          type: string
+          description: Organisation the user belongs to
+          example: HMCTS
+        role:
+          $ref: '#/components/schemas/Role'
+        password:
+          type: string
+          format: password
+          description: Password, at least 12 characters. Hashed with bcrypt before storage.
+          minLength: 12
+          writeOnly: true
+          example: correct-horse-battery-staple
+
+    LoginRequest:
+      description: Sign-in credentials
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address the account was registered with
+          example: colin.greenwood@example.com
+        password:
+          type: string
+          format: password
+          description: Account password
+          writeOnly: true
+          example: correct-horse-battery-staple
+
+    User:
+      description: A marketplace user, as exposed to clients. Never includes the password hash.
+      type: object
+      required:
+        - id
+        - firstName
+        - lastName
+        - email
+        - role
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the user
+          example: 3f8a1c94-6b2e-4d51-9a77-0e1c5b8d4f23
+        firstName:
+          type: string
+          description: Given name
+          example: Colin
+        lastName:
+          type: string
+          description: Family name
+          example: Greenwood
+        email:
+          type: string
+          format: email
+          description: Email address
+          example: colin.greenwood@example.com
+        role:
+          $ref: '#/components/schemas/Role'
+
+    UserResponse:
+      description: Wrapper returned by GET /api/me
+      type: object
+      required:
+        - user
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+
+    AuthenticationResponse:
+      description: The signed-in user and the token identifying them
+      type: object
+      required:
+        - user
+        - token
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        token:
+          type: string
+          description: >-
+            Signed JWT to send as `Authorization: Bearer <token>` on
+            authenticated calls. Valid for 7 days.
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIn0.abc123
+
+    AccessRequest:
+      description: Request for access to an API already listed in the marketplace
+      type: object
+      required:
+        - fullName
+        - organisation
+        - email
+        - apiName
+        - environment
+        - useCase
+      properties:
+        fullName:
+          type: string
+          description: Full name of the requester
+          example: Colin Greenwood
+        organisation:
+          type: string
+          description: Organisation the requester belongs to
+          example: HMCTS
+        email:
+          type: string
+          format: email
+          description: Contact email address
+          example: colin.greenwood@example.com
+        jobTitle:
+          type: string
+          description: Job title of the requester
+          example: Software Engineer
+        apiName:
+          type: string
+          description: Name of the API access is being requested for
+          example: RAG Service API
+        environment:
+          type: string
+          description: Target environment for access
+          example: sandbox
+        callVolume:
+          type: string
+          description: Expected call volume, free text
+          example: 1000/day
+        useCase:
+          type: string
+          description: How the API will be used
+          example: Automating hearing result document distribution
+
+    AccessRequestResponse:
+      description: Confirmation of a stored access request
+      type: object
+      required:
+        - reference
+      properties:
+        reference:
+          type: string
+          description: >-
+            Reference for the requester to quote, in the form AR-{year}-{6
+            alphanumeric characters}.
+          pattern: '^AR-[0-9]{4}-[A-Z0-9]{6}$'
+          example: AR-2026-K4M9XZ
+
+    OnboardingRequest:
+      description: Request to onboard to an API in the marketplace
+      type: object
+      required:
+        - name
+        - organisation
+        - email
+        - jobTitle
+        - apiRequested
+        - environment
+        - useCase
+      properties:
+        name:
+          type: string
+          description: Full name of the requester
+          example: Colin Greenwood
+        organisation:
+          type: string
+          description: Organisation the requester belongs to
+          example: HMCTS
+        email:
+          type: string
+          format: email
+          description: Contact email address
+          example: colin.greenwood@example.com
+        jobTitle:
+          type: string
+          description: Job title of the requester
+          example: Software Engineer
+        phone:
+          type: string
+          description: Contact phone number
+          example: "+447700900000"
+        apiRequested:
+          type: string
+          description: Name of the API being requested
+          example: RAG Service API
+        environment:
+          type: string
+          description: Target environment for access
+          example: sandbox
+        callVolume:
+          type: string
+          description: Expected call volume, free text
+          example: 1000/day
+        useCase:
+          type: string
+          description: How the API will be used
+          example: Automating hearing result document distribution
+
+    ErrorResponse:
+      description: >-
+        Error payload. `error` carries a message suitable for display to the end
+        user, because the marketplace front end renders it directly.
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Human-readable error message, safe to display to the user
+          example: Something went wrong. Please try again.
+        timestamp:
+          type: string
+          format: date-time
+          description: When the error occurred
+        traceId:
+          type: string
+          description: Correlation id for locating this failure in the service logs

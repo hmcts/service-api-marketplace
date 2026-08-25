@@ -61,30 +61,35 @@ resource "azurerm_key_vault_secret" "postgres_user" {
   name         = "marketplace-POSTGRES-USER"
   value        = module.postgresql_flexible.username
   key_vault_id = module.vault.key_vault_id
+  depends_on   = [module.vault]
 }
 
 resource "azurerm_key_vault_secret" "postgres_pass" {
   name         = "marketplace-POSTGRES-PASS"
   value        = module.postgresql_flexible.password
   key_vault_id = module.vault.key_vault_id
+  depends_on   = [module.vault]
 }
 
 resource "azurerm_key_vault_secret" "postgres_host" {
   name         = "marketplace-POSTGRES-HOST"
   value        = module.postgresql_flexible.fqdn
   key_vault_id = module.vault.key_vault_id
+  depends_on   = [module.vault]
 }
 
 resource "azurerm_key_vault_secret" "postgres_port" {
   name         = "marketplace-POSTGRES-PORT"
   value        = "5432"
   key_vault_id = module.vault.key_vault_id
+  depends_on   = [module.vault]
 }
 
 resource "azurerm_key_vault_secret" "postgres_database" {
   name         = "marketplace-POSTGRES-DATABASE"
   value        = "marketplace"
   key_vault_id = module.vault.key_vault_id
+  depends_on   = [module.vault]
 }
 
 module "vault" {

@@ -42,3 +42,7 @@ variable "pgsql_sku" {
 variable "pgsql_subnet_suffix" {
   default = null
 }
+
+variable "pgsql_public_access" {
+  default = false
+}

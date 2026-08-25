@@ -43,6 +43,7 @@ module "postgresql_flexible" {
   business_area = "CFT"
   location      = var.location
   subnet_suffix = var.pgsql_subnet_suffix
+  public_access = var.pgsql_public_access
 
   common_tags          = local.tags
   admin_user_object_id = var.jenkins_AAD_objectId

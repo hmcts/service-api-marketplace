@@ -6,6 +6,9 @@ management:
   endpoint:
     health:
       show-details: "always"
+      group:
+        readiness:
+          include: "db"
   endpoints:
     web:
       base-path: /
@@ -17,7 +20,18 @@ spring:
     import: "optional:configtree:/mnt/secrets/apim/,optional:configtree:/mnt/secrets/apim-sbox/"
   application:
     name: service-api-marketplace
-  # datasource and flyway config added here when first JPA entity is introduced
+  jpa:
+    open-in-view: false
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DATABASE:marketplace}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASS:postgres}
+    hikari:
+      maximumPoolSize: 10
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
 
 azure:
   application-insights:

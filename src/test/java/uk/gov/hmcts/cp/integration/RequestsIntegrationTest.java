@@ -17,7 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@ContextConfiguration(initializers = TestContainersInitialise.class)
+//@ContextConfiguration(initializers = TestContainersInitialise.class)
 class RequestsIntegrationTest {
 
     private static final String ACCESS_REQUEST_BODY = """

@@ -19,7 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 // and the validation rules only, not registration conflicts or credential checking.
 @SpringBootTest
 @AutoConfigureMockMvc
-@ContextConfiguration(initializers = TestContainersInitialise.class)
+//@ContextConfiguration(initializers = TestContainersInitialise.class)
 class AuthenticationIntegrationTest {
 
     private static final String PASSWORD = "correct-horse-battery-staple";

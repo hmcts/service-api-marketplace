@@ -243,6 +243,84 @@ All derived names follow the pattern `{product}-{component}` = `apim-marketplace
 
 ---
 
+---
+
+## Sbox / Sandbox Environment (AMP-1018)
+
+> **Why sbox?** `sps-api-mgmt-sbox` (SPS APIM sbox, in the DTS-SPS-SBOX subscription) connects to the CNP sbox cluster — not AAT. The pod must be running in sbox for APIM to route to it.
+>
+> **Critical naming quirk:** The sbox cluster sets `ENVIRONMENT=sbox` (used for Flux paths) but `KEYVAULT_ENVIRONMENT=sandbox` and `WI_ENVIRONMENT=sandbox` (used for vault/MI names). The terraform tfvars file must be named `sandbox.tfvars` (NOT `sbox.tfvars`) so the pipeline passes `env=sandbox` and resources are named correctly.
+
+### Sbox Names Reference
+
+| What | Value |
+|------|-------|
+| **Flux config folder** | `apps/apim/sbox/` (ENVIRONMENT=sbox) |
+| **HelmRelease patch** | `apps/apim/apim-marketplace/sbox.yaml` |
+| **Azure subscription** | DCD-CFT-Sandbox (`bf308a5c-0624-4334-8ff8-8dca9fd43783`) |
+| **AKS cluster** | `cft-sbox-00-aks` |
+| **Azure resource group** | `apim-shared-sandbox` |
+| **Azure Key Vault** | `apim-sandbox` (KEYVAULT_ENVIRONMENT=sandbox) |
+| **Managed Identity** | `apim-sandbox-mi` (WI_ENVIRONMENT=sandbox) |
+| **Managed Identity RG** | `managed-identities-sandbox-rg` |
+| **Serviceaccount file** | `apps/apim/serviceaccount/sandbox.yaml` |
+| **Internal ingress** | `apim-marketplace-sandbox.service.core-compute-sandbox.internal` |
+| **tfvars file** | `infrastructure/sandbox.tfvars` |
+
+### Sbox Phase Status
+
+| # | Step | Status | Notes |
+|---|------|--------|-------|
+| S1 | `apps/apim/sbox/base/kustomization.yaml` created in cnp-flux-config | ✅ Done | Merged — wires apim Flux kustomization into sbox cluster |
+| S2 | `apps/apim/apim-marketplace/sbox.yaml` patch created | ✅ Done | Sets ingress host; currently has `SPRING_AUTOCONFIGURE_EXCLUDE` workaround while vault is being set up |
+| S3 | `apps/apim/apim-marketplace-web/sbox.yaml` patch created | ✅ Done | Sets web ingress host |
+| S4 | `infrastructure/sandbox.tfvars` added | ✅ Done (PR #29) | `aks_subscription_id = "bf308a5c-0624-4334-8ff8-8dca9fd43783"`, `pgsql_sku = "B_Standard_B1ms"` |
+| S5 | Terraform runs for sandbox, creates `apim-sandbox` vault + `apim-sandbox-mi` MI | ○ Todo | **Manual step** — `withPipeline` only runs terraform for AAT. `Jenkinsfile_parameterized` (PR #30) adds `withParameterizedInfraPipeline` but needs Jenkins job discovery via `#platops-help`. **Workaround: run terraform locally** — see commands below |
+| S6 | Run workload identity script | ○ Todo | After S5: `./bin/workload-identity/add-wl-identity.sh --namespace apim --mi-name apim-sandbox` — requires bash4 (`brew install bash`). Creates `apps/apim/serviceaccount/sandbox.yaml` |
+| S7 | Wire serviceaccount into sbox kustomization | ○ Todo | Add `- path: ../../serviceaccount/sandbox.yaml` to `apps/apim/sbox/base/kustomization.yaml` patches |
+| S8 | Remove vault workaround from `sbox.yaml` | ○ Todo | Remove `SPRING_AUTOCONFIGURE_EXCLUDE` and any vault-disabling overrides — vault auth will now work. Raise as new cnp-flux-config PR |
+| S9 | Verify pod starts and vault mounts | ○ Todo | `kubectl get pods -n apim --context cft-sbox-00-aks` — should show `2/2 Running` |
+| S10 | Confirm `apim-sandbox` vault has postgres secrets | ○ Todo | `az keyvault secret list --vault-name apim-sandbox` — should show `marketplace-POSTGRES-*` secrets |
+| S11 | Register service in `sps-api-mgmt-sbox` | ○ Todo | Backend URL: `https://apim-marketplace-sandbox.service.core-compute-sandbox.internal` |
+| S12 | Phase 8b — wire app to use DB in sbox | ○ Todo | Same as AAT Phase 8b once sbox postgres secrets confirmed in vault |
+
+> **Current pod failure:** The pod is deployed but stuck in `Init:0/1` — `MountVolume.SetUp failed for vault-apim` with NMI 404. Root cause: `apim-sandbox-mi` does not yet exist (terraform hasn't run). Steps S5–S8 fix this.
+
+### S5 — Manual terraform for sandbox
+
+> ⚠️ **Manually executed** — documented here so the change is traceable.
+> This was run locally because `withPipeline` does not trigger terraform for the sandbox environment.
+> `Jenkinsfile_parameterized` (PR #30) was added to enable future runs via Jenkins once a job is wired up via `#platops-help`.
+
+Get the backend config values from an existing Jenkins build log for aat (look for `-backend-config` flags in the terraform init step), then:
+
+```bash
+cd /Users/colingreenwood/otherprojects/service-api-marketplace/infrastructure
+
+terraform init \
+  -backend-config="resource_group_name=<rg>" \
+  -backend-config="storage_account_name=<sa>" \
+  -backend-config="container_name=<container>" \
+  -backend-config="key=apim/marketplace/sandbox/terraform.tfstate"
+
+terraform plan -var-file=sandbox.tfvars -out=tfplan
+terraform apply tfplan
+```
+
+After apply, retrieve the managed identity client-id:
+
+```bash
+az identity show \
+  --name apim-sandbox-mi \
+  --resource-group managed-identities-sandbox-rg \
+  --subscription bf308a5c-0624-4334-8ff8-8dca9fd43783 \
+  --query clientId -o tsv
+```
+
+Use this client-id in step S6 when running the workload identity script.
+
+---
+
 ## Reference: Azure Subscriptions
 
 | Subscription | ID | Used for |

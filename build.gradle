@@ -140,16 +140,15 @@ dependencies {
   implementation group: 'org.springframework.boot', name: 'spring-boot-starter-actuator'
   implementation group: 'org.springframework.boot', name: 'spring-boot-starter-aspectj'
 
-  // Spring boot database / postgres
-  //
-  implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-  implementation 'org.postgresql:postgresql:42.7.13'
-  implementation 'org.springframework.boot:spring-boot-starter-flyway'
-  implementation 'org.flywaydb:flyway-core'
-  implementation 'org.flywaydb:flyway-database-postgresql'
-  testImplementation 'org.springframework.boot:spring-boot-testcontainers:4.1.1'
-  testImplementation 'org.testcontainers:postgresql:1.21.4'
-  testImplementation 'org.testcontainers:junit-jupiter:1.21.4'
+  // Spring boot database / postgres - uncomment when first JPA entity and Flyway migration are added
+  //implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+  //implementation 'org.postgresql:postgresql:42.7.13'
+  //implementation 'org.springframework.boot:spring-boot-starter-flyway'
+  //implementation 'org.flywaydb:flyway-core'
+  //implementation 'org.flywaydb:flyway-database-postgresql'
+  //testImplementation 'org.springframework.boot:spring-boot-testcontainers:4.1.1'
+  //testImplementation 'org.testcontainers:postgresql:1.21.4'
+  //testImplementation 'org.testcontainers:junit-jupiter:1.21.4'
 
   // Bean validation on inbound request bodies - drives the 400 responses in the marketplace OpenAPI spec
   implementation 'org.springframework.boot:spring-boot-starter-validation'

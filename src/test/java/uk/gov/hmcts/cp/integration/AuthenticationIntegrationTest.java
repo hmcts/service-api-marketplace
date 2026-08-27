@@ -6,6 +6,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.RequestBuilder;
 
@@ -18,7 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 // and the validation rules only, not registration conflicts or credential checking.
 @SpringBootTest
 @AutoConfigureMockMvc
-//@ContextConfiguration(initializers = TestContainersInitialise.class)
+@ContextConfiguration(initializers = TestContainersInitialise.class)
 class AuthenticationIntegrationTest {
 
     private static final String PASSWORD = "correct-horse-battery-staple";

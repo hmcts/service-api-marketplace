@@ -1,0 +1,88 @@
+package uk.gov.hmcts.cp.integration;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ContextConfiguration;
+import uk.gov.hmcts.cp.entity.MarketplaceRequestEntity;
+import uk.gov.hmcts.cp.entity.OrganisationEntity;
+import uk.gov.hmcts.cp.entity.UserEntity;
+import uk.gov.hmcts.cp.repository.MarketplaceRequestRepository;
+import uk.gov.hmcts.cp.repository.OrganisationRepository;
+import uk.gov.hmcts.cp.repository.UserRepository;
+
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@SpringBootTest
+@ContextConfiguration(initializers = TestContainersInitialise.class)
+class RepositoryIntegrationTest {
+
+    @Autowired
+    private OrganisationRepository organisationRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private MarketplaceRequestRepository marketplaceRequestRepository;
+
+    @Test
+    void getting_org_by_id_should_return_seeded_api_marketplace_org() {
+        Optional<OrganisationEntity> org = organisationRepository.findById(1);
+
+        assertThat(org).isPresent();
+        assertThat(org.get().getName()).isEqualTo("Api Marketplace");
+    }
+
+    @Test
+    void getting_user_by_email_should_return_seeded_colin_greenwood() {
+        Optional<UserEntity> user = userRepository.findByEmail("colin.greenwood@hmcts.net");
+
+        assertThat(user).isPresent();
+        assertThat(user.get().getFirstName()).isEqualTo("Colin");
+        assertThat(user.get().getLastName()).isEqualTo("Greenwood");
+        assertThat(user.get().getStatus()).isEqualTo("ACTIVE");
+        assertThat(user.get().getOrganisation().getName()).isEqualTo("Api Marketplace");
+    }
+
+    @Test
+    void saving_a_marketplace_request_should_persist_to_database() {
+        UUID id = UUID.randomUUID();
+        MarketplaceRequestEntity request = MarketplaceRequestEntity.builder()
+            .id(id)
+            .type("ACCESS")
+            .payload("{\"api\":\"crime-results\"}")
+            .status("PENDING")
+            .submittedAt(LocalDateTime.now())
+            .build();
+
+        marketplaceRequestRepository.save(request);
+
+        assertThat(marketplaceRequestRepository.existsById(id)).isTrue();
+    }
+
+    @Test
+    void getting_a_saved_marketplace_request_should_return_correct_data() {
+        UUID id = UUID.randomUUID();
+        MarketplaceRequestEntity saved = marketplaceRequestRepository.save(
+            MarketplaceRequestEntity.builder()
+                .id(id)
+                .type("ONBOARDING")
+                .payload("{\"org\":\"HMCTS\"}")
+                .status("SUBMITTED")
+                .submittedAt(LocalDateTime.of(2026, 1, 15, 9, 0))
+                .build()
+        );
+
+        Optional<MarketplaceRequestEntity> found = marketplaceRequestRepository.findById(id);
+
+        assertThat(found).isPresent();
+        assertThat(found.get().getType()).isEqualTo("ONBOARDING");
+        assertThat(found.get().getPayload()).isEqualTo("{\"org\":\"HMCTS\"}");
+        assertThat(found.get().getStatus()).isEqualTo("SUBMITTED");
+    }
+}

@@ -1,0 +1,24 @@
+package uk.gov.hmcts.cp.mapper;
+
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.ReportingPolicy;
+import uk.gov.hmcts.cp.domain.SubscriptionRequest;
+import uk.gov.hmcts.cp.domain.SubscriptionResponse;
+import uk.gov.hmcts.cp.entity.MarketplaceRequestEntity;
+import uk.gov.hmcts.cp.entity.UserEntity;
+
+@Mapper(componentModel = "spring", unmappedSourcePolicy = ReportingPolicy.IGNORE)
+public abstract class SubscriptionMapper {
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "type", constant = "SUBSCRIPTION")
+    @Mapping(target = "orgName", source = "user.organisation.name")
+    @Mapping(target = "userName", expression = "java(user.getFirstName() + \" \" + user.getLastName())")
+    @Mapping(target = "userEmail", source = "user.email")
+    @Mapping(target = "status", constant = "PENDING")
+    @Mapping(target = "submittedAt", ignore = true)
+    public abstract MarketplaceRequestEntity toEntity(SubscriptionRequest request, UserEntity user);
+
+    public abstract SubscriptionResponse fromEntity(MarketplaceRequestEntity entity, SubscriptionRequest request);
+}

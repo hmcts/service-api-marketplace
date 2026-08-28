@@ -54,8 +54,10 @@ class RepositoryIntegrationTest {
         UUID id = UUID.randomUUID();
         MarketplaceRequestEntity request = MarketplaceRequestEntity.builder()
             .id(id)
-            .type("ACCESS")
-            .payload("{\"api\":\"crime-results\"}")
+            .type("SUBSCRIPTION")
+            .orgName("Api Marketplace")
+            .userName("Colin Greenwood")
+            .userEmail("alan@example.com")
             .status("PENDING")
             .submittedAt(LocalDateTime.now())
             .build();
@@ -68,12 +70,14 @@ class RepositoryIntegrationTest {
     @Test
     void getting_a_saved_marketplace_request_should_return_correct_data() {
         UUID id = UUID.randomUUID();
-        MarketplaceRequestEntity saved = marketplaceRequestRepository.save(
+        marketplaceRequestRepository.save(
             MarketplaceRequestEntity.builder()
                 .id(id)
-                .type("ONBOARDING")
-                .payload("{\"org\":\"HMCTS\"}")
-                .status("SUBMITTED")
+                .type("SUBSCRIPTION")
+                .orgName("Api Marketplace")
+                .userName("Colin Greenwood")
+                .userEmail("joe.bloggs@example.com")
+                .status("PENDING")
                 .submittedAt(LocalDateTime.of(2026, 1, 15, 9, 0))
                 .build()
         );
@@ -81,8 +85,9 @@ class RepositoryIntegrationTest {
         Optional<MarketplaceRequestEntity> found = marketplaceRequestRepository.findById(id);
 
         assertThat(found).isPresent();
-        assertThat(found.get().getType()).isEqualTo("ONBOARDING");
-        assertThat(found.get().getPayload()).isEqualTo("{\"org\":\"HMCTS\"}");
-        assertThat(found.get().getStatus()).isEqualTo("SUBMITTED");
+        assertThat(found.get().getType()).isEqualTo("SUBSCRIPTION");
+        assertThat(found.get().getOrgName()).isEqualTo("Api Marketplace");
+        assertThat(found.get().getUserEmail()).isEqualTo("joe.bloggs@example.com");
+        assertThat(found.get().getStatus()).isEqualTo("PENDING");
     }
 }

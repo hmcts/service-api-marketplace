@@ -150,6 +150,8 @@ dependencies {
   testImplementation 'org.testcontainers:postgresql:1.21.4'
   testImplementation 'org.testcontainers:junit-jupiter:1.21.4'
 
+  implementation 'com.fasterxml.jackson.core:jackson-databind'
+
   // Bean validation on inbound request bodies - drives the 400 responses in the marketplace OpenAPI spec
   implementation 'org.springframework.boot:spring-boot-starter-validation'
   // Encodes caller-supplied values before they reach log lines, preventing log injection
@@ -165,6 +167,9 @@ dependencies {
   annotationProcessor 'org.projectlombok:lombok:1.18.46'
   testCompileOnly 'org.projectlombok:lombok:1.18.46'
   testAnnotationProcessor 'org.projectlombok:lombok:1.18.46'
+
+  implementation 'org.mapstruct:mapstruct:1.6.3'
+  annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
 
   testImplementation group: 'org.springframework.boot', name: 'spring-boot-starter-test'
   testImplementation group: 'org.springframework.boot', name: 'spring-boot-starter-webmvc-test'

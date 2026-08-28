@@ -134,6 +134,9 @@ repositories {
 }
 
 ext['snakeyaml.version'] = '2.0'
+// 28/06/2026 temp fix for tomcat CVE-2026-65182 pending spring boot catchup
+ext['tomcat.version'] = '11.0.25'
+ext['tomcat.version'] = '11.0.25'
 
 dependencies {
   implementation group: 'org.springframework.boot', name: 'spring-boot-starter-web'
@@ -165,6 +168,10 @@ dependencies {
   annotationProcessor 'org.projectlombok:lombok:1.18.46'
   testCompileOnly 'org.projectlombok:lombok:1.18.46'
   testAnnotationProcessor 'org.projectlombok:lombok:1.18.46'
+
+  implementation 'com.fasterxml.jackson.core:jackson-databind'
+  implementation 'org.mapstruct:mapstruct:1.6.3'
+  annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
 
   testImplementation group: 'org.springframework.boot', name: 'spring-boot-starter-test'
   testImplementation group: 'org.springframework.boot', name: 'spring-boot-starter-webmvc-test'

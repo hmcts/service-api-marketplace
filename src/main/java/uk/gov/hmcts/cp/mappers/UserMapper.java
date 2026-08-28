@@ -1,4 +1,4 @@
-package uk.gov.hmcts.cp.mapper;
+package uk.gov.hmcts.cp.mappers;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

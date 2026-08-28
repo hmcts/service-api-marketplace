@@ -9,7 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import uk.gov.hmcts.cp.domain.UserResponse;
 import uk.gov.hmcts.cp.entity.UserEntity;
-import uk.gov.hmcts.cp.mapper.UserMapper;
+import uk.gov.hmcts.cp.mappers.UserMapper;
 import uk.gov.hmcts.cp.services.UserService;
 
 import java.util.List;

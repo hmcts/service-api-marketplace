@@ -9,6 +9,7 @@ import uk.gov.hmcts.cp.domain.SubscriptionResponse;
 import uk.gov.hmcts.cp.entity.MarketplaceRequestEntity;
 import uk.gov.hmcts.cp.entity.OrganisationEntity;
 import uk.gov.hmcts.cp.entity.UserEntity;
+import uk.gov.hmcts.cp.mappers.SubscriptionMapperImpl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -40,27 +41,38 @@ class SubscriptionMapperTest {
         MarketplaceRequestEntity entity = mapper.toEntity(REQUEST, USER);
 
         assertThat(entity.getType()).isEqualTo("SUBSCRIPTION");
-        assertThat(entity.getStatus()).isEqualTo("PENDING");
+        assertThat(entity.getStatus()).isEqualTo("NEW");
         assertThat(entity.getOrgName()).isEqualTo("Test Org");
         assertThat(entity.getUserName()).isEqualTo("Joe Bloggs");
         assertThat(entity.getUserEmail()).isEqualTo("joe.bloggs@example.com");
+        assertThat(entity.getApiShortCode()).isEqualTo("pcd");
+        assertThat(entity.getApi()).isEqualTo("Test API");
+        assertThat(entity.getEnvironment()).isEqualTo("SBOX");
+        assertThat(entity.getExpectedVolume()).isEqualTo("LOW");
+        assertThat(entity.getUseCase()).isEqualTo("Test use case");
+        assertThat(entity.isOauth2Capable()).isTrue();
+        assertThat(entity.getDeclaration()).isEqualTo("I agree");
     }
 
     @Test
-    void from_entity_should_map_all_fields_from_entity_and_request() {
+    void from_entity_should_map_all_fields_from_entity_and_user() {
         MarketplaceRequestEntity entity = MarketplaceRequestEntity.builder()
-            .orgName("Test Org")
-            .userName("Joe Bloggs")
-            .userEmail("joe.bloggs@example.com")
-            .status("PENDING")
+            .status("NEW")
+            .apiShortCode("pcd")
+            .api("Test API")
+            .environment("SBOX")
+            .expectedVolume("LOW")
+            .useCase("Test use case")
+            .oauth2Capable(true)
+            .declaration("I agree")
             .build();
 
-        SubscriptionResponse response = mapper.fromEntity(entity, REQUEST);
+        SubscriptionResponse response = mapper.fromEntity(entity, USER);
 
-        assertThat(response.getOrgName()).isEqualTo("Test Org");
-        assertThat(response.getUserName()).isEqualTo("Joe Bloggs");
-        assertThat(response.getUserEmail()).isEqualTo("joe.bloggs@example.com");
-        assertThat(response.getStatus()).isEqualTo("PENDING");
+        assertThat(response.getRequestingOrgName()).isEqualTo("Test Org");
+        assertThat(response.getRequestingUserName()).isEqualTo("Joe Bloggs");
+        assertThat(response.getRequestingUserEmail()).isEqualTo("joe.bloggs@example.com");
+        assertThat(response.getStatus()).isEqualTo("NEW");
         assertThat(response.getApiShortCode()).isEqualTo("pcd");
         assertThat(response.getApi()).isEqualTo("Test API");
         assertThat(response.getEnvironment()).isEqualTo("SBOX");

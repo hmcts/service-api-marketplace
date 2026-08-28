@@ -1,4 +1,4 @@
-package uk.gov.hmcts.cp.mapper;
+package uk.gov.hmcts.cp.mappers;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -16,9 +16,14 @@ public abstract class SubscriptionMapper {
     @Mapping(target = "orgName", source = "user.organisation.name")
     @Mapping(target = "userName", expression = "java(user.getFirstName() + \" \" + user.getLastName())")
     @Mapping(target = "userEmail", source = "user.email")
-    @Mapping(target = "status", constant = "PENDING")
+    @Mapping(target = "status", constant = "NEW")
     @Mapping(target = "submittedAt", ignore = true)
     public abstract MarketplaceRequestEntity toEntity(SubscriptionRequest request, UserEntity user);
 
-    public abstract SubscriptionResponse fromEntity(MarketplaceRequestEntity entity, SubscriptionRequest request);
+    @Mapping(target = "id", source = "requestEntity.id")
+    @Mapping(target = "status", source = "requestEntity.status")
+    @Mapping(target = "requestingOrgName", source = "user.organisation.name")
+    @Mapping(target = "requestingUserName", expression = "java(user.getFirstName() + \" \" + user.getLastName())")
+    @Mapping(target = "requestingUserEmail", source = "user.email")
+    public abstract SubscriptionResponse fromEntity(MarketplaceRequestEntity requestEntity, UserEntity user);
 }

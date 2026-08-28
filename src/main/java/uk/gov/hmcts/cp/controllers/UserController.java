@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import uk.gov.hmcts.cp.domain.UserResponse;
-import uk.gov.hmcts.cp.mapper.UserMapper;
+import uk.gov.hmcts.cp.mappers.UserMapper;
 import uk.gov.hmcts.cp.services.UserService;
 
 import java.util.List;

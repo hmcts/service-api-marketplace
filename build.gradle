@@ -136,7 +136,6 @@ repositories {
 ext['snakeyaml.version'] = '2.0'
 // 28/06/2026 temp fix for tomcat CVE-2026-65182 pending spring boot catchup
 ext['tomcat.version'] = '11.0.25'
-ext['tomcat.version'] = '11.0.25'
 
 dependencies {
   implementation group: 'org.springframework.boot', name: 'spring-boot-starter-web'
@@ -152,6 +151,8 @@ dependencies {
   testImplementation 'org.springframework.boot:spring-boot-testcontainers:4.1.1'
   testImplementation 'org.testcontainers:postgresql:1.21.4'
   testImplementation 'org.testcontainers:junit-jupiter:1.21.4'
+
+  implementation 'com.fasterxml.jackson.core:jackson-databind'
 
   // Bean validation on inbound request bodies - drives the 400 responses in the marketplace OpenAPI spec
   implementation 'org.springframework.boot:spring-boot-starter-validation'

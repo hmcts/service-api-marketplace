@@ -134,6 +134,8 @@ repositories {
 }
 
 ext['snakeyaml.version'] = '2.0'
+// 28/06/2026 temp fix for tomcat CVE-2026-65182 pending spring boot catchup
+ext['tomcat.version'] = '11.0.25'
 
 dependencies {
   implementation group: 'org.springframework.boot', name: 'spring-boot-starter-web'

@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.cp.entity.UserEntity;
 import uk.gov.hmcts.cp.repository.UserRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,6 +27,13 @@ class UserServiceTest {
     private UserService userService;
 
     private static final UserEntity USER = UserEntity.builder().build();
+
+    @Test
+    void getting_users_should_return_all_users_from_repository() {
+        when(userRepository.findAll()).thenReturn(List.of(USER));
+
+        assertThat(userService.getUsers()).containsExactly(USER);
+    }
 
     @Test
     void validating_a_known_user_should_return_the_user_entity() {

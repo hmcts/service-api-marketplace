@@ -10,8 +10,9 @@ import uk.gov.hmcts.cp.domain.SubscriptionRequest;
 import uk.gov.hmcts.cp.domain.SubscriptionResponse;
 import uk.gov.hmcts.cp.entity.MarketplaceRequestEntity;
 import uk.gov.hmcts.cp.entity.UserEntity;
-import uk.gov.hmcts.cp.mapper.SubscriptionMapper;
+import uk.gov.hmcts.cp.mappers.SubscriptionMapper;
 import uk.gov.hmcts.cp.repository.MarketplaceRequestRepository;
+import uk.gov.hmcts.cp.repository.UserRepository;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -29,6 +30,9 @@ class SubscriptionServiceTest {
     private MarketplaceRequestRepository marketplaceRequestRepository;
 
     @Mock
+    private UserRepository userRepository;
+
+    @Mock
     private SubscriptionMapper subscriptionMapper;
 
     @Mock
@@ -44,7 +48,8 @@ class SubscriptionServiceTest {
     void submitting_a_request_should_save_entity_with_id_and_submitted_at() {
         Instant now = Instant.parse("2026-08-28T10:00:00Z");
         when(subscriptionMapper.toEntity(REQUEST, USER)).thenReturn(MarketplaceRequestEntity.builder().build());
-        when(subscriptionMapper.fromEntity(any(), any())).thenReturn(SubscriptionResponse.builder().build());
+        when(subscriptionMapper.fromEntity(any(MarketplaceRequestEntity.class), any(UserEntity.class)))
+            .thenReturn(SubscriptionResponse.builder().build());
         when(clockService.now()).thenReturn(now);
 
         subscriptionService.submit(USER, REQUEST);
@@ -59,7 +64,7 @@ class SubscriptionServiceTest {
     void submitting_a_request_should_return_response_from_mapper() {
         SubscriptionResponse mappedResponse = SubscriptionResponse.builder().build();
         when(subscriptionMapper.toEntity(REQUEST, USER)).thenReturn(MarketplaceRequestEntity.builder().build());
-        when(subscriptionMapper.fromEntity(any(MarketplaceRequestEntity.class), any(SubscriptionRequest.class)))
+        when(subscriptionMapper.fromEntity(any(MarketplaceRequestEntity.class), any(UserEntity.class)))
             .thenReturn(mappedResponse);
         when(clockService.now()).thenReturn(Instant.parse("2026-08-28T10:00:00Z"));
 

@@ -30,4 +30,11 @@ public class MarketplaceRequestEntity {
     private String userEmail;
     private String status;
     private LocalDateTime submittedAt;
+    private String apiShortCode;
+    private String api;
+    private String environment;
+    private String expectedVolume;
+    private String useCase;
+    private boolean oauth2Capable;
+    private String declaration;
 }

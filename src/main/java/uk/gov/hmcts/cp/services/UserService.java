@@ -8,12 +8,18 @@ import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.cp.entity.UserEntity;
 import uk.gov.hmcts.cp.repository.UserRepository;
 
+import java.util.List;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
+
+    public List<UserEntity> getUsers() {
+        return userRepository.findAll();
+    }
 
     public UserEntity validateUser(final int requestingUserId) {
         return userRepository.findById(requestingUserId)

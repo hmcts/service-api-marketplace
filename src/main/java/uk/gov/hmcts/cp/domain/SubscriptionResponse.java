@@ -17,9 +17,9 @@ public class SubscriptionResponse {
 
     private UUID id;
     private String status;
-    private String orgName;
-    private String userName;
-    private String userEmail;
+    private String requestingOrgName;
+    private String requestingUserName;
+    private String requestingUserEmail;
     private String apiShortCode;
     private String api;
     private String environment;

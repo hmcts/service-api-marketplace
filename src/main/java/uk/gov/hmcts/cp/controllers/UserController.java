@@ -24,9 +24,7 @@ public class UserController {
     @GetMapping
     public ResponseEntity<List<UserResponse>> getUsers() {
         log.info("Get users request");
-        List<UserResponse> users = userService.getUsers().stream()
-            .map(userMapper::fromEntity)
-            .toList();
+        List<UserResponse> users = userService.getUsers();
         return ResponseEntity.ok(users);
     }
 }

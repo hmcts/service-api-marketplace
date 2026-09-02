@@ -6,7 +6,7 @@ import org.mockito.InjectMocks;
 import org.mockito.junit.jupiter.MockitoExtension;
 import uk.gov.hmcts.cp.domain.SubscriptionRequest;
 import uk.gov.hmcts.cp.domain.SubscriptionResponse;
-import uk.gov.hmcts.cp.entity.MarketplaceRequestEntity;
+import uk.gov.hmcts.cp.entity.SubscriptionRequestEntity;
 import uk.gov.hmcts.cp.entity.OrganisationEntity;
 import uk.gov.hmcts.cp.entity.UserEntity;
 import uk.gov.hmcts.cp.mappers.SubscriptionMapperImpl;
@@ -19,14 +19,15 @@ class SubscriptionMapperTest {
     @InjectMocks
     private SubscriptionMapperImpl mapper;
 
-    private static final UserEntity USER = UserEntity.builder()
+    private final UserEntity user = UserEntity.builder()
+        .id(1)
         .organisation(OrganisationEntity.builder().name("Test Org").build())
         .firstName("Joe")
         .lastName("Bloggs")
         .email("joe.bloggs@example.com")
         .build();
 
-    private static final SubscriptionRequest REQUEST = SubscriptionRequest.builder()
+    private final SubscriptionRequest request = SubscriptionRequest.builder()
         .apiShortCode("pcd")
         .api("Test API")
         .environment("SBOX")
@@ -38,7 +39,14 @@ class SubscriptionMapperTest {
 
     @Test
     void to_entity_should_map_all_fields_from_request_and_user() {
-        MarketplaceRequestEntity entity = mapper.toEntity(REQUEST, USER);
+        SubscriptionRequestEntity entity = mapper.toEntity(
+            user.getId(),
+            "Test Org",
+            user.getEmail(),
+            user.getFirstName(),
+            user.getLastName(),
+            request
+        );
 
         assertThat(entity.getType()).isEqualTo("SUBSCRIPTION");
         assertThat(entity.getStatus()).isEqualTo("NEW");
@@ -56,7 +64,7 @@ class SubscriptionMapperTest {
 
     @Test
     void from_entity_should_map_all_fields_from_entity_and_user() {
-        MarketplaceRequestEntity entity = MarketplaceRequestEntity.builder()
+        SubscriptionRequestEntity entity = SubscriptionRequestEntity.builder()
             .status("NEW")
             .apiShortCode("pcd")
             .api("Test API")
@@ -67,7 +75,7 @@ class SubscriptionMapperTest {
             .declaration("I agree")
             .build();
 
-        SubscriptionResponse response = mapper.fromEntity(entity, USER);
+        SubscriptionResponse response = mapper.fromEntity(user, entity);
 
         assertThat(response.getRequestingOrgName()).isEqualTo("Test Org");
         assertThat(response.getRequestingUserName()).isEqualTo("Joe Bloggs");

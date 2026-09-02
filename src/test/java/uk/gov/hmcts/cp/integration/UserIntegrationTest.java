@@ -30,4 +30,5 @@ class UserIntegrationTest {
             .andExpect(jsonPath("$[0].firstName").value("Colin"))
             .andExpect(jsonPath("$[0].orgName").value("Api Marketplace"));
     }
+
 }

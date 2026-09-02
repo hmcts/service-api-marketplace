@@ -1,7 +1,7 @@
 # CNP Onboarding Plan — apim/marketplace
 
-Service: `service-api-marketplace`  
-Product: `apim` · Component: `marketplace`  
+Service: `service-api-marketplace`
+Product: `apim` · Component: `marketplace`
 Ticket: AMP-944
 
 Status badges: ✅ Already done · ⚠️ Check first · ○ To do · 🔄 In progress
@@ -331,6 +331,25 @@ Use this client-id in step S6 when running the workload identity script.
 | DCD-CFTAPPS-STG | `96c274ce-846d-4e48-89a7-d528432298a7` | AAT AKS cluster (`cft-aat-01-aks`) |
 | DTS-CFTPTL-INTSVC | `1baf5470-1c3e-40d3-a6f7-74bfbce4b348` | Jenkins infra, DNS records |
 | sbox | `bf308a5c-0624-4334-8ff8-8dca9fd43783` | Sandbox AKS cluster, sandbox infra |
+
+---
+
+## Sbox — Manual Azure steps (one-off, not automated)
+
+| # | Step | When needed |
+|---|------|-------------|
+| M1 | **Postgres firewall — allow Azure services** | After `apim-flexible-sandbox` is created or recreated |
+
+### M1 — Postgres firewall
+
+`apim-flexible-sandbox` uses **public access** (sbox VNet has no postgresql subnet). The firewall rules are empty by default, so AKS pods time out on connection.
+
+**Fix in Azure portal:**
+1. Open `apim-flexible-sandbox` → Settings → Networking
+2. Tick **"Allow public access from any Azure service within Azure to this server"**
+3. Click **Save**
+
+Without this, pods crash-loop with `java.net.SocketTimeoutException: Connect timed out` at Flyway startup.
 
 ---
 

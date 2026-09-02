@@ -8,15 +8,17 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import uk.gov.hmcts.cp.domain.SubscriptionRequest;
 import uk.gov.hmcts.cp.domain.SubscriptionResponse;
-import uk.gov.hmcts.cp.entity.MarketplaceRequestEntity;
+import uk.gov.hmcts.cp.entity.SubscriptionRequestEntity;
+import uk.gov.hmcts.cp.entity.OrganisationEntity;
 import uk.gov.hmcts.cp.entity.UserEntity;
 import uk.gov.hmcts.cp.mappers.SubscriptionMapper;
-import uk.gov.hmcts.cp.repository.MarketplaceRequestRepository;
+import uk.gov.hmcts.cp.repository.SubscriptionRepository;
 import uk.gov.hmcts.cp.repository.UserRepository;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,7 +29,7 @@ import static org.mockito.Mockito.when;
 class SubscriptionServiceTest {
 
     @Mock
-    private MarketplaceRequestRepository marketplaceRequestRepository;
+    private SubscriptionRepository subscriptionRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -41,33 +43,58 @@ class SubscriptionServiceTest {
     @InjectMocks
     private SubscriptionService subscriptionService;
 
-    private static final SubscriptionRequest REQUEST = SubscriptionRequest.builder().build();
-    private static final UserEntity USER = UserEntity.builder().build();
+    private static final Instant SUBMITTED_AT = Instant.parse("2026-01-15T09:00:00Z");
 
-    @Test
-    void submitting_a_request_should_save_entity_with_id_and_submitted_at() {
-        Instant now = Instant.parse("2026-08-28T10:00:00Z");
-        when(subscriptionMapper.toEntity(REQUEST, USER)).thenReturn(MarketplaceRequestEntity.builder().build());
-        when(subscriptionMapper.fromEntity(any(MarketplaceRequestEntity.class), any(UserEntity.class)))
-            .thenReturn(SubscriptionResponse.builder().build());
-        when(clockService.now()).thenReturn(now);
-
-        subscriptionService.submit(USER, REQUEST);
-
-        ArgumentCaptor<MarketplaceRequestEntity> captor = ArgumentCaptor.forClass(MarketplaceRequestEntity.class);
-        verify(marketplaceRequestRepository).save(captor.capture());
-        assertThat(captor.getValue().getId()).isNotNull();
-        assertThat(captor.getValue().getSubmittedAt()).isEqualTo(LocalDateTime.ofInstant(now, ZoneOffset.UTC));
-    }
+    private SubscriptionRequest subscriptionRequest = SubscriptionRequest.builder().build();
+    private OrganisationEntity organisationEntity = OrganisationEntity.builder().name("Org").build();
+    private UserEntity userEntity = UserEntity.builder()
+        .organisation(organisationEntity)
+        .id(1)
+        .email("email")
+        .firstName("first")
+        .lastName("last")
+        .build();
+    private SubscriptionRequestEntity requestEntity = SubscriptionRequestEntity.builder()
+        .orgName(organisationEntity.getName())
+        .build();
 
     @Test
     void submitting_a_request_should_return_response_from_mapper() {
         SubscriptionResponse mappedResponse = SubscriptionResponse.builder().build();
-        when(subscriptionMapper.toEntity(REQUEST, USER)).thenReturn(MarketplaceRequestEntity.builder().build());
-        when(subscriptionMapper.fromEntity(any(MarketplaceRequestEntity.class), any(UserEntity.class)))
-            .thenReturn(mappedResponse);
-        when(clockService.now()).thenReturn(Instant.parse("2026-08-28T10:00:00Z"));
+        when(userRepository.findById(userEntity.getId())).thenReturn(Optional.of(userEntity));
+        when(subscriptionMapper.toEntity(
+            1,
+            userEntity.getOrganisation().getName(),
+            userEntity.getEmail(),
+            userEntity.getFirstName(),
+            userEntity.getLastName(),
+            subscriptionRequest)).thenReturn(requestEntity);
+        when(clockService.now()).thenReturn(SUBMITTED_AT);
+        // The service stamps submittedAt via toBuilder, so save() receives a rebuilt instance.
+        when(subscriptionRepository.save(any(SubscriptionRequestEntity.class))).thenReturn(requestEntity);
+        when(subscriptionMapper.fromEntity(userEntity, requestEntity)).thenReturn(mappedResponse);
 
-        assertThat(subscriptionService.submit(USER, REQUEST)).isEqualTo(mappedResponse);
+        assertThat(subscriptionService.submit(userEntity.getId(), subscriptionRequest)).isEqualTo(mappedResponse);
+    }
+
+    @Test
+    void submitting_a_request_should_stamp_submitted_at_from_the_clock() {
+        when(userRepository.findById(userEntity.getId())).thenReturn(Optional.of(userEntity));
+        when(subscriptionMapper.toEntity(
+            1,
+            userEntity.getOrganisation().getName(),
+            userEntity.getEmail(),
+            userEntity.getFirstName(),
+            userEntity.getLastName(),
+            subscriptionRequest)).thenReturn(requestEntity);
+        when(clockService.now()).thenReturn(SUBMITTED_AT);
+        when(subscriptionRepository.save(any(SubscriptionRequestEntity.class))).thenReturn(requestEntity);
+
+        subscriptionService.submit(userEntity.getId(), subscriptionRequest);
+
+        ArgumentCaptor<SubscriptionRequestEntity> saved = ArgumentCaptor.forClass(SubscriptionRequestEntity.class);
+        verify(subscriptionRepository).save(saved.capture());
+        assertThat(saved.getValue().getSubmittedAt())
+            .isEqualTo(LocalDateTime.ofInstant(SUBMITTED_AT, ZoneOffset.UTC));
     }
 }

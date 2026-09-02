@@ -165,10 +165,10 @@ dependencies {
   implementation 'ch.qos.logback:logback-classic'
   implementation 'ch.qos.logback:logback-core'
 
-  compileOnly 'org.projectlombok:lombok:1.18.46'
-  annotationProcessor 'org.projectlombok:lombok:1.18.46'
-  testCompileOnly 'org.projectlombok:lombok:1.18.46'
-  testAnnotationProcessor 'org.projectlombok:lombok:1.18.46'
+  compileOnly 'org.projectlombok:lombok:1.18.48'
+  annotationProcessor 'org.projectlombok:lombok:1.18.48'
+  testCompileOnly 'org.projectlombok:lombok:1.18.48'
+  testAnnotationProcessor 'org.projectlombok:lombok:1.18.48'
 
   implementation 'com.fasterxml.jackson.core:jackson-databind'
   implementation 'org.mapstruct:mapstruct:1.6.3'

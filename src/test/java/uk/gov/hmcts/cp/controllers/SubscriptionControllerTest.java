@@ -9,7 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import uk.gov.hmcts.cp.domain.SubscriptionRequest;
 import uk.gov.hmcts.cp.domain.SubscriptionResponse;
-import uk.gov.hmcts.cp.entity.UserEntity;
+import uk.gov.hmcts.cp.domain.UserResponse;
 import uk.gov.hmcts.cp.services.SubscriptionService;
 import uk.gov.hmcts.cp.services.UserService;
 
@@ -28,17 +28,17 @@ class SubscriptionControllerTest {
     @InjectMocks
     private SubscriptionController subscriptionController;
 
-    private static final int USER_ID = 1;
-    private static final SubscriptionRequest REQUEST = SubscriptionRequest.builder().build();
-    private static final UserEntity USER = UserEntity.builder().build();
+    private final SubscriptionRequest subscriptionRequest = SubscriptionRequest.builder().build();
+    private final UserResponse userResponse = UserResponse.builder().id(1).build();
+    private final SubscriptionResponse subscriptionResponse = SubscriptionResponse.builder().build();
 
     @Test
     void submitting_a_valid_request_should_return_201_with_subscription_response() {
         SubscriptionResponse serviceResponse = SubscriptionResponse.builder().build();
-        when(userService.validateUser(USER_ID)).thenReturn(USER);
-        when(subscriptionService.submit(USER, REQUEST)).thenReturn(serviceResponse);
+        when(userService.validateUser(1)).thenReturn(userResponse);
+        when(subscriptionService.submit(userResponse.getId(), subscriptionRequest)).thenReturn(subscriptionResponse);
 
-        ResponseEntity<SubscriptionResponse> response = subscriptionController.submit(USER_ID, REQUEST);
+        ResponseEntity<SubscriptionResponse> response = subscriptionController.submit(1, subscriptionRequest);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).isEqualTo(serviceResponse);

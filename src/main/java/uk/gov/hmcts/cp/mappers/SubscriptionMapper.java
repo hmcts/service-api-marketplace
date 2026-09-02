@@ -5,7 +5,7 @@ import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
 import uk.gov.hmcts.cp.domain.SubscriptionRequest;
 import uk.gov.hmcts.cp.domain.SubscriptionResponse;
-import uk.gov.hmcts.cp.entity.MarketplaceRequestEntity;
+import uk.gov.hmcts.cp.entity.SubscriptionRequestEntity;
 import uk.gov.hmcts.cp.entity.UserEntity;
 
 @Mapper(componentModel = "spring", unmappedSourcePolicy = ReportingPolicy.IGNORE)
@@ -13,17 +13,23 @@ public abstract class SubscriptionMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "type", constant = "SUBSCRIPTION")
-    @Mapping(target = "orgName", source = "user.organisation.name")
-    @Mapping(target = "userName", expression = "java(user.getFirstName() + \" \" + user.getLastName())")
-    @Mapping(target = "userEmail", source = "user.email")
+    @Mapping(target = "orgName", source = "orgName")
+    @Mapping(target = "userName", expression = "java(firstName+ \" \" + lastName)")
+    @Mapping(target = "userEmail", source = "userEmail")
     @Mapping(target = "status", constant = "NEW")
     @Mapping(target = "submittedAt", ignore = true)
-    public abstract MarketplaceRequestEntity toEntity(SubscriptionRequest request, UserEntity user);
+    public abstract SubscriptionRequestEntity toEntity(
+        int userId,
+        String orgName,
+        String userEmail,
+        String firstName,
+        String lastName,
+        SubscriptionRequest request);
 
     @Mapping(target = "id", source = "requestEntity.id")
     @Mapping(target = "status", source = "requestEntity.status")
     @Mapping(target = "requestingOrgName", source = "user.organisation.name")
     @Mapping(target = "requestingUserName", expression = "java(user.getFirstName() + \" \" + user.getLastName())")
     @Mapping(target = "requestingUserEmail", source = "user.email")
-    public abstract SubscriptionResponse fromEntity(MarketplaceRequestEntity requestEntity, UserEntity user);
+    public abstract SubscriptionResponse fromEntity(UserEntity user, SubscriptionRequestEntity requestEntity);
 }

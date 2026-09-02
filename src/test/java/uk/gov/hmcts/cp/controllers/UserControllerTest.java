@@ -8,7 +8,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import uk.gov.hmcts.cp.domain.UserResponse;
-import uk.gov.hmcts.cp.entity.UserEntity;
 import uk.gov.hmcts.cp.mappers.UserMapper;
 import uk.gov.hmcts.cp.services.UserService;
 
@@ -31,10 +30,8 @@ class UserControllerTest {
 
     @Test
     void getting_users_should_return_200_with_mapped_user_list() {
-        UserEntity entity = UserEntity.builder().build();
         UserResponse response = UserResponse.builder().build();
-        when(userService.getUsers()).thenReturn(List.of(entity));
-        when(userMapper.fromEntity(entity)).thenReturn(response);
+        when(userService.getUsers()).thenReturn(List.of(response));
 
         ResponseEntity<List<UserResponse>> result = userController.getUsers();
 

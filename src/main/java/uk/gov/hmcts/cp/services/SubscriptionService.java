@@ -7,10 +7,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.cp.domain.SubscriptionRequest;
 import uk.gov.hmcts.cp.domain.SubscriptionResponse;
-import uk.gov.hmcts.cp.entity.MarketplaceRequestEntity;
+import uk.gov.hmcts.cp.entity.SubscriptionRequestEntity;
 import uk.gov.hmcts.cp.entity.UserEntity;
 import uk.gov.hmcts.cp.mappers.SubscriptionMapper;
-import uk.gov.hmcts.cp.repository.MarketplaceRequestRepository;
+import uk.gov.hmcts.cp.repository.SubscriptionRepository;
 import uk.gov.hmcts.cp.repository.UserRepository;
 
 import java.time.LocalDateTime;
@@ -23,35 +23,42 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class SubscriptionService {
 
-    private final MarketplaceRequestRepository marketplaceRequestRepository;
+    private final SubscriptionRepository subscriptionRepository;
     private final UserRepository userRepository;
     private final SubscriptionMapper subscriptionMapper;
     private final ClockService clockService;
 
     public List<SubscriptionResponse> getAll() {
-        return marketplaceRequestRepository.findAll().stream()
+        return subscriptionRepository.findAll().stream()
             .flatMap(entity -> userRepository.findByEmail(entity.getUserEmail()).stream()
-                .map(user -> subscriptionMapper.fromEntity(entity, user)))
+                .map(userEntity -> subscriptionMapper.fromEntity(userEntity, entity)))
             .toList();
     }
 
     public void delete(final UUID id) {
-        if (!marketplaceRequestRepository.existsById(id)) {
+        if (!subscriptionRepository.existsById(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found.");
         }
-        marketplaceRequestRepository.deleteById(id);
+        subscriptionRepository.deleteById(id);
         log.info("Subscription request {} deleted", id);
     }
 
-    public SubscriptionResponse submit(final UserEntity user, final SubscriptionRequest request) {
-        MarketplaceRequestEntity entity = subscriptionMapper.toEntity(request, user)
+    public SubscriptionResponse submit(final int userId, final SubscriptionRequest request) {
+        log.info("Subscription request submitted by userId:{}", userId);
+        UserEntity userEntity = userRepository.findById(userId).orElseThrow();
+        SubscriptionRequestEntity entity = subscriptionMapper.toEntity(
+                userId,
+                userEntity.getOrganisation().getName(),
+                userEntity.getEmail(),
+                userEntity.getFirstName(),
+                userEntity.getLastName(),
+                request
+            )
             .toBuilder()
-            .id(UUID.randomUUID())
+            // Stamped from ClockService rather than the entity so tests can fix the time.
             .submittedAt(LocalDateTime.ofInstant(clockService.now(), ZoneOffset.UTC))
             .build();
-
-        marketplaceRequestRepository.save(entity);
-        log.info("Subscription request {} submitted by userId:{}", entity.getId(), user.getId());
-        return subscriptionMapper.fromEntity(entity, user);
+        SubscriptionRequestEntity saved = subscriptionRepository.save(entity);
+        return subscriptionMapper.fromEntity(userEntity, saved);
     }
 }

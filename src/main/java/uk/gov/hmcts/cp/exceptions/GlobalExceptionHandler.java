@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -35,6 +36,13 @@ public class GlobalExceptionHandler {
             .distinct()
             .collect(Collectors.joining(" "));
         log.warn("Request rejected by validation: {}", message);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse(message));
+    }
+
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ResponseEntity<ErrorResponse> handleMissingHeader(final MissingRequestHeaderException exception) {
+        final String message = String.format("%s is required.", exception.getHeaderName());
+        log.warn("Request rejected, missing header: {}", exception.getHeaderName());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse(message));
     }
 

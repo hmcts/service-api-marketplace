@@ -3,9 +3,10 @@ package uk.gov.hmcts.cp.mappers;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
-import uk.gov.hmcts.cp.domain.SubscriptionRequest;
-import uk.gov.hmcts.cp.domain.SubscriptionResponse;
-import uk.gov.hmcts.cp.entity.SubscriptionRequestEntity;
+
+import uk.gov.hmcts.cp.domain.PublishRequest;
+import uk.gov.hmcts.cp.domain.PublishResponse;
+import uk.gov.hmcts.cp.entity.PublishRequestEntity;
 import uk.gov.hmcts.cp.entity.UserEntity;
 
 /**
@@ -17,27 +18,26 @@ import uk.gov.hmcts.cp.entity.UserEntity;
     componentModel = "spring",
     unmappedSourcePolicy = ReportingPolicy.IGNORE,
     unmappedTargetPolicy = ReportingPolicy.ERROR)
-public abstract class SubscriptionMapper {
+public abstract class PublishMapper {
 
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "type", constant = "SUBSCRIPTION")
     @Mapping(target = "orgName", source = "orgName")
-    @Mapping(target = "userName", expression = "java(firstName+ \" \" + lastName)")
+    @Mapping(target = "userName", expression = "java(firstName + \" \" + lastName)")
     @Mapping(target = "userEmail", source = "userEmail")
     @Mapping(target = "status", constant = "NEW")
     @Mapping(target = "submittedAt", ignore = true)
-    public abstract SubscriptionRequestEntity toEntity(
+    public abstract PublishRequestEntity toEntity(
         int userId,
         String orgName,
         String userEmail,
         String firstName,
         String lastName,
-        SubscriptionRequest request);
+        PublishRequest request);
 
     @Mapping(target = "id", source = "requestEntity.id")
     @Mapping(target = "status", source = "requestEntity.status")
     @Mapping(target = "requestingOrgName", source = "user.organisation.name")
     @Mapping(target = "requestingUserName", expression = "java(user.getFirstName() + \" \" + user.getLastName())")
     @Mapping(target = "requestingUserEmail", source = "user.email")
-    public abstract SubscriptionResponse fromEntity(UserEntity user, SubscriptionRequestEntity requestEntity);
+    public abstract PublishResponse fromEntity(UserEntity user, PublishRequestEntity requestEntity);
 }

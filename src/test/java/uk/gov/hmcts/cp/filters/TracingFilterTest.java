@@ -19,7 +19,7 @@ class TracingFilterTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.addHeader("X-Correlation-Id", "test-correlation-id");
 
-        filter.doFilterInternal(request, response, (req, res) -> {});
+        filter.doFilterInternal(request, response, (req, res) -> { });
 
         assertThat(response.getHeader("X-Correlation-Id")).isEqualTo("test-correlation-id");
     }
@@ -29,7 +29,7 @@ class TracingFilterTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        filter.doFilterInternal(request, response, (req, res) -> {});
+        filter.doFilterInternal(request, response, (req, res) -> { });
 
         String correlationId = response.getHeader("X-Correlation-Id");
         assertThat(correlationId).isNotNull();
@@ -42,7 +42,7 @@ class TracingFilterTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.addHeader("X-Correlation-Id", "   ");
 
-        filter.doFilterInternal(request, response, (req, res) -> {});
+        filter.doFilterInternal(request, response, (req, res) -> { });
 
         String correlationId = response.getHeader("X-Correlation-Id");
         assertThat(correlationId).isNotNull();

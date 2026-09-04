@@ -26,6 +26,7 @@ public class SubscriptionRequestEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+    private String reference;
 
     private String type;
     private String orgName;

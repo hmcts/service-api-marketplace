@@ -36,7 +36,7 @@ public class RequestService {
 
     private RequestSummaryResponse toSummary(final SubscriptionRequestEntity entity) {
         return RequestSummaryResponse.builder()
-            .reference(entity.getId())
+            .reference(entity.getReference())
             .type(RequestType.SUBSCRIPTION)
             .submittedAt(entity.getSubmittedAt())
             .status(entity.getStatus())
@@ -45,7 +45,7 @@ public class RequestService {
 
     private RequestSummaryResponse toSummary(final PublishRequestEntity entity) {
         return RequestSummaryResponse.builder()
-            .reference(entity.getId())
+            .reference(entity.getReference())
             .type(RequestType.PUBLISH)
             .submittedAt(entity.getSubmittedAt())
             .status(entity.getStatus())

@@ -37,12 +37,12 @@ class RequestServiceTest {
 
     private SubscriptionRequestEntity subscription(final LocalDateTime at) {
         return SubscriptionRequestEntity.builder()
-            .id(UUID.randomUUID()).status("NEW").submittedAt(at).build();
+            .id(UUID.randomUUID()).reference("AR-2026-ABC123").status("NEW").submittedAt(at).build();
     }
 
     private PublishRequestEntity publication(final LocalDateTime at) {
         return PublishRequestEntity.builder()
-            .id(UUID.randomUUID()).status("NEW").submittedAt(at).build();
+            .id(UUID.randomUUID()).reference("PR-2026-ABC123").status("NEW").submittedAt(at).build();
     }
 
     @Test
@@ -73,12 +73,12 @@ class RequestServiceTest {
     }
 
     @Test
-    void each_summary_should_carry_the_requests_own_id_as_its_reference() {
+    void each_summary_should_carry_the_requests_own_reference() {
         SubscriptionRequestEntity entity = subscription(LocalDateTime.now());
         when(subscriptionRepository.findByUserEmail(EMAIL)).thenReturn(List.of(entity));
         when(publishRepository.findByUserEmail(EMAIL)).thenReturn(List.of());
 
-        assertThat(requestService.getForUser(EMAIL).get(0).getReference()).isEqualTo(entity.getId());
+        assertThat(requestService.getForUser(EMAIL).get(0).getReference()).isEqualTo(entity.getReference());
     }
 
     @Test

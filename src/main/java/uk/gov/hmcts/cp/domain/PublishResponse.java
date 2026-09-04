@@ -16,6 +16,7 @@ import java.util.UUID;
 public class PublishResponse {
 
     private UUID id;
+    private String reference;
     private String status;
     private String requestingOrgName;
     private String requestingUserName;

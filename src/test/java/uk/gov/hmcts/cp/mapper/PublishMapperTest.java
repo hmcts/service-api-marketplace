@@ -74,13 +74,14 @@ class PublishMapperTest {
         // here, rather than quietly persisting null. The id is the database's and
         // submittedAt is stamped by the service from ClockService, so both are the
         // mapper's to leave alone.
-        assertThat(mapRequest()).hasNoNullFieldsOrPropertiesExcept("id", "submittedAt");
+        assertThat(mapRequest()).hasNoNullFieldsOrPropertiesExcept("id", "reference", "submittedAt");
     }
 
     @Test
     void from_entity_should_populate_every_field_of_the_response() {
         PublishRequestEntity entity = mapRequest().toBuilder()
             .id(UUID.randomUUID())
+            .reference("AR-2026-ABC123")
             .submittedAt(LocalDateTime.now())
             .build();
 
@@ -93,7 +94,7 @@ class PublishMapperTest {
     @Test
     void from_entity_should_carry_the_stored_values_back_out() {
         UUID id = UUID.randomUUID();
-        PublishRequestEntity entity = mapRequest().toBuilder().id(id).build();
+        PublishRequestEntity entity = mapRequest().toBuilder().id(id).reference("PR-2026-ABC123").build();
 
         PublishResponse response = mapper.fromEntity(user, entity);
 

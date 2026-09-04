@@ -7,7 +7,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Getter
 @Builder(toBuilder = true)
@@ -16,7 +15,7 @@ import java.util.UUID;
 @EqualsAndHashCode
 public class RequestSummaryResponse {
 
-    private UUID reference;
+    private String reference;
     private RequestType type;
     private LocalDateTime submittedAt;
     private String status;

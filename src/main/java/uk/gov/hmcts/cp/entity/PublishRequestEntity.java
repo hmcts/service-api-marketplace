@@ -26,6 +26,7 @@ public class PublishRequestEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+    private String reference;
     private String orgName;
     private String userName;
     private String userEmail;

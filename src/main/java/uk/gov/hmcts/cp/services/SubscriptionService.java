@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import uk.gov.hmcts.cp.domain.RequestType;
 import uk.gov.hmcts.cp.domain.SubscriptionRequest;
 import uk.gov.hmcts.cp.domain.SubscriptionResponse;
 import uk.gov.hmcts.cp.entity.SubscriptionRequestEntity;
@@ -27,6 +28,7 @@ public class SubscriptionService {
     private final UserRepository userRepository;
     private final SubscriptionMapper subscriptionMapper;
     private final ClockService clockService;
+    private final ReferenceGenerator referenceGenerator;
 
     public List<SubscriptionResponse> getAll() {
         return subscriptionRepository.findAll().stream()
@@ -55,6 +57,7 @@ public class SubscriptionService {
                 request
             )
             .toBuilder()
+            .reference(referenceGenerator.generate(RequestType.SUBSCRIPTION))
             // Stamped from ClockService rather than the entity so tests can fix the time.
             .submittedAt(LocalDateTime.ofInstant(clockService.now(), ZoneOffset.UTC))
             .build();

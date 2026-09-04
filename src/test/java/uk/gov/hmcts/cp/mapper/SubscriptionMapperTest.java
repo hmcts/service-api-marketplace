@@ -112,13 +112,14 @@ class SubscriptionMapperTest {
         // here, rather than quietly persisting null. The id is the database's and
         // submittedAt is stamped by the service from ClockService, so both are the
         // mapper's to leave alone.
-        assertThat(mapRequest()).hasNoNullFieldsOrPropertiesExcept("id", "submittedAt");
+        assertThat(mapRequest()).hasNoNullFieldsOrPropertiesExcept("id", "reference", "submittedAt");
     }
 
     @Test
     void from_entity_should_populate_every_field_of_the_response() {
         SubscriptionRequestEntity entity = mapRequest().toBuilder()
             .id(UUID.randomUUID())
+            .reference("AR-2026-ABC123")
             .submittedAt(LocalDateTime.now())
             .build();
 

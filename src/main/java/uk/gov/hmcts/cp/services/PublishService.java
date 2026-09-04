@@ -11,6 +11,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
+import uk.gov.hmcts.cp.domain.RequestType;
 import uk.gov.hmcts.cp.domain.PublishRequest;
 import uk.gov.hmcts.cp.domain.PublishResponse;
 import uk.gov.hmcts.cp.entity.PublishRequestEntity;
@@ -28,6 +29,7 @@ public class PublishService {
     private final UserRepository userRepository;
     private final PublishMapper publishMapper;
     private final ClockService clockService;
+    private final ReferenceGenerator referenceGenerator;
 
     public List<PublishResponse> getAll() {
         return publishRepository.findAll().stream()
@@ -56,6 +58,7 @@ public class PublishService {
                 request
             )
             .toBuilder()
+            .reference(referenceGenerator.generate(RequestType.PUBLISH))
             // Stamped from ClockService rather than the entity so tests can fix the time.
             .submittedAt(LocalDateTime.ofInstant(clockService.now(), ZoneOffset.UTC))
             .build();

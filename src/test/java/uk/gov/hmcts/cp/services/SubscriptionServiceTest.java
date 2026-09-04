@@ -40,6 +40,9 @@ class SubscriptionServiceTest {
     @Mock
     private ClockService clockService;
 
+    @Mock
+    private ReferenceGenerator referenceGenerator;
+
     @InjectMocks
     private SubscriptionService subscriptionService;
 

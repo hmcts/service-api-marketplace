@@ -20,6 +20,7 @@ import uk.gov.hmcts.cp.entity.UserEntity;
 public abstract class SubscriptionMapper {
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "reference", ignore = true)
     @Mapping(target = "type", constant = "SUBSCRIPTION")
     @Mapping(target = "orgName", source = "orgName")
     @Mapping(target = "userName", expression = "java(firstName+ \" \" + lastName)")
@@ -35,6 +36,7 @@ public abstract class SubscriptionMapper {
         SubscriptionRequest request);
 
     @Mapping(target = "id", source = "requestEntity.id")
+    @Mapping(target = "reference", source = "requestEntity.reference")
     @Mapping(target = "status", source = "requestEntity.status")
     @Mapping(target = "requestingOrgName", source = "user.organisation.name")
     @Mapping(target = "requestingUserName", expression = "java(user.getFirstName() + \" \" + user.getLastName())")

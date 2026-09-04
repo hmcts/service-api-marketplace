@@ -54,6 +54,7 @@ class RepositoryIntegrationTest {
         // Assigning one here would make Spring Data treat this as a detached entity and merge.
         SubscriptionRequestEntity request = SubscriptionRequestEntity.builder()
             .type("SUBSCRIPTION")
+            .reference("AR-2026-TEST01")
             .orgName("Api Marketplace")
             .userName("Colin Greenwood")
             .userEmail("alan@example.com")
@@ -72,6 +73,7 @@ class RepositoryIntegrationTest {
         SubscriptionRequestEntity saved = subscriptionRepository.save(
             SubscriptionRequestEntity.builder()
                 .type("SUBSCRIPTION")
+                .reference("AR-2026-TEST02")
                 .orgName("Api Marketplace")
                 .userName("Colin Greenwood")
                 .userEmail("joe.bloggs@example.com")
@@ -84,6 +86,7 @@ class RepositoryIntegrationTest {
 
         assertThat(found).isPresent();
         assertThat(found.get().getType()).isEqualTo("SUBSCRIPTION");
+        assertThat(found.get().getReference()).isEqualTo("AR-2026-TEST02");
         assertThat(found.get().getOrgName()).isEqualTo("Api Marketplace");
         assertThat(found.get().getUserEmail()).isEqualTo("joe.bloggs@example.com");
         assertThat(found.get().getStatus()).isEqualTo("PENDING");

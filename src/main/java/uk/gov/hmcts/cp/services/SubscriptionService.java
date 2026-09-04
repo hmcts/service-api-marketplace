@@ -17,7 +17,6 @@ import uk.gov.hmcts.cp.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -37,12 +36,11 @@ public class SubscriptionService {
             .toList();
     }
 
-    public void delete(final UUID id) {
-        if (!subscriptionRepository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found.");
-        }
-        subscriptionRepository.deleteById(id);
-        log.info("Subscription request {} deleted", id);
+    public void delete(final String reference) {
+        SubscriptionRequestEntity entity = subscriptionRepository.findByReference(reference)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found."));
+        subscriptionRepository.delete(entity);
+        log.info("Subscription request {} deleted", reference);
     }
 
     public SubscriptionResponse submit(final int userId, final SubscriptionRequest request) {

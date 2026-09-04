@@ -9,7 +9,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
-import java.util.UUID;
 
 import uk.gov.hmcts.cp.domain.PublishRequest;
 import uk.gov.hmcts.cp.domain.PublishResponse;
@@ -73,11 +72,11 @@ class PublishControllerTest {
 
     @Test
     void deleting_a_publish_request_should_return_204() {
-        UUID id = UUID.randomUUID();
+        String reference = "PR-2026-414D8U";
 
-        ResponseEntity<Void> response = publishController.delete(id);
+        ResponseEntity<Void> response = publishController.delete(reference);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-        verify(publishService).delete(id);
+        verify(publishService).delete(reference);
     }
 }

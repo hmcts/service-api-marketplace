@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.UUID;
 import uk.gov.hmcts.cp.domain.SubscriptionRequest;
 import uk.gov.hmcts.cp.domain.SubscriptionResponse;
 import uk.gov.hmcts.cp.domain.UserResponse;
@@ -38,10 +37,10 @@ public class SubscriptionController {
         return ResponseEntity.ok(subscriptionService.getAll());
     }
 
-    @DeleteMapping("/subscriptions/{id}")
-    public ResponseEntity<Void> delete(@PathVariable final UUID id) {
-        log.info("Delete subscription request {}", id);
-        subscriptionService.delete(id);
+    @DeleteMapping("/subscriptions/{reference}")
+    public ResponseEntity<Void> delete(@PathVariable final String reference) {
+        log.info("Delete subscription request {}", reference);
+        subscriptionService.delete(reference);
         return ResponseEntity.status(NO_CONTENT).build();
     }
 

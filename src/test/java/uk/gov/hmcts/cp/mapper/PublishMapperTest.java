@@ -81,7 +81,7 @@ class PublishMapperTest {
     void from_entity_should_populate_every_field_of_the_response() {
         PublishRequestEntity entity = mapRequest().toBuilder()
             .id(UUID.randomUUID())
-            .reference("AR-2026-ABC123")
+            .reference("PR-2026-ABC123")
             .submittedAt(LocalDateTime.now())
             .build();
 
@@ -93,12 +93,11 @@ class PublishMapperTest {
 
     @Test
     void from_entity_should_carry_the_stored_values_back_out() {
-        UUID id = UUID.randomUUID();
-        PublishRequestEntity entity = mapRequest().toBuilder().id(id).reference("PR-2026-ABC123").build();
+        PublishRequestEntity entity = mapRequest().toBuilder().reference("PR-2026-ABC123").build();
 
         PublishResponse response = mapper.fromEntity(user, entity);
 
-        assertThat(response.getId()).isEqualTo(id);
+        assertThat(response.getReference()).isEqualTo("PR-2026-ABC123");
         assertThat(response.getStatus()).isEqualTo("NEW");
         assertThat(response.getApiName()).isEqualTo("Court Schedule");
         assertThat(response.getOwningTeam()).isEqualTo("Scheduling and Listing");

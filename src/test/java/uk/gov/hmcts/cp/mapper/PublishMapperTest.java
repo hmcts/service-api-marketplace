@@ -6,7 +6,6 @@ import org.mockito.InjectMocks;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 import uk.gov.hmcts.cp.domain.PublishRequest;
 import uk.gov.hmcts.cp.domain.PublishResponse;
@@ -80,7 +79,6 @@ class PublishMapperTest {
     @Test
     void from_entity_should_populate_every_field_of_the_response() {
         PublishRequestEntity entity = mapRequest().toBuilder()
-            .id(UUID.randomUUID())
             .reference("PR-2026-ABC123")
             .submittedAt(LocalDateTime.now())
             .build();

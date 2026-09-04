@@ -37,7 +37,7 @@ public class SubscriptionService {
     }
 
     public void delete(final String reference) {
-        SubscriptionRequestEntity entity = subscriptionRepository.findByReference(reference)
+        SubscriptionRequestEntity entity = subscriptionRepository.findById(reference)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found."));
         subscriptionRepository.delete(entity);
         log.info("Subscription request {} deleted", reference);

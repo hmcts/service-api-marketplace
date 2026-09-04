@@ -106,7 +106,7 @@ class SubscriptionServiceTest {
 
     @Test
     void deleting_a_known_reference_should_delete_the_matching_request() {
-        when(subscriptionRepository.findByReference("AR-2026-414D8U")).thenReturn(Optional.of(requestEntity));
+        when(subscriptionRepository.findById("AR-2026-414D8U")).thenReturn(Optional.of(requestEntity));
 
         subscriptionService.delete("AR-2026-414D8U");
 
@@ -115,7 +115,7 @@ class SubscriptionServiceTest {
 
     @Test
     void deleting_an_unknown_reference_should_throw_not_found_and_delete_nothing() {
-        when(subscriptionRepository.findByReference("AR-2026-ZZZZZZ")).thenReturn(Optional.empty());
+        when(subscriptionRepository.findById("AR-2026-ZZZZZZ")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> subscriptionService.delete("AR-2026-ZZZZZZ"))
             .isInstanceOf(ResponseStatusException.class)

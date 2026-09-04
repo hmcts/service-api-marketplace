@@ -20,8 +20,8 @@ import uk.gov.hmcts.cp.entity.UserEntity;
     unmappedTargetPolicy = ReportingPolicy.ERROR)
 public abstract class PublishMapper {
 
-    @Mapping(target = "id", ignore = true)
     @Mapping(target = "reference", ignore = true)
+    @Mapping(target = "isNew", ignore = true)
     @Mapping(target = "orgName", source = "orgName")
     @Mapping(target = "userName", expression = "java(firstName + \" \" + lastName)")
     @Mapping(target = "userEmail", source = "userEmail")

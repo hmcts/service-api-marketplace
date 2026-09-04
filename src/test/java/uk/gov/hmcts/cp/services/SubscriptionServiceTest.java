@@ -6,6 +6,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.cp.domain.SubscriptionRequest;
 import uk.gov.hmcts.cp.domain.SubscriptionResponse;
 import uk.gov.hmcts.cp.entity.SubscriptionRequestEntity;
@@ -21,7 +22,9 @@ import java.time.ZoneOffset;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -99,5 +102,24 @@ class SubscriptionServiceTest {
         verify(subscriptionRepository).save(saved.capture());
         assertThat(saved.getValue().getSubmittedAt())
             .isEqualTo(LocalDateTime.ofInstant(SUBMITTED_AT, ZoneOffset.UTC));
+    }
+
+    @Test
+    void deleting_a_known_reference_should_delete_the_matching_request() {
+        when(subscriptionRepository.findByReference("AR-2026-414D8U")).thenReturn(Optional.of(requestEntity));
+
+        subscriptionService.delete("AR-2026-414D8U");
+
+        verify(subscriptionRepository).delete(requestEntity);
+    }
+
+    @Test
+    void deleting_an_unknown_reference_should_throw_not_found_and_delete_nothing() {
+        when(subscriptionRepository.findByReference("AR-2026-ZZZZZZ")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> subscriptionService.delete("AR-2026-ZZZZZZ"))
+            .isInstanceOf(ResponseStatusException.class)
+            .hasMessageContaining("Subscription not found.");
+        verify(subscriptionRepository, never()).delete(any(SubscriptionRequestEntity.class));
     }
 }

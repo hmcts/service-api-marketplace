@@ -35,7 +35,6 @@ public abstract class SubscriptionMapper {
         String lastName,
         SubscriptionRequest request);
 
-    @Mapping(target = "id", source = "requestEntity.id")
     @Mapping(target = "reference", source = "requestEntity.reference")
     @Mapping(target = "status", source = "requestEntity.status")
     @Mapping(target = "requestingOrgName", source = "user.organisation.name")

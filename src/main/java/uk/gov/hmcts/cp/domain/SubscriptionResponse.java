@@ -6,8 +6,6 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.UUID;
-
 @Getter
 @Builder(toBuilder = true)
 @NoArgsConstructor
@@ -15,7 +13,6 @@ import java.util.UUID;
 @EqualsAndHashCode
 public class SubscriptionResponse {
 
-    private UUID id;
     private String reference;
     private String status;
     private String requestingOrgName;

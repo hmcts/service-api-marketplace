@@ -9,7 +9,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.UUID;
 
 import uk.gov.hmcts.cp.domain.RequestType;
 import uk.gov.hmcts.cp.domain.PublishRequest;
@@ -38,12 +37,11 @@ public class PublishService {
             .toList();
     }
 
-    public void delete(final UUID id) {
-        if (!publishRepository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Publish request not found.");
-        }
-        publishRepository.deleteById(id);
-        log.info("Publish request {} deleted", id);
+    public void delete(final String reference) {
+        PublishRequestEntity entity = publishRepository.findByReference(reference)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Publish request not found."));
+        publishRepository.delete(entity);
+        log.info("Publish request {} deleted", reference);
     }
 
     public PublishResponse submit(final int userId, final PublishRequest request) {

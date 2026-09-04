@@ -14,6 +14,7 @@ import uk.gov.hmcts.cp.services.SubscriptionService;
 import uk.gov.hmcts.cp.services.UserService;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -42,5 +43,15 @@ class SubscriptionControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).isEqualTo(serviceResponse);
+    }
+
+    @Test
+    void deleting_a_subscription_should_return_204() {
+        String reference = "AR-2026-414D8U";
+
+        ResponseEntity<Void> response = subscriptionController.delete(reference);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(subscriptionService).delete(reference);
     }
 }

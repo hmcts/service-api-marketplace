@@ -3,6 +3,7 @@ package uk.gov.hmcts.cp.integration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ContextConfiguration;
 import uk.gov.hmcts.cp.entity.SubscriptionRequestEntity;
 import uk.gov.hmcts.cp.entity.OrganisationEntity;
@@ -13,8 +14,10 @@ import uk.gov.hmcts.cp.repository.UserRepository;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @ContextConfiguration(initializers = TestContainersInitialise.class)
@@ -90,5 +93,49 @@ class RepositoryIntegrationTest {
         assertThat(found.get().getOrgName()).isEqualTo("Api Marketplace");
         assertThat(found.get().getUserEmail()).isEqualTo("joe.bloggs@example.com");
         assertThat(found.get().getStatus()).isEqualTo("PENDING");
+    }
+
+    @Test
+    void getting_a_subscription_request_by_reference_should_return_correct_data() {
+        subscriptionRepository.save(
+            SubscriptionRequestEntity.builder()
+                .type("SUBSCRIPTION")
+                .reference("AR-2026-TEST03")
+                .orgName("Api Marketplace")
+                .userName("Colin Greenwood")
+                .userEmail("by.reference@example.com")
+                .status("PENDING")
+                .submittedAt(LocalDateTime.of(2026, 2, 3, 11, 30))
+                .build()
+        );
+
+        Optional<SubscriptionRequestEntity> found = subscriptionRepository.findByReference("AR-2026-TEST03");
+
+        assertThat(found).isPresent();
+        assertThat(found.get().getUserEmail()).isEqualTo("by.reference@example.com");
+    }
+
+    @Test
+    void getting_a_subscription_request_by_unknown_reference_should_return_empty() {
+        assertThat(subscriptionRepository.findByReference("AR-2026-NOSUCH")).isEmpty();
+    }
+
+    @Test
+    void saving_a_reference_shaped_like_a_uuid_should_be_rejected_by_the_database() {
+        // The reference is the only identifier the API exposes for a request, so writing
+        // a primary key into the column - the mistake that would put UUIDs back in front
+        // of callers - is refused rather than stored.
+        SubscriptionRequestEntity request = SubscriptionRequestEntity.builder()
+            .type("SUBSCRIPTION")
+            .reference(UUID.randomUUID().toString())
+            .orgName("Api Marketplace")
+            .userName("Colin Greenwood")
+            .userEmail("uuid.reference@example.com")
+            .status("PENDING")
+            .submittedAt(LocalDateTime.now())
+            .build();
+
+        assertThatThrownBy(() -> subscriptionRepository.saveAndFlush(request))
+            .isInstanceOf(DataIntegrityViolationException.class);
     }
 }

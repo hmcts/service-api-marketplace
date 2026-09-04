@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.UUID;
 
 import uk.gov.hmcts.cp.domain.PublishRequest;
 import uk.gov.hmcts.cp.domain.PublishResponse;
@@ -38,10 +37,10 @@ public class PublishController {
         return ResponseEntity.ok(publishService.getAll());
     }
 
-    @DeleteMapping("/publish-requests/{id}")
-    public ResponseEntity<Void> delete(@PathVariable final UUID id) {
-        log.info("Delete publish request {}", id);
-        publishService.delete(id);
+    @DeleteMapping("/publish-requests/{reference}")
+    public ResponseEntity<Void> delete(@PathVariable final String reference) {
+        log.info("Delete publish request {}", reference);
+        publishService.delete(reference);
         return ResponseEntity.status(NO_CONTENT).build();
     }
 

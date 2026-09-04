@@ -5,13 +5,9 @@ import org.springframework.stereotype.Repository;
 import uk.gov.hmcts.cp.entity.SubscriptionRequestEntity;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 @Repository
-public interface SubscriptionRepository extends JpaRepository<SubscriptionRequestEntity, UUID> {
+public interface SubscriptionRepository extends JpaRepository<SubscriptionRequestEntity, String> {
 
     List<SubscriptionRequestEntity> findByUserEmail(String userEmail);
-
-    Optional<SubscriptionRequestEntity> findByReference(String reference);
 }

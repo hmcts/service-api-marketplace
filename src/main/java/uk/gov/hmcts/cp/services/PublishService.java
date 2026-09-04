@@ -38,7 +38,7 @@ public class PublishService {
     }
 
     public void delete(final String reference) {
-        PublishRequestEntity entity = publishRepository.findByReference(reference)
+        PublishRequestEntity entity = publishRepository.findById(reference)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Publish request not found."));
         publishRepository.delete(entity);
         log.info("Publish request {} deleted", reference);

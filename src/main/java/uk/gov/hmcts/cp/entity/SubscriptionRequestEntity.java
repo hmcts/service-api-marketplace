@@ -26,10 +26,7 @@ public class SubscriptionRequestEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Unique in the database from V1.006. The id identifies the row, the reference
-    // identifies the request to a caller - no endpoint accepts or returns the id.
     private String reference;
-
     private String type;
     private String orgName;
     private String userName;

@@ -8,7 +8,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 import uk.gov.hmcts.cp.domain.RequestSummaryResponse;
 import uk.gov.hmcts.cp.domain.RequestType;
@@ -37,12 +36,12 @@ class RequestServiceTest {
 
     private SubscriptionRequestEntity subscription(final LocalDateTime at) {
         return SubscriptionRequestEntity.builder()
-            .id(UUID.randomUUID()).reference("AR-2026-ABC123").status("NEW").submittedAt(at).build();
+            .reference("AR-2026-ABC123").status("NEW").submittedAt(at).build();
     }
 
     private PublishRequestEntity publication(final LocalDateTime at) {
         return PublishRequestEntity.builder()
-            .id(UUID.randomUUID()).reference("PR-2026-ABC123").status("NEW").submittedAt(at).build();
+            .reference("PR-2026-ABC123").status("NEW").submittedAt(at).build();
     }
 
     @Test

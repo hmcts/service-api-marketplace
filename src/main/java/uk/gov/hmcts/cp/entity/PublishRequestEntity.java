@@ -12,7 +12,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "publish_request")
@@ -24,8 +23,11 @@ import java.util.UUID;
 public class PublishRequestEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    // Unique in the database from V1.006. The id identifies the row, the reference
+    // identifies the request to a caller - no endpoint accepts or returns the id.
     private String reference;
     private String orgName;
     private String userName;

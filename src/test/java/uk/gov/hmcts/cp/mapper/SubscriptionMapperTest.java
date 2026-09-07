@@ -3,7 +3,6 @@ package uk.gov.hmcts.cp.mapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import java.time.LocalDateTime;
-import java.util.UUID;
 import org.mockito.InjectMocks;
 import org.mockito.junit.jupiter.MockitoExtension;
 import uk.gov.hmcts.cp.domain.SubscriptionRequest;
@@ -118,7 +117,6 @@ class SubscriptionMapperTest {
     @Test
     void from_entity_should_populate_every_field_of_the_response() {
         SubscriptionRequestEntity entity = mapRequest().toBuilder()
-            .id(UUID.randomUUID())
             .reference("AR-2026-ABC123")
             .submittedAt(LocalDateTime.now())
             .build();

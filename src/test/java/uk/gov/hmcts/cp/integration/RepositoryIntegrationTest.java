@@ -121,10 +121,35 @@ class RepositoryIntegrationTest {
     }
 
     @Test
+    void saving_a_request_should_let_the_database_generate_the_id() {
+        // The key is the database's to assign, which is the whole point of moving off an
+        // application-assigned one: no Persistable dance, and no chance of save() merging
+        // over an existing row because the entity turned up carrying a key already.
+        SubscriptionRequestEntity request = newRequest("AR-2026-TEST05", "generated@example.com");
+        assertThat(request.getId()).isNull();
+
+        SubscriptionRequestEntity saved = subscriptionRepository.save(request);
+
+        assertThat(saved.getId()).isNotNull();
+        assertThat(subscriptionRepository.existsById(saved.getId())).isTrue();
+    }
+
+    @Test
+    void saving_a_second_request_with_an_existing_reference_should_be_rejected() {
+        // The reference is not the key any more, so the unique index from V1.006 is the only
+        // thing standing between a generator collision and two requests sharing a reference.
+        subscriptionRepository.save(newRequest("AR-2026-TEST06", "first@example.com"));
+
+        assertThatThrownBy(() ->
+            subscriptionRepository.saveAndFlush(newRequest("AR-2026-TEST06", "second@example.com")))
+            .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
     void saving_a_reference_shaped_like_a_uuid_should_be_rejected_by_the_database() {
-        // The reference is the only identifier the API exposes for a request, so writing
-        // a primary key into the column - the mistake that would put UUIDs back in front
-        // of callers - is refused rather than stored.
+        // The reference is the only identifier the API exposes for a request, so a value
+        // that is not a generated reference - an id stringified into the column, say - is
+        // refused rather than stored.
         SubscriptionRequestEntity request = SubscriptionRequestEntity.builder()
             .type("SUBSCRIPTION")
             .reference(UUID.randomUUID().toString())
@@ -137,5 +162,17 @@ class RepositoryIntegrationTest {
 
         assertThatThrownBy(() -> subscriptionRepository.saveAndFlush(request))
             .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    private SubscriptionRequestEntity newRequest(final String reference, final String userEmail) {
+        return SubscriptionRequestEntity.builder()
+            .type("SUBSCRIPTION")
+            .reference(reference)
+            .orgName("Api Marketplace")
+            .userName("Colin Greenwood")
+            .userEmail(userEmail)
+            .status("PENDING")
+            .submittedAt(LocalDateTime.now())
+            .build();
     }
 }

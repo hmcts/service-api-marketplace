@@ -15,5 +15,3 @@ java:
           alias: POSTGRES_PORT
         - name: marketplace-POSTGRES-DATABASE
           alias: POSTGRES_DATABASE
-        - name: marketplace-USER-PASSWORD-PEPPER
-          alias: USER_PASSWORD_PEPPER

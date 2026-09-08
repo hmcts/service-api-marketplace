@@ -33,10 +33,6 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
-marketplace:
-  user-password:
-    pepper: ${USER_PASSWORD_PEPPER:}
-
 azure:
   application-insights:
     instrumentation-key: ${rpe.AppInsightsInstrumentationKey:00000000-0000-0000-0000-000000000000}

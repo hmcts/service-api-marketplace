@@ -233,6 +233,48 @@ The internal ingress host is:
 
 Register this as a backend in `sps-api-mgmt-sbox` to route traffic from SPS APIM.
 
+## User password pepper
+
+Passwords are hashed with bcrypt plus a server-side pepper. The pepper is **not** created by
+terraform: `random_password` is not on this repo's whitelist in
+[cnp-jenkins-config](https://github.com/hmcts/cnp-jenkins-config/tree/master/terraform-infra-approvals),
+and the AAT pipeline fails the infrastructure stage if the config declares it.
+
+So the secret is created once per environment, by hand:
+
+```bash
+az keyvault secret set \
+  --vault-name apim-aat \
+  --name marketplace-USER-PASSWORD-PEPPER \
+  --value "$(openssl rand -base64 48)"
+```
+
+Vault names differ per environment - `apim-aat`, `apim-demo`, `apim-sbox`. Each environment
+gets its own pepper, so a database copied between environments will not verify passwords there.
+
+### It is write-once
+
+Changing the pepper makes every stored hash unverifiable. Not degraded - every user locked
+out, with no recovery but a mass reset. Do not rotate it without first building
+rehash-on-login, and do not put it on a rotation schedule with the other secrets.
+
+### The pod will not start without it
+
+This is deliberate. `HashService` refuses to construct on a missing or blank pepper, so the
+application fails at startup rather than hashing passwords with an empty value and
+discovering it later. The log names the secret and its alias.
+
+Two consequences when standing up a new environment, in this order:
+
+1. **Create the secret first.** If the `keyVaults` list in `cnp-flux-config` names a secret
+   the vault does not have, the CSI driver fails to mount and the pod never starts - with a
+   less obvious error than the one above.
+2. **Then add it to the flux overlay**, `apps/apim/apim-marketplace/<env>.yaml`, as
+   `marketplace-USER-PASSWORD-PEPPER` aliased to `USER_PASSWORD_PEPPER`.
+
+`=== Vault secret diagnostics ===` in the startup log confirms whether it arrived, without
+printing it.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details

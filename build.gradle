@@ -156,6 +156,8 @@ dependencies {
 
   // Bean validation on inbound request bodies - drives the 400 responses in the marketplace OpenAPI spec
   implementation 'org.springframework.boot:spring-boot-starter-validation'
+  // Used for Password hash encoders only
+  implementation 'org.springframework.security:spring-security-crypto'
   // Encodes caller-supplied values before they reach log lines, preventing log injection
   implementation 'org.owasp.encoder:encoder:1.4.0'
 

@@ -92,6 +92,23 @@ resource "azurerm_key_vault_secret" "postgres_database" {
   depends_on   = [module.vault]
 }
 
+resource "random_password" "user_password_pepper" {
+  length  = 64
+  special = false
+}
+
+resource "azurerm_key_vault_secret" "user_password_pepper" {
+  name         = "marketplace-USER-PASSWORD-PEPPER"
+  value        = random_password.user_password_pepper.result
+  key_vault_id = module.vault.key_vault_id
+  depends_on   = [module.vault]
+
+  lifecycle {
+    # Regenerating the pepper makes every stored password hash unverifiable
+    ignore_changes = [value]
+  }
+}
+
 module "vault" {
   source                               = "git@github.com:hmcts/cnp-module-key-vault?ref=master"
   name                                 = var.vault_name != "" ? var.vault_name : "${var.product}-${var.env}"

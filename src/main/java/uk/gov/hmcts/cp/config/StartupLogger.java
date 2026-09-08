@@ -27,14 +27,18 @@ public class StartupLogger {
     @Value("${POSTGRES_PASS:NOT_SET}")
     private String postgresPass;
 
+    @Value("${marketplace.user-password.pepper:NOT_SET}")
+    private String userPasswordPepper;
+
     @EventListener(ApplicationReadyEvent.class)
     public void logEnvironment() {
         log.info("=== Vault secret diagnostics ===");
-        log.info("POSTGRES_HOST     : {}", postgresHost);
-        log.info("POSTGRES_PORT     : {}", postgresPort);
-        log.info("POSTGRES_DATABASE : {}", postgresDatabase);
-        log.info("POSTGRES_USER     : {}", postgresUser);
-        log.info("POSTGRES_PASS     : {}", postgresPass.equals("NOT_SET") ? "NOT_SET" : "***SET***");
+        log.info("POSTGRES_HOST        : {}", postgresHost);
+        log.info("POSTGRES_PORT        : {}", postgresPort);
+        log.info("POSTGRES_DATABASE    : {}", postgresDatabase);
+        log.info("POSTGRES_USER        : {}", postgresUser);
+        log.info("POSTGRES_PASS        : {}", postgresPass.equals("NOT_SET") ? "NOT_SET" : "***SET***");
+        log.info("USER_PASSWORD_PEPPER : {}", userPasswordPepper.equals("NOT_SET") ? "NOT_SET" : "***SET***");
         log.info("================================");
     }
 }

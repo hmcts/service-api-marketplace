@@ -21,7 +21,8 @@ public class TestContainersInitialise implements ApplicationContextInitializer<C
         TestPropertyValues.of(
             "spring.datasource.url=" + POSTGRES.getJdbcUrl(),
             "spring.datasource.username=" + POSTGRES.getUsername(),
-            "spring.datasource.password=" + POSTGRES.getPassword()
+            "spring.datasource.password=" + POSTGRES.getPassword(),
+            "marketplace.user-password.pepper=dummy-test-pepper"
         ).applyTo(context.getEnvironment());
     }
 }

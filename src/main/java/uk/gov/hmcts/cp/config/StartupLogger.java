@@ -11,8 +11,6 @@ import org.springframework.stereotype.Component;
 public class StartupLogger {
 
     private static final Logger log = LoggerFactory.getLogger(StartupLogger.class);
-    private static final String NOT_SET = "NOT_SET";
-    private static final String SET = "***SET***";
 
     @Value("${POSTGRES_HOST:NOT_SET}")
     private String postgresHost;
@@ -29,22 +27,14 @@ public class StartupLogger {
     @Value("${POSTGRES_PASS:NOT_SET}")
     private String postgresPass;
 
-    @Value("${marketplace.user-password.pepper:NOT_SET}")
-    private String userPasswordPepper;
-
     @EventListener(ApplicationReadyEvent.class)
     public void logEnvironment() {
         log.info("=== Vault secret diagnostics ===");
-        log.info("POSTGRES_HOST        : {}", postgresHost);
-        log.info("POSTGRES_PORT        : {}", postgresPort);
-        log.info("POSTGRES_DATABASE    : {}", postgresDatabase);
-        log.info("POSTGRES_USER        : {}", postgresUser);
-        log.info("POSTGRES_PASS        : {}", masked(postgresPass));
-        log.info("USER_PASSWORD_PEPPER : {}", masked(userPasswordPepper));
+        log.info("POSTGRES_HOST     : {}", postgresHost);
+        log.info("POSTGRES_PORT     : {}", postgresPort);
+        log.info("POSTGRES_DATABASE : {}", postgresDatabase);
+        log.info("POSTGRES_USER     : {}", postgresUser);
+        log.info("POSTGRES_PASS     : {}", postgresPass.equals("NOT_SET") ? "NOT_SET" : "***SET***");
         log.info("================================");
-    }
-
-    private static String masked(final String value) {
-        return NOT_SET.equals(value) ? NOT_SET : SET;
     }
 }

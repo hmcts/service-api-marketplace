@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component;
 public class StartupLogger {
 
     private static final Logger log = LoggerFactory.getLogger(StartupLogger.class);
+    private static final String NOT_SET = "NOT_SET";
+    private static final String SET = "***SET***";
 
     @Value("${POSTGRES_HOST:NOT_SET}")
     private String postgresHost;
@@ -37,8 +39,12 @@ public class StartupLogger {
         log.info("POSTGRES_PORT        : {}", postgresPort);
         log.info("POSTGRES_DATABASE    : {}", postgresDatabase);
         log.info("POSTGRES_USER        : {}", postgresUser);
-        log.info("POSTGRES_PASS        : {}", postgresPass.equals("NOT_SET") ? "NOT_SET" : "***SET***");
-        log.info("USER_PASSWORD_PEPPER : {}", userPasswordPepper.equals("NOT_SET") ? "NOT_SET" : "***SET***");
+        log.info("POSTGRES_PASS        : {}", masked(postgresPass));
+        log.info("USER_PASSWORD_PEPPER : {}", masked(userPasswordPepper));
         log.info("================================");
+    }
+
+    private static String masked(final String value) {
+        return NOT_SET.equals(value) ? NOT_SET : SET;
     }
 }

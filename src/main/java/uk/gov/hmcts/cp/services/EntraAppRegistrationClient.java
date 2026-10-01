@@ -14,7 +14,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.time.Duration;
-import java.util.Locale;
 
 /**
  * Registers one real Microsoft Entra application per marketplace application - the same three
@@ -130,9 +129,8 @@ public class EntraAppRegistrationClient {
                 }
             }
         }
-        throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-            "Entra Graph call '" + description + "' did not succeed after " + MAX_ATTEMPTS + " attempts.",
-            lastFailure);
+        log.error("Entra Graph call '{}' did not succeed after {} attempts.", description, MAX_ATTEMPTS, lastFailure);
+        throw registrationFailure(lastFailure);
     }
 
     private void sleep() {
@@ -157,18 +155,25 @@ public class EntraAppRegistrationClient {
         try {
             HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 300) {
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    String.format(Locale.ROOT, "Entra Graph call to %s returned %d: %s",
-                        url, response.statusCode(), response.body()));
+                // Logged in full - body is Graph's own error detail, which has no
+                // business reaching whoever is registering an application.
+                log.error("Entra Graph call to {} returned {}: {}", url, response.statusCode(), response.body());
+                throw registrationFailure(null);
             }
             return objectMapper.readTree(response.body());
         } catch (final HttpTimeoutException e) {
-            throw new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT,
-                "Entra Graph call to " + url + " timed out.", e);
+            log.error("Entra Graph call to {} timed out.", url, e);
+            throw registrationFailure(e);
         } catch (final ResponseStatusException e) {
             throw e;
         } catch (final Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Entra Graph call to " + url + " failed.", e);
+            log.error("Entra Graph call to {} failed.", url, e);
+            throw registrationFailure(e);
         }
+    }
+
+    private ResponseStatusException registrationFailure(final Throwable cause) {
+        return new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+            "Could not register the application. Please try again.", cause);
     }
 }

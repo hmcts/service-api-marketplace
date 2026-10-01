@@ -127,17 +127,26 @@ public class ApimSubscriptionClient {
         try {
             HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 300) {
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    String.format(Locale.ROOT, "APIM call to %s returned %d: %s",
-                        url, response.statusCode(), response.body()));
+                // Logged in full (URL includes the Azure subscription/resource group;
+                // body is Azure's own error detail) - neither belongs in a response to
+                // whoever is registering an application.
+                log.error("APIM call to {} returned {}: {}", url, response.statusCode(), response.body());
+                throw apiKeyFailure(null);
             }
             return objectMapper.readTree(response.body());
         } catch (final HttpTimeoutException e) {
-            throw new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT, "APIM call to " + url + " timed out.", e);
+            log.error("APIM call to {} timed out.", url, e);
+            throw apiKeyFailure(e);
         } catch (final ResponseStatusException e) {
             throw e;
         } catch (final Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "APIM call to " + url + " failed.", e);
+            log.error("APIM call to {} failed.", url, e);
+            throw apiKeyFailure(e);
         }
+    }
+
+    private ResponseStatusException apiKeyFailure(final Throwable cause) {
+        return new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+            "Could not issue an API key. Please try again.", cause);
     }
 }

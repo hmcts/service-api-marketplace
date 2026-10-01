@@ -15,3 +15,15 @@ java:
           alias: POSTGRES_PORT
         - name: marketplace-POSTGRES-DATABASE
           alias: POSTGRES_DATABASE
+        # Added for application registration (see PR #84) - not yet created in
+        # this environment's vault, so preview deploys of that feature will
+        # 503 until CloudOps provisions them (see the credentials ticket
+        # raised alongside that PR).
+        - name: marketplace-ENTRA-ONBOARDING-CLIENT-ID
+          alias: ENTRA_ONBOARDING_CLIENT_ID
+        - name: marketplace-ENTRA-ONBOARDING-CLIENT-SECRET
+          alias: ENTRA_ONBOARDING_CLIENT_SECRET
+        - name: marketplace-APIM-CLIENT-ID
+          alias: APIM_CLIENT_ID
+        - name: marketplace-APIM-CLIENT-SECRET
+          alias: APIM_CLIENT_SECRET

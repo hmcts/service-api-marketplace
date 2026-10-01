@@ -40,7 +40,11 @@ public class ApimSubscriptionClient {
     private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(REQUEST_TIMEOUT).build();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${APIM_TENANT_ID:NOT_SET}")
+    // Only the credential itself needs a secret - these identify the shared
+    // sandbox instance (sps-api-mgmt-sbox) and don't change per deploy, so
+    // they default rather than requiring a Key Vault entry each, matching the
+    // prototype's own convention for the same values.
+    @Value("${APIM_TENANT_ID:531ff96d-0ae9-462a-8d2d-bec7c0b42082}")
     private String tenantId;
 
     @Value("${APIM_CLIENT_ID:NOT_SET}")
@@ -49,13 +53,13 @@ public class ApimSubscriptionClient {
     @Value("${APIM_CLIENT_SECRET:NOT_SET}")
     private String clientSecret;
 
-    @Value("${APIM_SUBSCRIPTION_ID:NOT_SET}")
+    @Value("${APIM_SUBSCRIPTION_ID:bd2864ed-4f3e-45ed-9c6a-8d179674bab1}")
     private String azureSubscriptionId;
 
-    @Value("${APIM_RESOURCE_GROUP:NOT_SET}")
+    @Value("${APIM_RESOURCE_GROUP:rg-sps-platform-sbox}")
     private String resourceGroup;
 
-    @Value("${APIM_SERVICE_NAME:NOT_SET}")
+    @Value("${APIM_SERVICE_NAME:sps-api-mgmt-sbox}")
     private String serviceName;
 
     public record Subscription(String publisherId, String subscriptionKey) {}
@@ -70,11 +74,9 @@ public class ApimSubscriptionClient {
     }
 
     private void requireConfigured() {
-        if (isNotSet(tenantId) || isNotSet(clientId) || isNotSet(clientSecret)
-            || isNotSet(azureSubscriptionId) || isNotSet(resourceGroup) || isNotSet(serviceName)) {
+        if (isNotSet(clientId) || isNotSet(clientSecret)) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                "APIM credential is not configured. Set APIM_TENANT_ID, APIM_CLIENT_ID, APIM_CLIENT_SECRET, "
-                    + "APIM_SUBSCRIPTION_ID, APIM_RESOURCE_GROUP and APIM_SERVICE_NAME.");
+                "APIM credential is not configured. Set APIM_CLIENT_ID and APIM_CLIENT_SECRET.");
         }
     }
 

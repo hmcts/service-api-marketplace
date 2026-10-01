@@ -42,7 +42,10 @@ public class EntraAppRegistrationClient {
     private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(REQUEST_TIMEOUT).build();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${ENTRA_TENANT_ID:NOT_SET}")
+    // Identifies the shared hmctsextsbox CIAM tenant and doesn't change per
+    // deploy, so it defaults rather than requiring a Key Vault entry, matching
+    // the prototype's own convention for the same value.
+    @Value("${ENTRA_TENANT_ID:d44f885c-4fac-47bf-afde-d7d861ec4d7b}")
     private String tenantId;
 
     @Value("${ENTRA_ONBOARDING_CLIENT_ID:NOT_SET}")
@@ -71,10 +74,10 @@ public class EntraAppRegistrationClient {
     }
 
     private void requireConfigured() {
-        if (isNotSet(tenantId) || isNotSet(onboardingClientId) || isNotSet(onboardingClientSecret)) {
+        if (isNotSet(onboardingClientId) || isNotSet(onboardingClientSecret)) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                "Entra onboarding credential is not configured. Set ENTRA_TENANT_ID, "
-                    + "ENTRA_ONBOARDING_CLIENT_ID and ENTRA_ONBOARDING_CLIENT_SECRET.");
+                "Entra onboarding credential is not configured. Set ENTRA_ONBOARDING_CLIENT_ID "
+                    + "and ENTRA_ONBOARDING_CLIENT_SECRET.");
         }
     }
 

@@ -8,9 +8,15 @@ import org.springframework.transaction.support.TransactionTemplate;
 import uk.gov.hmcts.cp.mappers.ApplicationMapper;
 import uk.gov.hmcts.cp.repository.ApplicationApiKeyRepository;
 import uk.gov.hmcts.cp.repository.ApplicationRepository;
+import uk.gov.hmcts.cp.repository.OrganisationRepository;
 import uk.gov.hmcts.cp.repository.UserRepository;
 import uk.gov.hmcts.cp.services.ApimProductRegistry;
+import uk.gov.hmcts.cp.services.AccountService;
 import uk.gov.hmcts.cp.services.ApplicationService;
+import uk.gov.hmcts.cp.services.AuthRateLimiter;
+import uk.gov.hmcts.cp.services.PasswordService;
+import uk.gov.hmcts.cp.services.TokenService;
+import uk.gov.hmcts.cp.controllers.AuthController;
 import uk.gov.hmcts.cp.services.ApimSubscriptionClient;
 import uk.gov.hmcts.cp.services.EntraAppRegistrationClient;
 
@@ -75,5 +81,37 @@ class AppConfigTest {
                 assertThat(context).hasSingleBean(TransactionTemplate.class);
                 assertThat(context).hasSingleBean(ApplicationService.class);
             });
+    }
+
+    @Test
+    void the_account_endpoints_should_be_wired_from_their_parts() {
+        // No database in a unit test, so the repositories are mocks - what is proved is that every
+        // collaborator the account code asks Spring for exists and that nothing is missing or ambiguous.
+        new ApplicationContextRunner()
+            .withUserConfiguration(AppConfig.class, CorsConfig.class, AuthController.class, AccountService.class,
+                PasswordService.class, TokenService.class, AuthRateLimiter.class)
+            .withBean(UserRepository.class, () -> mock(UserRepository.class))
+            .withBean(OrganisationRepository.class, () -> mock(OrganisationRepository.class))
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context).hasSingleBean(AuthController.class);
+                assertThat(context).hasSingleBean(AccountService.class);
+            });
+    }
+
+    @Test
+    void sign_in_should_be_unavailable_until_a_signing_secret_is_configured() {
+        new ApplicationContextRunner()
+            .withUserConfiguration(AppConfig.class, TokenService.class)
+            .run(context -> assertThatThrownBy(() -> context.getBean(TokenService.class).requireConfigured())
+                .hasMessageContaining("not available"));
+    }
+
+    @Test
+    void sign_in_should_be_available_once_a_long_enough_secret_is_configured() {
+        new ApplicationContextRunner()
+            .withUserConfiguration(AppConfig.class, TokenService.class)
+            .withPropertyValues("JWT_SECRET=0123456789abcdef0123456789abcdef")
+            .run(context -> context.getBean(TokenService.class).requireConfigured());
     }
 }

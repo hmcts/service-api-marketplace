@@ -18,7 +18,6 @@ import uk.gov.hmcts.cp.repository.UserRepository;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.regex.Pattern;
 
 /**
  * Creating an account, signing in, and working out who a bearer token belongs to - the behaviour
@@ -32,11 +31,9 @@ public class AccountService {
 
     static final int MIN_PASSWORD_LENGTH = 12;
     static final int MAX_NAME_LENGTH = 200;
-    static final int MAX_EMAIL_LENGTH = 254;
     static final String DEFAULT_ORGANISATION = "Not specified";
     static final String ACTIVE = "ACTIVE";
     private static final List<String> ROLES = List.of("consumer", "producer");
-    private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
     private final UserRepository userRepository;
     private final OrganisationRepository organisationRepository;
@@ -120,7 +117,7 @@ public class AccountService {
             || isBlank(request.getRole()) || isBlank(request.getPassword())) {
             throw badRequest("Missing required fields.");
         }
-        if (!EMAIL.matcher(request.getEmail()).matches()) {
+        if (!EmailAddresses.isValid(request.getEmail())) {
             throw badRequest("Enter a valid email address.");
         }
         if (!ROLES.contains(request.getRole())) {
@@ -135,9 +132,6 @@ public class AccountService {
         if (request.getFirstName().length() > MAX_NAME_LENGTH || request.getLastName().length() > MAX_NAME_LENGTH
             || (request.getOrganisation() != null && request.getOrganisation().length() > MAX_NAME_LENGTH)) {
             throw badRequest("Names must be no more than 200 characters long.");
-        }
-        if (request.getEmail().length() > MAX_EMAIL_LENGTH) {
-            throw badRequest("Enter a valid email address.");
         }
     }
 

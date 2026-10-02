@@ -198,6 +198,11 @@ public class EntraAppRegistrationClient {
         } catch (final HttpTimeoutException e) {
             log.error("Entra Graph call to {} timed out.", url, e);
             throw registrationFailure(e);
+        } catch (final InterruptedException e) {
+            // Restore the flag rather than swallow it, so a shutting-down pod still sees the interrupt.
+            Thread.currentThread().interrupt();
+            log.error("Entra Graph call to {} was interrupted.", url, e);
+            throw registrationFailure(e);
         } catch (final ResponseStatusException e) {
             throw e;
         } catch (final Exception e) {

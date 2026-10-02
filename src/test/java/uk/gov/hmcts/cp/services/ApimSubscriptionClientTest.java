@@ -278,4 +278,22 @@ class ApimSubscriptionClientTest {
                 assertThat(e.getReason()).doesNotContain(AZURE_SUBSCRIPTION);
             });
     }
+
+    @Test
+    void an_interrupt_should_give_a_generic_message_and_leave_the_thread_interrupted() throws Exception {
+        doThrow(new InterruptedException("shutting down"))
+            .when(httpClient).send(any(HttpRequest.class), any());
+
+        try {
+            assertThatThrownBy(() -> client.createSubscription("My App", "product-pcd"))
+                .isInstanceOfSatisfying(ResponseStatusException.class, e -> {
+                    assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+                    assertThat(e.getReason()).isEqualTo(GENERIC_MESSAGE);
+                });
+            // Swallowing the interrupt would hide a pod shutdown from everything above this call.
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally {
+            Thread.interrupted();
+        }
+    }
 }

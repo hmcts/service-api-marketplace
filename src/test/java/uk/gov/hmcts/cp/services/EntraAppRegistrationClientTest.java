@@ -276,4 +276,18 @@ class EntraAppRegistrationClientTest {
 
         verify(httpClient, never()).send(any(HttpRequest.class), any());
     }
+
+    @Test
+    void an_interrupt_should_give_a_generic_message_and_leave_the_thread_interrupted() throws Exception {
+        doThrow(new InterruptedException("shutting down"))
+            .when(httpClient).send(any(HttpRequest.class), any());
+
+        try {
+            assertGeneric(() -> client.register("My App"));
+            // Swallowing the interrupt would hide a pod shutdown from everything above this call.
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally {
+            Thread.interrupted();
+        }
+    }
 }

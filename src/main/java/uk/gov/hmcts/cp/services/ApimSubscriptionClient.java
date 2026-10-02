@@ -167,6 +167,11 @@ public class ApimSubscriptionClient {
         } catch (final HttpTimeoutException e) {
             log.error("APIM call to {} timed out.", url, e);
             throw apiKeyFailure(e);
+        } catch (final InterruptedException e) {
+            // Restore the flag rather than swallow it, so a shutting-down pod still sees the interrupt.
+            Thread.currentThread().interrupt();
+            log.error("APIM call to {} was interrupted.", url, e);
+            throw apiKeyFailure(e);
         } catch (final ResponseStatusException e) {
             throw e;
         } catch (final Exception e) {

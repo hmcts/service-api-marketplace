@@ -13,29 +13,32 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Entity
-@Table(name = "marketplace_user")
+@Table(name = "application")
 @Getter
 @Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode
-public class UserEntity {
+public class ApplicationEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "org_id")
-    private OrganisationEntity organisation;
+    @JoinColumn(name = "user_id")
+    private UserEntity user;
 
-    private String firstName;
-    private String lastName;
-    private String email;
-    private String passwordHash;
-    private String status;
+    private String name;
 
-    // 'consumer' or 'producer'; the column defaults to consumer, so rows that predate it read as one.
-    private String role;
+    private String environment;
+
+    // The real Entra appId. The secret Entra issued alongside it is never persisted here -
+    // shown once in the response that created it, exactly like Entra's own behaviour.
+    private String clientId;
+
+    private LocalDateTime createdAt;
 }

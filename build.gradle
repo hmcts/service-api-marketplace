@@ -171,6 +171,12 @@ dependencies {
   testAnnotationProcessor 'org.projectlombok:lombok:1.18.48'
 
   implementation 'com.fasterxml.jackson.core:jackson-databind'
+
+  // Passwords (bcrypt only - not the full Spring Security filter chain, which would lock every
+  // existing endpoint) and the signed bearer token the frontend keeps in localStorage.
+  implementation 'org.springframework.security:spring-security-crypto'
+  implementation 'com.nimbusds:nimbus-jose-jwt:10.10'
+
   implementation 'org.mapstruct:mapstruct:1.6.3'
   annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
 

@@ -13,29 +13,33 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Entity
-@Table(name = "marketplace_user")
+@Table(name = "application_api_key")
 @Getter
 @Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode
-public class UserEntity {
+public class ApplicationApiKeyEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "org_id")
-    private OrganisationEntity organisation;
+    @JoinColumn(name = "application_id")
+    private ApplicationEntity application;
 
-    private String firstName;
-    private String lastName;
-    private String email;
-    private String passwordHash;
-    private String status;
+    private String apiShortCode;
 
-    // 'consumer' or 'producer'; the column defaults to consumer, so rows that predate it read as one.
-    private String role;
+    // The APIM Product id for this API + environment. Expected to repeat across different
+    // applications' rows when they subscribe to the same API in the same environment;
+    // subscriptionKey never repeats.
+    private String publisherId;
+
+    private String subscriptionKey;
+
+    private LocalDateTime createdAt;
 }

@@ -1,6 +1,9 @@
 server:
   port: 8080
   shutdown: "graceful"
+  # Behind the ingress every request arrives from the proxy; this makes the client address the real
+  # one, which the sign-in rate limit is keyed on.
+  forward-headers-strategy: native
 
 management:
   endpoint:

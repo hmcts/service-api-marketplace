@@ -18,7 +18,6 @@ import uk.gov.hmcts.cp.services.ApplicationAccessService.Access;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Locale;
-import java.util.regex.Pattern;
 
 /**
  * Who else can work on an application. A developer can see the team; an administrator can change it.
@@ -30,9 +29,7 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class TeamMemberService {
 
-    private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
     private static final String ALREADY_MEMBER = "That person is already a team member on this application.";
-    private static final int MAX_EMAIL_LENGTH = 254;
 
     private final ApplicationAccessService access;
     private final ApplicationTeamMemberRepository teamMemberRepository;
@@ -55,7 +52,7 @@ public class TeamMemberService {
             throw badRequest("Enter an email address.");
         }
         String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
-        if (email.length() > MAX_EMAIL_LENGTH || !EMAIL.matcher(email).matches()) {
+        if (!EmailAddresses.isValid(email)) {
             throw badRequest("Enter a valid email address.");
         }
         if (ViewerRole.teamRole(request.getRole()).isEmpty()) {

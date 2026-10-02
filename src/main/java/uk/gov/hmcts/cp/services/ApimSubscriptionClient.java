@@ -66,7 +66,7 @@ public class ApimSubscriptionClient {
     @Value("${APIM_SERVICE_NAME:sps-api-mgmt-sbox}")
     private String serviceName;
 
-    public record Subscription(String publisherId, String subscriptionKey) {}
+    public record Subscription(String publisherId, String subscriptionKey, String subscriptionName) {}
 
     public Subscription createSubscription(final String applicationName, final String productId) {
         requireConfigured();
@@ -74,7 +74,18 @@ public class ApimSubscriptionClient {
         String subscriptionName = subscriptionNameFor(applicationName);
         JsonNode response = putSubscription(accessToken, subscriptionName, productId, applicationName);
         String primaryKey = response.get("properties").get("primaryKey").asText();
-        return new Subscription(productId, primaryKey);
+        return new Subscription(productId, primaryKey, subscriptionName);
+    }
+
+    /**
+     * Revokes a subscription issued by {@link #createSubscription}, so that a registration that
+     * fails after some keys were issued does not leave live keys that nobody was ever given.
+     */
+    public void deleteSubscription(final String subscriptionName) {
+        requireConfigured();
+        String accessToken = getArmToken();
+        send("DELETE", subscriptionUrl(subscriptionName), null, null, accessToken);
+        log.info("Deleted APIM subscription {}", subscriptionName);
     }
 
     private void requireConfigured() {
@@ -113,13 +124,17 @@ public class ApimSubscriptionClient {
 
     private JsonNode putSubscription(final String accessToken, final String subscriptionName,
         final String productId, final String applicationName) {
-        String url = String.format(Locale.ROOT,
-            "%s/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ApiManagement/service/%s"
-                + "/subscriptions/%s?api-version=2022-08-01",
-            ARM_BASE, azureSubscriptionId, resourceGroup, serviceName, subscriptionName);
+        String url = subscriptionUrl(subscriptionName);
         String body = "{\"properties\":{\"scope\":\"/products/" + productId + "\",\"displayName\":"
             + objectMapper.valueToTree(applicationName + " (" + productId + ")") + "}}";
         return send("PUT", url, body, "application/json", accessToken);
+    }
+
+    private String subscriptionUrl(final String subscriptionName) {
+        return String.format(Locale.ROOT,
+            "%s/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ApiManagement/service/%s"
+                + "/subscriptions/%s?api-version=2022-08-01",
+            ARM_BASE, azureSubscriptionId, resourceGroup, serviceName, subscriptionName);
     }
 
     private JsonNode send(final String method, final String url, final String body, final String contentType,
@@ -127,8 +142,12 @@ public class ApimSubscriptionClient {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
             .uri(URI.create(url))
             .timeout(REQUEST_TIMEOUT)
-            .header("Content-Type", contentType)
-            .method(method, HttpRequest.BodyPublishers.ofString(body));
+            .method(method, body == null
+                ? HttpRequest.BodyPublishers.noBody()
+                : HttpRequest.BodyPublishers.ofString(body));
+        if (contentType != null) {
+            builder.header("Content-Type", contentType);
+        }
         if (bearerToken != null) {
             builder.header("Authorization", "Bearer " + bearerToken);
         }
@@ -141,7 +160,10 @@ public class ApimSubscriptionClient {
                 log.error("APIM call to {} returned {}: {}", url, response.statusCode(), response.body());
                 throw apiKeyFailure(null);
             }
-            return objectMapper.readTree(response.body());
+            // A successful DELETE answers with no body.
+            return response.body() == null || response.body().isBlank()
+                ? objectMapper.createObjectNode()
+                : objectMapper.readTree(response.body());
         } catch (final HttpTimeoutException e) {
             log.error("APIM call to {} timed out.", url, e);
             throw apiKeyFailure(e);

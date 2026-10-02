@@ -232,4 +232,48 @@ class EntraAppRegistrationClientTest {
 
         assertGeneric(() -> client.register("My App"));
     }
+
+    @Test
+    void deleting_should_remove_the_application_by_client_id_without_a_request_body() throws Exception {
+        send(token(), response(204, ""));
+
+        client.delete("client-1");
+
+        ArgumentCaptor<HttpRequest> requests = ArgumentCaptor.forClass(HttpRequest.class);
+        verify(httpClient, times(2)).send(requests.capture(), any());
+        HttpRequest delete = requests.getAllValues().get(1);
+        assertThat(delete.method()).isEqualTo("DELETE");
+        assertThat(delete.uri().toString())
+            .isEqualTo("https://graph.microsoft.com/v1.0/applications(appId='client-1')");
+        assertThat(delete.headers().firstValue("Authorization")).contains("Bearer graph-token");
+        assertThat(delete.headers().firstValue("Content-Type")).isEmpty();
+        assertThat(delete.bodyPublisher().orElseThrow().contentLength()).isZero();
+    }
+
+    @Test
+    void deleting_an_application_that_is_not_visible_yet_should_be_retried() throws Exception {
+        send(token(), notYetReplicated(), response(204, ""));
+
+        client.delete("client-1");
+
+        verify(httpClient, times(3)).send(any(HttpRequest.class), any());
+    }
+
+    @Test
+    void deleting_an_application_that_keeps_failing_should_give_a_generic_message() throws Exception {
+        send(token(), notYetReplicated());
+
+        assertGeneric(() -> client.delete("client-1"));
+    }
+
+    @Test
+    void deleting_without_a_configured_credential_should_return_503_and_call_nothing() throws Exception {
+        ReflectionTestUtils.setField(client, "onboardingClientSecret", "NOT_SET");
+
+        assertThatThrownBy(() -> client.delete("client-1"))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));
+
+        verify(httpClient, never()).send(any(HttpRequest.class), any());
+    }
 }

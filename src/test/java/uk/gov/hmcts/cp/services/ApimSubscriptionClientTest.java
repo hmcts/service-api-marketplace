@@ -118,6 +118,20 @@ class ApimSubscriptionClientTest {
 
         assertThat(result.publisherId()).isEqualTo("product-pcd");
         assertThat(result.subscriptionKey()).isEqualTo("the-primary-key");
+        assertThat(result.subscriptionName()).matches("my-app-[0-9a-f]{8}");
+    }
+
+    @Test
+    void the_returned_name_should_be_the_one_the_subscription_was_created_under() throws Exception {
+        send(token(), subscription());
+
+        ApimSubscriptionClient.Subscription result = client.createSubscription("My App", "product-pcd");
+
+        ArgumentCaptor<HttpRequest> requests = ArgumentCaptor.forClass(HttpRequest.class);
+        verify(httpClient, times(2)).send(requests.capture(), any());
+        // This is what deleteSubscription is later handed, so it must match what was actually created.
+        assertThat(requests.getAllValues().get(1).uri().getPath())
+            .endsWith("/subscriptions/" + result.subscriptionName());
     }
 
     @Test
@@ -222,6 +236,46 @@ class ApimSubscriptionClientTest {
             .isInstanceOfSatisfying(ResponseStatusException.class, e -> {
                 assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
                 assertThat(e.getReason()).isEqualTo(GENERIC_MESSAGE);
+            });
+    }
+
+    @Test
+    void deleting_a_subscription_should_delete_it_by_name_without_a_request_body() throws Exception {
+        send(token(), response(200, ""));
+
+        client.deleteSubscription("my-app-1a2b3c4d");
+
+        ArgumentCaptor<HttpRequest> requests = ArgumentCaptor.forClass(HttpRequest.class);
+        verify(httpClient, times(2)).send(requests.capture(), any());
+        HttpRequest delete = requests.getAllValues().get(1);
+        assertThat(delete.method()).isEqualTo("DELETE");
+        assertThat(delete.uri().toString()).isEqualTo("https://management.azure.com/subscriptions/"
+            + AZURE_SUBSCRIPTION + "/resourceGroups/rg-test/providers/Microsoft.ApiManagement/service/apim-test"
+            + "/subscriptions/my-app-1a2b3c4d?api-version=2022-08-01");
+        assertThat(delete.headers().firstValue("Authorization")).contains("Bearer arm-token");
+        assertThat(delete.headers().firstValue("Content-Type")).isEmpty();
+        assertThat(delete.bodyPublisher().orElseThrow().contentLength()).isZero();
+    }
+
+    @Test
+    void deleting_without_a_configured_credential_should_return_503_and_call_nothing() throws Exception {
+        ReflectionTestUtils.setField(client, "clientId", "NOT_SET");
+
+        assertThatThrownBy(() -> client.deleteSubscription("my-app-1a2b3c4d"))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));
+
+        verify(httpClient, never()).send(any(HttpRequest.class), any());
+    }
+
+    @Test
+    void failed_delete_should_give_a_generic_message_without_azure_detail() throws Exception {
+        send(token(), response(403, "{\"error\":\"" + AZURE_SUBSCRIPTION + " forbidden\"}"));
+
+        assertThatThrownBy(() -> client.deleteSubscription("my-app-1a2b3c4d"))
+            .isInstanceOfSatisfying(ResponseStatusException.class, e -> {
+                assertThat(e.getReason()).isEqualTo(GENERIC_MESSAGE);
+                assertThat(e.getReason()).doesNotContain(AZURE_SUBSCRIPTION);
             });
     }
 }

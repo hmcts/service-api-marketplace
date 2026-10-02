@@ -78,6 +78,22 @@ public class EntraAppRegistrationClient {
         return new Registration(clientId, clientSecret);
     }
 
+    /**
+     * Removes an application registered by {@link #register}, so that a registration that fails
+     * part-way does not leave an orphaned Entra application whose secret nobody was ever shown.
+     * Addressed by Client ID (Graph's alternate key) so the object ID need not be kept. Deleting
+     * the application also removes its service principal.
+     */
+    public void delete(final String clientId) {
+        requireConfigured();
+        String accessToken = getOnboardingToken();
+        withRetry("delete application", () -> {
+            send("DELETE", GRAPH_BASE + "/applications(appId='" + clientId + "')", null, null, accessToken);
+            return null;
+        });
+        log.info("Deleted Entra application {}", clientId);
+    }
+
     private void requireConfigured() {
         if (isNotSet(onboardingClientId) || isNotSet(onboardingClientSecret)) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
@@ -100,23 +116,23 @@ public class EntraAppRegistrationClient {
             + "&client_id=" + urlEncode(onboardingClientId)
             + "&client_secret=" + urlEncode(onboardingClientSecret)
             + "&scope=" + urlEncode("https://graph.microsoft.com/.default");
-        JsonNode response = post(tokenUrl, form, "application/x-www-form-urlencoded", null);
+        JsonNode response = send("POST", tokenUrl, form, "application/x-www-form-urlencoded", null);
         return response.get("access_token").asText();
     }
 
     private JsonNode createApplication(final String accessToken, final String applicationName) {
         String body = "{\"displayName\":" + objectMapper.valueToTree(applicationName) + "}";
-        return post(GRAPH_BASE + "/applications", body, "application/json", accessToken);
+        return send("POST", GRAPH_BASE + "/applications", body, "application/json", accessToken);
     }
 
     private void createServicePrincipal(final String accessToken, final String clientId) {
         String body = "{\"appId\":" + objectMapper.valueToTree(clientId) + "}";
-        post(GRAPH_BASE + "/servicePrincipals", body, "application/json", accessToken);
+        send("POST", GRAPH_BASE + "/servicePrincipals", body, "application/json", accessToken);
     }
 
     private String addPassword(final String accessToken, final String objectId) {
         String body = "{\"passwordCredential\":{\"displayName\":\"api-marketplace-generated\"}}";
-        JsonNode response = post(GRAPH_BASE + "/applications/" + objectId + "/addPassword",
+        JsonNode response = send("POST", GRAPH_BASE + "/applications/" + objectId + "/addPassword",
             body, "application/json", accessToken);
         return response.get("secretText").asText();
     }
@@ -153,12 +169,17 @@ public class EntraAppRegistrationClient {
         }
     }
 
-    private JsonNode post(final String url, final String body, final String contentType, final String bearerToken) {
+    private JsonNode send(final String method, final String url, final String body, final String contentType,
+        final String bearerToken) {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
             .uri(URI.create(url))
             .timeout(REQUEST_TIMEOUT)
-            .header("Content-Type", contentType)
-            .POST(HttpRequest.BodyPublishers.ofString(body));
+            .method(method, body == null
+                ? HttpRequest.BodyPublishers.noBody()
+                : HttpRequest.BodyPublishers.ofString(body));
+        if (contentType != null) {
+            builder.header("Content-Type", contentType);
+        }
         if (bearerToken != null) {
             builder.header("Authorization", "Bearer " + bearerToken);
         }
@@ -170,7 +191,10 @@ public class EntraAppRegistrationClient {
                 log.error("Entra Graph call to {} returned {}: {}", url, response.statusCode(), response.body());
                 throw registrationFailure(null);
             }
-            return objectMapper.readTree(response.body());
+            // A successful DELETE answers 204 with no body.
+            return response.body() == null || response.body().isBlank()
+                ? objectMapper.createObjectNode()
+                : objectMapper.readTree(response.body());
         } catch (final HttpTimeoutException e) {
             log.error("Entra Graph call to {} timed out.", url, e);
             throw registrationFailure(e);

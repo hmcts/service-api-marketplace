@@ -6,12 +6,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 import uk.gov.hmcts.cp.domain.AddTeamMemberRequest;
 import uk.gov.hmcts.cp.domain.ApplicationDetailResponse;
@@ -61,7 +61,11 @@ public class ApplicationManagementController {
         return ResponseEntity.ok(applications.detail(authorization, id));
     }
 
-    @PatchMapping("/{id}")
+    // PATCH is what the frontend sends. PUT is accepted too, with the same meaning (fields left out
+    // are left alone), because a PATCH was seen to get no response from a locally running copy of this
+    // service even though the server wrote one - a cause nobody has found. PUT is the way out if that
+    // proves to be real, and costs nothing to offer.
+    @RequestMapping(value = "/{id}", method = {RequestMethod.PATCH, RequestMethod.PUT})
     public ResponseEntity<ApplicationEnvelope> update(
         @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) final String authorization,
         @PathVariable final String id,

@@ -2,6 +2,7 @@ package uk.gov.hmcts.cp.services;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -9,10 +10,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.UUID;
@@ -32,12 +35,13 @@ import java.util.UUID;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class ApimSubscriptionClient {
 
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
     private static final String ARM_BASE = "https://management.azure.com";
 
-    private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(REQUEST_TIMEOUT).build();
+    private final HttpClient httpClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Only the credential itself needs a secret - these identify the shared
@@ -84,6 +88,10 @@ public class ApimSubscriptionClient {
         return value == null || "NOT_SET".equals(value);
     }
 
+    private String urlEncode(final String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
     // Kept short and unique per call rather than deterministic from (applicationName, apiShortCode):
     // a developer adding the same API twice to the same application - after deleting the first
     // subscription - must not collide with the old, now-revoked name.
@@ -96,9 +104,9 @@ public class ApimSubscriptionClient {
     private String getArmToken() {
         String tokenUrl = "https://login.microsoftonline.com/" + tenantId + "/oauth2/v2.0/token";
         String form = "grant_type=client_credentials"
-            + "&client_id=" + clientId
-            + "&client_secret=" + clientSecret
-            + "&scope=" + "https://management.azure.com/.default";
+            + "&client_id=" + urlEncode(clientId)
+            + "&client_secret=" + urlEncode(clientSecret)
+            + "&scope=" + urlEncode("https://management.azure.com/.default");
         JsonNode response = send("POST", tokenUrl, form, "application/x-www-form-urlencoded", null);
         return response.get("access_token").asText();
     }

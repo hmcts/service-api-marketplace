@@ -25,30 +25,38 @@ public class AuthRateLimiter {
 
     private final ClockService clockService;
 
-    private final Map<String, Deque<Instant>> attempts = new ConcurrentHashMap<>();
+    private final Map<String, Attempts> attempts = new ConcurrentHashMap<>();
 
     public boolean tryAcquire(final String client) {
         Instant now = clockService.now();
         Instant cutoff = now.minus(WINDOW);
         if (attempts.size() > PRUNE_ABOVE) {
-            attempts.values().removeIf(window -> isStale(window, cutoff));
+            attempts.values().removeIf(window -> window.isStale(cutoff));
         }
-        Deque<Instant> window = attempts.computeIfAbsent(client, key -> new ArrayDeque<>());
-        synchronized (window) {
-            while (!window.isEmpty() && window.peekFirst().isBefore(cutoff)) {
-                window.pollFirst();
-            }
-            if (window.size() >= LIMIT) {
-                return false;
-            }
-            window.addLast(now);
-            return true;
-        }
+        return attempts.computeIfAbsent(client, key -> new Attempts()).tryRecord(now, cutoff);
     }
 
-    private boolean isStale(final Deque<Instant> window, final Instant cutoff) {
-        synchronized (window) {
-            return window.isEmpty() || window.peekLast().isBefore(cutoff);
+    /**
+     * One client's recent attempts. Its methods are synchronized on the object itself, so two requests
+     * from the same client cannot both see room for the last allowed attempt.
+     */
+    private static final class Attempts {
+
+        private final Deque<Instant> times = new ArrayDeque<>();
+
+        synchronized boolean tryRecord(final Instant now, final Instant cutoff) {
+            while (!times.isEmpty() && times.peekFirst().isBefore(cutoff)) {
+                times.pollFirst();
+            }
+            if (times.size() >= LIMIT) {
+                return false;
+            }
+            times.addLast(now);
+            return true;
+        }
+
+        synchronized boolean isStale(final Instant cutoff) {
+            return times.isEmpty() || times.peekLast().isBefore(cutoff);
         }
     }
 }

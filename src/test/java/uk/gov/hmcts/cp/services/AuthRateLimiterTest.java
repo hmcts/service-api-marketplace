@@ -9,7 +9,14 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.lenient;
@@ -74,6 +81,31 @@ class AuthRateLimiterTest {
         lenient().when(clockService.now()).thenReturn(NOW.plus(Duration.ofMinutes(16)));
         use("203.0.113.9", 10);
         assertThat(limiter.tryAcquire("203.0.113.9")).isFalse();
+    }
+
+    @Test
+    void simultaneous_attempts_from_one_client_should_not_exceed_the_allowance() throws Exception {
+        int callers = 100;
+        ExecutorService pool = Executors.newFixedThreadPool(callers);
+        CountDownLatch go = new CountDownLatch(1);
+        List<Future<Boolean>> results = new ArrayList<>();
+        for (int i = 0; i < callers; i++) {
+            results.add(pool.submit(() -> {
+                go.await();
+                return limiter.tryAcquire("203.0.113.9");
+            }));
+        }
+        go.countDown();
+
+        long allowed = 0;
+        for (Future<Boolean> result : results) {
+            if (result.get(10, TimeUnit.SECONDS)) {
+                allowed++;
+            }
+        }
+        pool.shutdownNow();
+
+        assertThat(allowed).isEqualTo(AuthRateLimiter.LIMIT);
     }
 
     @Test

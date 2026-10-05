@@ -33,6 +33,15 @@ class EmailAddressesTest {
     }
 
     @Test
+    void any_kind_of_whitespace_should_be_rejected() {
+        assertThat(EmailAddresses.isValid("a\tb@example.com")).isFalse();
+        assertThat(EmailAddresses.isValid("a@example.com\n")).isFalse();
+        assertThat(EmailAddresses.isValid("a\r@example.com")).isFalse();
+        assertThat(EmailAddresses.isValid("a@exam\fple.com")).isFalse();
+        assertThat(EmailAddresses.isValid("a@exam\u000Bple.com")).isFalse();
+    }
+
+    @Test
     void empty_parts_of_the_domain_should_be_rejected() {
         assertThat(EmailAddresses.isValid("a@example..com")).isFalse();
         assertThat(EmailAddresses.isValid("a@example.com.")).isFalse();

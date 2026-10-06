@@ -50,3 +50,11 @@ variable "pgsql_public_access" {
 variable "vault_name" {
   default = ""
 }
+
+# The service principal that already owns the database objects. Jenkins moved from the
+# per-environment identity to the shared PTL one, and without this the module replaces the
+# admin rather than adding to it - a delete the CanNotDelete lock on the data resource
+# group refuses. Set per environment; null means the module picks the admin itself.
+variable "existing_admin_user_object_id" {
+  default = null
+}

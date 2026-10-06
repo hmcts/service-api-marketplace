@@ -35,7 +35,7 @@ module "postgresql_flexible" {
     azurerm.postgres_network = azurerm.postgres_network
   }
 
-  source                    = "git@github.com:hmcts/terraform-module-postgresql-flexible?ref=master"
+  source                    = "git@github.com:hmcts/terraform-module-postgresql-flexible?ref=dc65f69d0f7afdea16a7ea904ffeadfc0184b658"
   env                       = var.env
   product                   = var.product
   name                      = "${var.product}-flexible"
@@ -48,6 +48,8 @@ module "postgresql_flexible" {
 
   common_tags          = local.tags
   admin_user_object_id = var.jenkins_AAD_objectId
+
+  existing_admin_user_object_id = var.existing_admin_user_object_id
 
   pgsql_databases = [
     { name : "marketplace" }
@@ -93,7 +95,7 @@ resource "azurerm_key_vault_secret" "postgres_database" {
 }
 
 module "vault" {
-  source                               = "git@github.com:hmcts/cnp-module-key-vault?ref=master"
+  source                               = "git@github.com:hmcts/cnp-module-key-vault?ref=fd9db0a9d83e69c5e2f131a03322508b1f3690fc"
   name                                 = var.vault_name != "" ? var.vault_name : "${var.product}-${var.env}"
   product                              = var.product
   env                                  = var.env

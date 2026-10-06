@@ -236,5 +236,3 @@ Register this as a backend in `sps-api-mgmt-sbox` to route traffic from SPS APIM
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
-
-

@@ -38,7 +38,7 @@ java:
   #       # was reverted in AMP-1103):
   #       #   az keyvault secret set --vault-name apim-sbox --name marketplace-JWT-SECRET \
   #       #     --value "$(openssl rand -hex 32)"
-  #       # Until it exists, register and sign-in answer 503. Not enabled in the AAT/preview
-  #       # templates for the same reason the PR #84 entries are only safe once the vault holds them.
+  #       # Until it exists, register and sign-in answer 503. The AAT and preview templates list it,
+  #       # so it must be in apim-aat before they deploy.
   #       - name: marketplace-JWT-SECRET
   #         alias: JWT_SECRET

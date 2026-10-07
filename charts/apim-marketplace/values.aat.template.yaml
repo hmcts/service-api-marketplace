@@ -15,6 +15,11 @@ java:
           alias: POSTGRES_PORT
         - name: marketplace-POSTGRES-DATABASE
           alias: POSTGRES_DATABASE
+        # Signing key for /api/register and /api/login. Created by hand in the vault rather than
+        # in Terraform (random_password is not whitelisted, see AMP-1103). Without it sign-in
+        # answers 503; listed while missing, the pod cannot mount its secrets and never starts.
+        - name: marketplace-JWT-SECRET
+          alias: JWT_SECRET
         # Application registration (PR #84) needs these four, but they do not exist in this
         # environment's vault yet. Listing a secret that is missing does not just disable the
         # feature: the pod cannot mount its secrets volume and never leaves Init, so the AAT

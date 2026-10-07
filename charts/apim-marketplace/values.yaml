@@ -9,8 +9,9 @@ java:
     APPLICATIONINSIGHTS_CONNECTION_STRING: "InstrumentationKey=00000000-0000-0000-0000-000000000000"
     # Where an application's credentials come from: "local" (the default - the service makes them up) or
     # "entra" (a real Entra Client ID/Secret, and an APIM Subscription Key for each connected API). Do not
-    # set "entra" until all four marketplace-ENTRA-*/marketplace-APIM-* secrets below exist in the vault and
-    # APIM_PRODUCT_MAP is set: until then every create and connect would be refused with a 503.
+    # set "entra" until the Entra secrets (from the External ID vault) and the two marketplace-APIM-* secrets
+    # below are mounted and APIM_PRODUCT_MAP is set: until then every create and connect would be refused
+    # with a 503.
     # APPLICATION_CREDENTIALS: "entra"
   # keyVaults are defined per-environment in cnp-flux-config overlays
   # so sbox can use apim-sbox without conflicting with the apim-{env} default
@@ -27,13 +28,8 @@ java:
   #         alias: POSTGRES_PORT
   #       - name: marketplace-POSTGRES-DATABASE
   #         alias: POSTGRES_DATABASE
-  #       # Added for application registration (see PR #84) - not yet created
-  #       # in the apim-sbox vault, so left commented until CloudOps provisions
-  #       # them (see the "two credentials" ticket raised alongside that PR).
-  #       - name: marketplace-ENTRA-ONBOARDING-CLIENT-ID
-  #         alias: ENTRA_ONBOARDING_CLIENT_ID
-  #       - name: marketplace-ENTRA-ONBOARDING-CLIENT-SECRET
-  #         alias: ENTRA_ONBOARDING_CLIENT_SECRET
+  #       # APIM credential for application registration (see PR #84). The service principal does not
+  #       # exist yet, so these two are left commented until CloudOps provision it and store them here.
   #       - name: marketplace-APIM-CLIENT-ID
   #         alias: APIM_CLIENT_ID
   #       - name: marketplace-APIM-CLIENT-SECRET
@@ -47,3 +43,19 @@ java:
   #       # templates for the same reason the PR #84 entries are only safe once the vault holds them.
   #       - name: marketplace-JWT-SECRET
   #         alias: JWT_SECRET
+  #
+  #   # The Entra credential for application registration is NOT created by hand. hmcts/external-entra-id already
+  #   # generates it for the amp-client-onboarding app into the External ID Key Vault, and (once
+  #   # hmcts/external-entra-id#18 is merged and applied) shares it with this service's workload identity,
+  #   # apim-sandbox-mi, read-only. Mount it from that vault. The vault is kvspsextidsbox; how a chart references
+  #   # a vault in another subscription is for PlatOps to confirm, so only the secrets are written down here:
+  #   kvspsextidsbox:
+  #     secrets:
+  #       - name: entra-app-amp-client-onboarding-client-id
+  #         alias: ENTRA_ONBOARDING_CLIENT_ID
+  #       - name: entra-app-amp-client-onboarding-secret
+  #         alias: ENTRA_ONBOARDING_CLIENT_SECRET
+  #       # entra-tenant-id (alias ENTRA_TENANT_ID) is also shared, but the service already defaults to the
+  #       # same tenant, so it is not needed.
+  #   # That secret rotates at 75% of its validity with a hard cutover; the service reads it once at startup,
+  #   # so a rotation needs a pod restart until the service re-reads it on an auth failure.

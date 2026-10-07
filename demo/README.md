@@ -2,7 +2,7 @@
 
 A self-contained, offline stack that runs the real service through the whole application journey:
 
-1. create an account and sign in
+1. create an account, which also creates the person's **user in Entra External ID** (a local account signed in by email), and sign in
 2. register an application, and get a **Client ID and Client Secret** (Microsoft Entra)
 3. connect it to an API, and get a **Subscription Key** for that API (Azure API Management)
 4. add and revoke client secrets, disconnect the API, delete the application, and see each of those
@@ -77,7 +77,15 @@ slash (the exported site does). If you land on "Page not found" there, remove th
 
 ## How it is switched on
 
-One setting, `APPLICATION_CREDENTIALS`:
+Two settings, both off by default and both rejecting anything but `local` or `entra`:
+
+- **`ACCOUNT_IDENTITY`**: with `entra`, registering an account also creates the user in Entra through Graph (`POST /users`)
+  and keeps its object id on the account. If saving the account then fails, the Entra user is deleted again. An email
+  Entra already has is refused exactly like one registered here. It uses its own credential
+  (`ENTRA_USER_ONBOARDING_CLIENT_ID` / `_SECRET`), because creating users needs a far broader Graph permission
+  than registering applications does. **Not tried against the real Graph:** creating a real user in the tenant is for
+  a person to do. It also sends the password the person chose to Graph, so the two systems share one password.
+- **`APPLICATION_CREDENTIALS`**:
 
 | Value | Behaviour |
 |---|---|

@@ -3,6 +3,7 @@ package uk.gov.hmcts.cp.services;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -26,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -48,6 +50,9 @@ class AccountServiceTest {
 
     @Mock
     private TokenService tokenService;
+
+    @Mock
+    private EntraUserClient entraUsers;
 
     @InjectMocks
     private AccountService accountService;
@@ -415,5 +420,134 @@ class AccountServiceTest {
         when(userRepository.findById(11)).thenReturn(Optional.of(stored.toBuilder().status("DISABLED").build()));
 
         assertNotSignedIn("Bearer good-token", "Not signed in.");
+    }
+
+    // --------------------------------------------------------------- the person's user in Entra
+
+    private void entraWillCreate() {
+        when(entraUsers.enabled()).thenReturn(true);
+        when(entraUsers.createUser("Joe", "Bloggs", "joe.bloggs@example.com", PASSWORD)).thenReturn("entra-oid-1");
+    }
+
+    private void everythingBeforeEntraWillSucceed() {
+        when(userRepository.findByEmail("joe.bloggs@example.com")).thenReturn(Optional.empty());
+        when(organisationRepository.findByNameIgnoreCase("HMCTS")).thenReturn(Optional.of(HMCTS));
+        when(passwordService.hash(PASSWORD)).thenReturn("stored-hash");
+    }
+
+    @Test
+    void registering_with_entra_should_create_the_user_after_hashing_and_before_saving() {
+        registrationWillSucceed();
+        entraWillCreate();
+
+        accountService.register(valid);
+
+        InOrder order = inOrder(passwordService, entraUsers, userRepository);
+        order.verify(passwordService).hash(PASSWORD);
+        order.verify(entraUsers).createUser("Joe", "Bloggs", "joe.bloggs@example.com", PASSWORD);
+        order.verify(userRepository).save(any(UserEntity.class));
+    }
+
+    @Test
+    void the_entra_object_id_should_be_kept_on_the_account() {
+        registrationWillSucceed();
+        entraWillCreate();
+
+        accountService.register(valid);
+
+        ArgumentCaptor<UserEntity> saved = ArgumentCaptor.forClass(UserEntity.class);
+        verify(userRepository).save(saved.capture());
+        assertThat(saved.getValue().getEntraObjectId()).isEqualTo("entra-oid-1");
+    }
+
+    @Test
+    void registering_without_entra_should_never_touch_it_and_keep_no_object_id() {
+        registrationWillSucceed();
+
+        accountService.register(valid);
+
+        verify(entraUsers, never()).createUser(any(), any(), any(), any());
+        ArgumentCaptor<UserEntity> saved = ArgumentCaptor.forClass(UserEntity.class);
+        verify(userRepository).save(saved.capture());
+        assertThat(saved.getValue().getEntraObjectId()).isNull();
+    }
+
+    @Test
+    void an_email_entra_already_has_should_be_refused_exactly_like_one_registered_here() {
+        everythingBeforeEntraWillSucceed();
+        when(entraUsers.enabled()).thenReturn(true);
+        when(entraUsers.createUser("Joe", "Bloggs", "joe.bloggs@example.com", PASSWORD))
+            .thenThrow(new EntraUserClient.AlreadyExists());
+
+        assertRejected(valid, HttpStatus.CONFLICT, "An account with these details could not be created.");
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void password_entra_refuses_should_say_so_and_save_nothing() {
+        everythingBeforeEntraWillSucceed();
+        when(entraUsers.enabled()).thenReturn(true);
+        when(entraUsers.createUser("Joe", "Bloggs", "joe.bloggs@example.com", PASSWORD))
+            .thenThrow(new EntraUserClient.PasswordRejected());
+
+        assertRejected(valid, HttpStatus.BAD_REQUEST, AccountService.PASSWORD_REJECTED);
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void failure_at_entra_should_save_nothing_and_surface() {
+        everythingBeforeEntraWillSucceed();
+        when(entraUsers.enabled()).thenReturn(true);
+        when(entraUsers.createUser("Joe", "Bloggs", "joe.bloggs@example.com", PASSWORD))
+            .thenThrow(new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Could not create the account."));
+
+        assertRejected(valid, HttpStatus.BAD_GATEWAY, "Could not create the account.");
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void the_hashing_failing_should_not_leave_an_entra_user_behind() {
+        when(userRepository.findByEmail("joe.bloggs@example.com")).thenReturn(Optional.empty());
+        when(organisationRepository.findByNameIgnoreCase("HMCTS")).thenReturn(Optional.of(HMCTS));
+        when(passwordService.hash(PASSWORD)).thenThrow(new IllegalStateException("hashing failed"));
+
+        assertThatThrownBy(() -> accountService.register(valid)).isInstanceOf(IllegalStateException.class);
+
+        verify(entraUsers, never()).createUser(any(), any(), any(), any());
+    }
+
+    @Test
+    void losing_the_email_race_should_delete_the_entra_user_again() {
+        everythingBeforeEntraWillSucceed();
+        entraWillCreate();
+        when(userRepository.save(any(UserEntity.class))).thenThrow(new DataIntegrityViolationException("duplicate"));
+
+        assertRejected(valid, HttpStatus.CONFLICT, "An account with these details could not be created.");
+
+        verify(entraUsers).undoCreate("entra-oid-1");
+    }
+
+    @Test
+    void any_other_failure_saving_should_delete_the_entra_user_again_and_surface() {
+        everythingBeforeEntraWillSucceed();
+        entraWillCreate();
+        when(userRepository.save(any(UserEntity.class))).thenThrow(new IllegalStateException("db is down"));
+
+        assertThatThrownBy(() -> accountService.register(valid)).isInstanceOf(IllegalStateException.class);
+
+        verify(entraUsers).undoCreate("entra-oid-1");
+    }
+
+    @Test
+    void failure_saving_without_entra_should_have_nothing_to_undo() {
+        everythingBeforeEntraWillSucceed();
+        when(userRepository.save(any(UserEntity.class))).thenThrow(new IllegalStateException("db is down"));
+
+        assertThatThrownBy(() -> accountService.register(valid)).isInstanceOf(IllegalStateException.class);
+
+        verify(entraUsers, never()).undoCreate(any());
     }
 }

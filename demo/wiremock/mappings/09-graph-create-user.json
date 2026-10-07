@@ -1,0 +1,9 @@
+{
+  "name": "Graph: create a user (a local account signed in by email) - a fresh object id each time",
+  "request": { "method": "POST", "urlPath": "/graph/users" },
+  "response": {
+    "status": 201,
+    "headers": { "Content-Type": "application/json" },
+    "body": "{\"id\":\"{{randomValue type='UUID'}}\"}"
+  }
+}

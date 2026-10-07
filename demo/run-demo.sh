@@ -51,12 +51,15 @@ call() { # method path [token] [body]
 flow() {
   curl -s -X DELETE "$STUB/__admin/requests" >/dev/null   # so the journal at the end is just this run
 
-  bold "1. Create an account and sign in"
+  bold "1. Create an account (and their user in Entra) and sign in"
   local email="demo+$RANDOM@example.com"
   local out token
   out=$(call POST /api/register "" "{\"firstName\":\"Dee\",\"lastName\":\"Mo\",\"email\":\"$email\",\"organisation\":\"Demo Org\",\"role\":\"consumer\",\"password\":\"Demo-password-1\"}")
   token=$(echo "$out" | sed '$d' | json "d['token']")
   note "registered $email (HTTP $(echo "$out" | tail -1)); the service signed a bearer token for them"
+  note "and created their user in Entra through Graph, keeping its object id:"
+  docker exec amp-demo-db-1 psql -U postgres -d marketplace -At -c \
+    "select '      '||email||'  ->  Entra object id '||coalesce(entra_object_id,'(none)') from marketplace_user where email='$email'"
 
   bold "2. Register an application: Entra gives it a Client ID and Client Secret"
   out=$(call POST /api/applications "$token" '{"name":"Demo app","environment":"sandbox","description":"Created by run-demo.sh"}')

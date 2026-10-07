@@ -19,6 +19,7 @@ import uk.gov.hmcts.cp.services.TokenService;
 import uk.gov.hmcts.cp.controllers.AuthController;
 import uk.gov.hmcts.cp.services.ApimSubscriptionClient;
 import uk.gov.hmcts.cp.services.EntraAppRegistrationClient;
+import uk.gov.hmcts.cp.services.EntraUserClient;
 
 import java.net.http.HttpClient;
 
@@ -89,7 +90,7 @@ class AppConfigTest {
         // collaborator the account code asks Spring for exists and that nothing is missing or ambiguous.
         new ApplicationContextRunner()
             .withUserConfiguration(AppConfig.class, CorsConfig.class, AuthController.class, AccountService.class,
-                PasswordService.class, TokenService.class, AuthRateLimiter.class)
+                PasswordService.class, TokenService.class, AuthRateLimiter.class, EntraUserClient.class)
             .withBean(UserRepository.class, () -> mock(UserRepository.class))
             .withBean(OrganisationRepository.class, () -> mock(OrganisationRepository.class))
             .run(context -> {
@@ -97,6 +98,29 @@ class AppConfigTest {
                 assertThat(context).hasSingleBean(AuthController.class);
                 assertThat(context).hasSingleBean(AccountService.class);
             });
+    }
+
+    @Test
+    void registering_should_create_no_entra_user_unless_asked_and_refuse_to_without_a_credential() {
+        new ApplicationContextRunner()
+            .withUserConfiguration(AppConfig.class, EntraUserClient.class)
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                // Off by default: registration is exactly what it was.
+                assertThat(context.getBean(EntraUserClient.class).enabled()).isFalse();
+                // And if someone does switch it on without the credential, it says so rather than calling Microsoft.
+                assertThatThrownBy(() -> context.getBean(EntraUserClient.class)
+                    .createUser("Joe", "Bloggs", "joe@example.com", "correct-horse-battery-staple"))
+                    .hasMessageContaining("not configured");
+            });
+    }
+
+    @Test
+    void typo_in_the_account_identity_setting_should_stop_the_service_starting_up() {
+        new ApplicationContextRunner()
+            .withUserConfiguration(AppConfig.class, EntraUserClient.class)
+            .withPropertyValues("ACCOUNT_IDENTITY=entr4")
+            .run(context -> assertThat(context).hasFailed());
     }
 
     @Test

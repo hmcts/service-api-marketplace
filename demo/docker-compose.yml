@@ -63,6 +63,13 @@ services:
       APIM_CLIENT_ID: demo-apim-client
       APIM_CLIENT_SECRET: demo-apim-secret
 
+      # Registering an account also creates the person's user in Entra, through Graph. It uses its own credential,
+      # because creating users needs a far broader Graph permission than registering applications does.
+      ACCOUNT_IDENTITY: entra
+      ENTRA_USER_ONBOARDING_CLIENT_ID: demo-user-onboarding
+      ENTRA_USER_ONBOARDING_CLIENT_SECRET: demo-user-secret
+      ENTRA_TENANT_DOMAIN: demo.onmicrosoft.com
+
       # Where Microsoft would be. Leave all four unset anywhere real.
       ENTRA_LOGIN_BASE_URL: http://entra-stub:8080
       ENTRA_GRAPH_BASE_URL: http://entra-stub:8080/graph

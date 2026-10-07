@@ -33,12 +33,14 @@ public class AccountService {
     static final int MAX_NAME_LENGTH = 200;
     static final String DEFAULT_ORGANISATION = "Not specified";
     static final String ACTIVE = "ACTIVE";
+    static final String PASSWORD_REJECTED = "That password was not accepted. Choose a different one.";
     private static final List<String> ROLES = List.of("consumer", "producer");
 
     private final UserRepository userRepository;
     private final OrganisationRepository organisationRepository;
     private final PasswordService passwordService;
     private final TokenService tokenService;
+    private final EntraUserClient entraUsers;
 
     public AuthResponse register(final RegisterRequest request) {
         validate(request);
@@ -63,13 +65,25 @@ public class AccountService {
             .role(request.getRole())
             .build();
 
+        // The person's user in Entra, when that is switched on. After everything that can be refused and after the
+        // slow hashing above, and before the one thing that can be rolled back: the database. If the save then
+        // fails, the Entra user is deleted again rather than left for an account that does not exist here.
+        String entraObjectId = createEntraUser(request, email);
+        if (entraObjectId != null) {
+            toSave = toSave.toBuilder().entraObjectId(entraObjectId).build();
+        }
+
         UserEntity saved;
         try {
             saved = userRepository.save(toSave);
         } catch (DataIntegrityViolationException e) {
             // Two registrations for one address racing past the check above; the unique index decides.
             log.warn("Registration lost a race for an email address");
+            undoEntraUser(entraObjectId);
             throw emailTaken();
+        } catch (RuntimeException failure) {
+            undoEntraUser(entraObjectId);
+            throw failure;
         }
         log.info("Registered account for userId {}", saved.getId());
         return new AuthResponse(toResponse(saved), tokenService.issue(saved));
@@ -110,6 +124,27 @@ public class AccountService {
             .filter(found -> ACTIVE.equals(found.getStatus()))
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not signed in."));
         return new MeResponse(toResponse(user));
+    }
+
+    private String createEntraUser(final RegisterRequest request, final String email) {
+        if (!entraUsers.enabled()) {
+            return null;
+        }
+        try {
+            return entraUsers.createUser(request.getFirstName().trim(), request.getLastName().trim(), email,
+                request.getPassword());
+        } catch (EntraUserClient.AlreadyExists e) {
+            // The same answer as an email already registered here: it must not say which system knows it.
+            throw emailTaken();
+        } catch (EntraUserClient.PasswordRejected e) {
+            throw badRequest(PASSWORD_REJECTED);
+        }
+    }
+
+    private void undoEntraUser(final String entraObjectId) {
+        if (entraObjectId != null) {
+            entraUsers.undoCreate(entraObjectId);
+        }
     }
 
     private void validate(final RegisterRequest request) {

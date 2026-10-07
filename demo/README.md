@@ -103,9 +103,41 @@ because only the database can be rolled back.
 | Revoke a secret | Revoked in Entra first; if Entra refuses, it stays active here too |
 | Disconnect an API / delete an application | The Subscription Key and Entra application are deleted first; if that fails, the row stays so it can be tried again. Deleting something already gone is not a failure |
 
-## Going real
+## Against the real thing: `real-sandbox-check.sh`
 
-Everything above is exercised by unit tests and by this stack. Running it for real needs, in the
+The stack above is a stand-in. To run the same service against **Microsoft's real Graph (the External ID tenant)
+and the real sandbox APIM**, once, end to end:
+
+```bash
+az login
+export ENTRA_ONBOARDING_CLIENT_ID=... ENTRA_ONBOARDING_CLIENT_SECRET=...   # may create applications in the tenant
+export I_UNDERSTAND_THIS_CREATES_REAL_SANDBOX_RESOURCES=yes
+./demo/real-sandbox-check.sh
+```
+
+It creates **one** throwaway Entra application and **one** APIM subscription (on `apim-marketplace-sandbox`), exercises
+every operation, deletes both, and checks they are gone. It refuses to run without the last line above, and never
+prints a secret or key in full.
+
+The one shortcut: the service's APIM credential is a service principal that does not exist yet, so a small local shim
+hands the service **your own `az` token** for that one token request. The service's code is untouched and every request
+still goes to Microsoft. What it cannot show is a service principal being allowed to do this.
+
+What running it for real showed (three runs, 7 October 2026):
+
+- Register, add a secret, connect an API, revoke, disconnect and delete all work against the real services.
+- Graph is **slower and stranger than the stand-in**. Straight after an application is created, its next calls
+  are refused for a few seconds: the service principal with a `403 Authorization_RequestDenied`, `addPassword` and
+  `removePassword` with `4xx` (`No password credential found with keyId ...`). The retries absorb every one.
+- Graph's *reads* lag its writes (a count of an application's secrets read 0, 1 and 2 in a row), and the APIM
+  management API went on listing a subscription for **several minutes** after the service had deleted it. So the
+  script does not count secrets, and reports a still-listed subscription as lag to re-check, not as a failure.
+- Nothing was left behind: every application and subscription was gone when checked.
+
+## Going real, permanently
+
+Everything above is exercised by unit tests, by the stand-in stack and by the real check. Running it for real as a
+service needs, in the
 `apim-sbox` vault: `marketplace-ENTRA-ONBOARDING-CLIENT-ID` and `-SECRET`, `marketplace-APIM-CLIENT-ID` and
 `-SECRET`, `marketplace-JWT-SECRET`; the matching entries in `cnp-flux-config`; the real `APIM_PRODUCT_MAP`;
 and `APPLICATION_CREDENTIALS=entra`. None of those exist yet.

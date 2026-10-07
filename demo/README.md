@@ -123,7 +123,7 @@ The one shortcut: the service's APIM credential is a service principal that does
 hands the service **your own `az` token** for that one token request. The service's code is untouched and every request
 still goes to Microsoft. What it cannot show is a service principal being allowed to do this.
 
-What running it for real showed (three runs, 7 October 2026):
+What running it for real showed (four runs, 7 October 2026):
 
 - Register, add a secret, connect an API, revoke, disconnect and delete all work against the real services.
 - Graph is **slower and stranger than the stand-in**. Straight after an application is created, its next calls

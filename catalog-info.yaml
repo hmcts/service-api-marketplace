@@ -1,7 +1,7 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: apim-marketplace
+  name: amp-marketplace
   description: "API Marketplace onboarding service — manages external developer onboarding to HMCTS APIs"
   annotations:
     jenkins.io/job-full-name: "cft:HMCTS_j_to_z/service-api-marketplace"
@@ -14,7 +14,7 @@ metadata:
       icon: chat
 spec:
   type: service
-  system: apim
+  system: amp
   lifecycle: experimental
   owner: group:dts-api-marketplace
 

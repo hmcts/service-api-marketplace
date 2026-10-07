@@ -1,5 +1,5 @@
 variable "product" {
-  default = "apim"
+  default = "amp"
 }
 
 variable "component" {}

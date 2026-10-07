@@ -20,7 +20,7 @@ management:
 
 spring:
   config:
-    import: "optional:configtree:/mnt/secrets/apim/,optional:configtree:/mnt/secrets/apim-sbox/"
+    import: "optional:configtree:/mnt/secrets/amp/,optional:configtree:/mnt/secrets/amp-sbox/"
   application:
     name: service-api-marketplace
   jpa:

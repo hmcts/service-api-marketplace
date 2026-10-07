@@ -1,9 +1,9 @@
 # Don't modify this file, it is only needed for the pipeline to set the image and ingressHost
 java:
   image: ${IMAGE_NAME}
-  ingressHost: apim-marketplace-staging.aat.platform.hmcts.net
+  ingressHost: amp-marketplace-staging.aat.platform.hmcts.net
   keyVaults:
-    apim:
+    amp:
       secrets:
         - name: marketplace-POSTGRES-USER
           alias: POSTGRES_USER

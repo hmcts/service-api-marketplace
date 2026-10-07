@@ -3,7 +3,7 @@
 @Library("Infrastructure@2.12.1")
 
 def type = "java"
-def product = "apim"
+def product = "amp"
 def component = "marketplace"
 
 withPipeline(type, product, component) {

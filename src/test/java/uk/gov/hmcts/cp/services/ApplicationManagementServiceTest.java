@@ -13,6 +13,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
+import uk.gov.hmcts.cp.domain.ApiSubscription;
 import uk.gov.hmcts.cp.domain.ApplicationDetailResponse;
 import uk.gov.hmcts.cp.domain.ApplicationEnvelope;
 import uk.gov.hmcts.cp.domain.ConnectApiRequest;
@@ -22,9 +23,11 @@ import uk.gov.hmcts.cp.domain.CreatedApplicationResponse;
 import uk.gov.hmcts.cp.domain.NewApiKeyResponse;
 import uk.gov.hmcts.cp.domain.UpdateApplicationRequest;
 import uk.gov.hmcts.cp.domain.ViewerRole;
+import uk.gov.hmcts.cp.entity.ApplicationApiKeyEntity;
 import uk.gov.hmcts.cp.entity.ApplicationEntity;
 import uk.gov.hmcts.cp.entity.ApplicationSecretEntity;
 import uk.gov.hmcts.cp.entity.UserEntity;
+import uk.gov.hmcts.cp.repository.ApplicationApiKeyRepository;
 import uk.gov.hmcts.cp.repository.ApplicationRepository;
 import uk.gov.hmcts.cp.repository.ApplicationSecretRepository;
 import uk.gov.hmcts.cp.repository.UserRepository;
@@ -42,6 +45,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -83,6 +87,12 @@ class ApplicationManagementServiceTest {
     @Mock
     private TransactionTemplate transactionTemplate;
 
+    @Mock
+    private ApplicationApiKeyRepository apiKeyRepository;
+
+    @Mock
+    private EntraApimCredentials credentials;
+
     private final ApplicationViewFactory views = new ApplicationViewFactory();
     private final UserEntity owner = UserEntity.builder().id(1).email("olive@example.com").build();
     private final ApplicationEntity application = ApplicationEntity.builder()
@@ -94,7 +104,8 @@ class ApplicationManagementServiceTest {
     @BeforeEach
     void setUp() {
         service = new ApplicationManagementService(applicationRepository, secretRepository, userRepository, access,
-            views, passwordService, secretGenerator, clockService, transactionTemplate);
+            views, passwordService, secretGenerator, clockService, transactionTemplate, apiKeyRepository,
+            credentials);
         ReflectionTestUtils.setField(service, "allowedEnvironments", "sandbox");
         lenient().when(clockService.now()).thenReturn(Instant.parse("2026-10-02T10:00:00Z"));
         lenient().when(transactionTemplate.execute(any())).thenAnswer(invocation ->
@@ -565,5 +576,369 @@ class ApplicationManagementServiceTest {
             .thenAnswer(invocation -> invocation.getArgument(0));
 
         assertThat(service.disconnectApi(AUTH, APP, "nope").application().connectedApis()).isEmpty();
+    }
+
+    // ------------------------------------------------------------------- real Entra and APIM credentials
+
+    private static final ApimSubscriptionClient.Subscription SUBSCRIPTION =
+        new ApimSubscriptionClient.Subscription("product-1", "sub-key-1", "alpha-1a2b3c4d");
+
+    private ApplicationEntity entraApplication() {
+        return application.toBuilder().clientId("entra-client").entraRegistered(true).build();
+    }
+
+    private void grantedWith(final ViewerRole role, final ApplicationEntity granted) {
+        when(access.require(AUTH, APP, role)).thenReturn(new Access(OLIVE, granted, role));
+    }
+
+    private ApplicationApiKeyEntity keyRow(final String apiId, final String subscriptionName) {
+        return ApplicationApiKeyEntity.builder().application(application).apiShortCode(apiId)
+            .publisherId("product-1").subscriptionKey("sub-key-1").subscriptionName(subscriptionName).build();
+    }
+
+    private void entraCreationWillSucceed() {
+        when(access.caller(AUTH)).thenReturn(OLIVE);
+        when(userRepository.findById(1)).thenReturn(Optional.of(owner));
+        when(credentials.enabled()).thenReturn(true);
+        when(credentials.register("Alpha"))
+            .thenReturn(new EntraAppRegistrationClient.Registration("entra-client", "entra-secret", "entra-key"));
+        when(passwordService.hash("entra-secret")).thenReturn("the-hash");
+        // Lenient: the failure tests replace these with one that throws.
+        lenient().when(applicationRepository.save(any(ApplicationEntity.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(secretRepository.save(any(ApplicationSecretEntity.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    @Test
+    void creating_with_entra_should_use_its_client_id_and_secret_and_remember_how_to_revoke_the_secret() {
+        entraCreationWillSucceed();
+
+        CreatedApplicationResponse response = service.create(AUTH, create("Alpha", "sandbox"));
+
+        assertThat(response.apiKey()).isEqualTo("entra-secret");
+        assertThat(response.application().clientId()).isEqualTo("entra-client");
+        ArgumentCaptor<ApplicationEntity> app = ArgumentCaptor.forClass(ApplicationEntity.class);
+        verify(applicationRepository).save(app.capture());
+        assertThat(app.getValue().getClientId()).isEqualTo("entra-client");
+        assertThat(app.getValue().isEntraRegistered()).isTrue();
+        ArgumentCaptor<ApplicationSecretEntity> secret = ArgumentCaptor.forClass(ApplicationSecretEntity.class);
+        verify(secretRepository).save(secret.capture());
+        assertThat(secret.getValue().getEntraKeyId()).isEqualTo("entra-key");
+        assertThat(secret.getValue().getKeyHash()).isEqualTo("the-hash");
+        verify(secretGenerator, never()).generate();
+    }
+
+    @Test
+    void failure_saving_an_entra_application_should_delete_the_entra_application() {
+        entraCreationWillSucceed();
+        when(secretRepository.save(any(ApplicationSecretEntity.class))).thenThrow(new IllegalStateException("db"));
+
+        assertThatThrownBy(() -> service.create(AUTH, create("Alpha", "sandbox")))
+            .isInstanceOf(IllegalStateException.class);
+
+        verify(credentials).undoRegistration("entra-client");
+    }
+
+    @Test
+    void losing_a_name_race_should_also_delete_the_entra_application() {
+        entraCreationWillSucceed();
+        when(applicationRepository.save(any(ApplicationEntity.class)))
+            .thenThrow(new DataIntegrityViolationException("duplicate"));
+
+        assertRejected(() -> service.create(AUTH, create("Alpha", "sandbox")), HttpStatus.CONFLICT,
+            ApplicationManagementService.DUPLICATE);
+
+        verify(credentials).undoRegistration("entra-client");
+    }
+
+    @Test
+    void name_already_in_use_should_be_refused_before_entra_is_asked_for_anything() {
+        when(access.caller(AUTH)).thenReturn(OLIVE);
+        when(applicationRepository.existsByUserIdAndNameIgnoreCaseAndEnvironment(1, "Alpha", "sandbox"))
+            .thenReturn(true);
+
+        assertRejected(() -> service.create(AUTH, create("Alpha", "sandbox")), HttpStatus.CONFLICT,
+            ApplicationManagementService.DUPLICATE);
+
+        verify(credentials, never()).register(any());
+    }
+
+    @Test
+    void failure_saving_a_locally_issued_application_should_not_touch_entra() {
+        when(access.caller(AUTH)).thenReturn(OLIVE);
+        when(userRepository.findById(1)).thenReturn(Optional.of(owner));
+        when(secretGenerator.generate()).thenReturn(SECRET);
+        when(passwordService.hash(SECRET)).thenReturn("the-hash");
+        when(applicationRepository.save(any(ApplicationEntity.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(secretRepository.save(any(ApplicationSecretEntity.class))).thenThrow(new IllegalStateException("db"));
+
+        assertThatThrownBy(() -> service.create(AUTH, create("Alpha", "sandbox")))
+            .isInstanceOf(IllegalStateException.class);
+
+        verify(credentials, never()).register(any());
+        verify(credentials, never()).undoRegistration(any());
+    }
+
+    @Test
+    void new_secret_for_an_entra_application_should_be_issued_by_entra() {
+        grantedWith(ViewerRole.ADMINISTRATOR, entraApplication());
+        when(credentials.addSecret("entra-client"))
+            .thenReturn(new EntraAppRegistrationClient.Secret("key-2", "entra-secret-2"));
+        when(passwordService.hash("entra-secret-2")).thenReturn("the-hash");
+        UUID secretId = UUID.randomUUID();
+        when(secretRepository.save(any(ApplicationSecretEntity.class)))
+            .thenAnswer(invocation -> ((ApplicationSecretEntity) invocation.getArgument(0)).toBuilder()
+                .publicId(secretId).build());
+
+        NewApiKeyResponse response = service.newSecret(AUTH, APP);
+
+        assertThat(response.apiKey()).isEqualTo("entra-secret-2");
+        ArgumentCaptor<ApplicationSecretEntity> saved = ArgumentCaptor.forClass(ApplicationSecretEntity.class);
+        verify(secretRepository).save(saved.capture());
+        assertThat(saved.getValue().getEntraKeyId()).isEqualTo("key-2");
+        verify(secretGenerator, never()).generate();
+    }
+
+    @Test
+    void an_entra_secret_that_could_not_be_saved_should_be_revoked_again() {
+        grantedWith(ViewerRole.ADMINISTRATOR, entraApplication());
+        when(credentials.addSecret("entra-client"))
+            .thenReturn(new EntraAppRegistrationClient.Secret("key-2", "entra-secret-2"));
+        when(passwordService.hash("entra-secret-2")).thenReturn("the-hash");
+        when(secretRepository.save(any(ApplicationSecretEntity.class))).thenThrow(new IllegalStateException("db"));
+
+        assertThatThrownBy(() -> service.newSecret(AUTH, APP)).isInstanceOf(IllegalStateException.class);
+
+        verify(credentials).undoSecret("entra-client", "key-2");
+    }
+
+    @Test
+    void failure_saving_a_locally_issued_secret_should_not_touch_entra() {
+        grantedAs(ViewerRole.ADMINISTRATOR);
+        when(secretGenerator.generate()).thenReturn(SECRET);
+        when(passwordService.hash(SECRET)).thenReturn("the-hash");
+        when(secretRepository.save(any(ApplicationSecretEntity.class))).thenThrow(new IllegalStateException("db"));
+
+        assertThatThrownBy(() -> service.newSecret(AUTH, APP)).isInstanceOf(IllegalStateException.class);
+
+        verify(credentials, never()).undoSecret(any(), any());
+    }
+
+    @Test
+    void revoking_an_entra_secret_should_revoke_it_in_entra_before_marking_it_revoked() {
+        grantedWith(ViewerRole.ADMINISTRATOR, entraApplication());
+        UUID secretId = UUID.randomUUID();
+        ApplicationSecretEntity secret = ApplicationSecretEntity.builder()
+            .publicId(secretId).keyPreview("a1b2").entraKeyId("key-1").build();
+        when(secretRepository.findByPublicIdAndApplication(secretId, entraApplication()))
+            .thenReturn(Optional.of(secret));
+
+        service.revokeSecret(AUTH, APP, secretId.toString());
+
+        InOrder order = inOrder(credentials, secretRepository);
+        order.verify(credentials).revokeSecret("entra-client", "key-1");
+        order.verify(secretRepository).save(any(ApplicationSecretEntity.class));
+    }
+
+    @Test
+    void secret_entra_will_not_revoke_should_stay_active_here_too() {
+        grantedWith(ViewerRole.ADMINISTRATOR, entraApplication());
+        UUID secretId = UUID.randomUUID();
+        ApplicationSecretEntity secret = ApplicationSecretEntity.builder()
+            .publicId(secretId).keyPreview("a1b2").entraKeyId("key-1").build();
+        when(secretRepository.findByPublicIdAndApplication(secretId, entraApplication()))
+            .thenReturn(Optional.of(secret));
+        doThrow(new ResponseStatusException(HttpStatus.BAD_GATEWAY, "no"))
+            .when(credentials).revokeSecret("entra-client", "key-1");
+
+        assertThatThrownBy(() -> service.revokeSecret(AUTH, APP, secretId.toString()))
+            .isInstanceOf(ResponseStatusException.class);
+
+        verify(secretRepository, never()).save(any());
+    }
+
+    @Test
+    void revoking_a_secret_the_service_made_itself_should_not_ask_entra() {
+        grantedAs(ViewerRole.ADMINISTRATOR);
+        UUID secretId = UUID.randomUUID();
+        ApplicationSecretEntity secret = ApplicationSecretEntity.builder()
+            .publicId(secretId).keyPreview("a1b2").build();
+        when(secretRepository.findByPublicIdAndApplication(secretId, application)).thenReturn(Optional.of(secret));
+
+        service.revokeSecret(AUTH, APP, secretId.toString());
+
+        verify(credentials, never()).revokeSecret(any(), any());
+    }
+
+    @Test
+    void connecting_an_api_with_real_credentials_should_issue_and_keep_a_subscription_key() {
+        grantedAs(ViewerRole.DEVELOPER);
+        when(credentials.enabled()).thenReturn(true);
+        when(credentials.productFor("api-1")).thenReturn("product-1");
+        when(credentials.subscribe("Alpha", "product-1")).thenReturn(SUBSCRIPTION);
+        when(applicationRepository.save(any(ApplicationEntity.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApplicationEnvelope response = service.connectApi(AUTH, APP, api("api-1", "API One"));
+
+        assertThat(response.application().connectedApis()).containsExactly(new ConnectedApi("api-1", "API One"));
+        ArgumentCaptor<ApplicationApiKeyEntity> saved = ArgumentCaptor.forClass(ApplicationApiKeyEntity.class);
+        verify(apiKeyRepository).save(saved.capture());
+        assertThat(saved.getValue().getApplication()).isSameAs(application);
+        assertThat(saved.getValue().getApiShortCode()).isEqualTo("api-1");
+        assertThat(saved.getValue().getPublisherId()).isEqualTo("product-1");
+        assertThat(saved.getValue().getSubscriptionKey()).isEqualTo("sub-key-1");
+        assertThat(saved.getValue().getSubscriptionName()).isEqualTo("alpha-1a2b3c4d");
+        assertThat(saved.getValue().getCreatedAt()).isEqualTo(NOW);
+    }
+
+    @Test
+    void an_api_with_no_product_should_be_refused_before_anything_is_created() {
+        grantedAs(ViewerRole.DEVELOPER);
+        when(credentials.enabled()).thenReturn(true);
+        when(credentials.productFor("api-1"))
+            .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown apiShortCode: api-1"));
+
+        assertThatThrownBy(() -> service.connectApi(AUTH, APP, api("api-1", "API One")))
+            .isInstanceOf(ResponseStatusException.class);
+
+        verify(credentials, never()).subscribe(any(), any());
+        verify(apiKeyRepository, never()).save(any());
+        verify(applicationRepository, never()).save(any());
+    }
+
+    @Test
+    void subscription_that_could_not_be_saved_should_be_deleted_again() {
+        grantedAs(ViewerRole.DEVELOPER);
+        when(credentials.enabled()).thenReturn(true);
+        when(credentials.productFor("api-1")).thenReturn("product-1");
+        when(credentials.subscribe("Alpha", "product-1")).thenReturn(SUBSCRIPTION);
+        when(apiKeyRepository.save(any(ApplicationApiKeyEntity.class))).thenThrow(new IllegalStateException("db"));
+
+        assertThatThrownBy(() -> service.connectApi(AUTH, APP, api("api-1", "API One")))
+            .isInstanceOf(IllegalStateException.class);
+
+        verify(credentials).undoSubscription("alpha-1a2b3c4d");
+    }
+
+    @Test
+    void connecting_with_the_services_own_credentials_should_not_ask_apim() {
+        grantedAs(ViewerRole.DEVELOPER);
+        when(applicationRepository.save(any(ApplicationEntity.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.connectApi(AUTH, APP, api("api-1", "API One"));
+
+        verify(credentials, never()).subscribe(any(), any());
+        verify(apiKeyRepository, never()).save(any());
+    }
+
+    @Test
+    void disconnecting_should_delete_the_subscription_before_the_row_that_remembers_it() {
+        ApplicationEntity connected = application.toBuilder()
+            .connectedApis(views.write(List.of(new ConnectedApi("api-1", "One")))).build();
+        grantedWith(ViewerRole.DEVELOPER, connected);
+        List<ApplicationApiKeyEntity> keys = List.of(keyRow("api-1", "alpha-1a2b3c4d"));
+        when(apiKeyRepository.findByApplicationIdAndApiShortCode(10L, "api-1")).thenReturn(keys);
+        when(applicationRepository.save(any(ApplicationEntity.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApplicationEnvelope response = service.disconnectApi(AUTH, APP, "api-1");
+
+        assertThat(response.application().connectedApis()).isEmpty();
+        InOrder order = inOrder(credentials, apiKeyRepository);
+        order.verify(credentials).unsubscribe("alpha-1a2b3c4d");
+        order.verify(apiKeyRepository).deleteAll(keys);
+    }
+
+    @Test
+    void subscription_apim_will_not_delete_should_leave_the_api_connected() {
+        grantedAs(ViewerRole.DEVELOPER);
+        when(apiKeyRepository.findByApplicationIdAndApiShortCode(10L, "api-1"))
+            .thenReturn(List.of(keyRow("api-1", "alpha-1a2b3c4d")));
+        doThrow(new ResponseStatusException(HttpStatus.BAD_GATEWAY, "no"))
+            .when(credentials).unsubscribe("alpha-1a2b3c4d");
+
+        assertThatThrownBy(() -> service.disconnectApi(AUTH, APP, "api-1"))
+            .isInstanceOf(ResponseStatusException.class);
+
+        verify(apiKeyRepository, never()).deleteAll(any());
+        verify(applicationRepository, never()).save(any());
+    }
+
+    @Test
+    void key_row_with_no_subscription_name_should_just_be_removed() {
+        grantedAs(ViewerRole.DEVELOPER);
+        List<ApplicationApiKeyEntity> keys = List.of(keyRow("api-1", null));
+        when(apiKeyRepository.findByApplicationIdAndApiShortCode(10L, "api-1")).thenReturn(keys);
+        when(applicationRepository.save(any(ApplicationEntity.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.disconnectApi(AUTH, APP, "api-1");
+
+        verify(credentials, never()).unsubscribe(any());
+        verify(apiKeyRepository).deleteAll(keys);
+    }
+
+    @Test
+    void deleting_should_take_back_what_was_issued_before_deleting_the_row() {
+        ApplicationEntity entra = entraApplication();
+        grantedWith(ViewerRole.OWNER, entra);
+        when(apiKeyRepository.findByApplicationId(10L)).thenReturn(
+            List.of(keyRow("api-1", "name-1"), keyRow("api-2", null), keyRow("api-3", "name-3")));
+
+        service.delete(AUTH, APP);
+
+        InOrder order = inOrder(credentials, applicationRepository);
+        order.verify(credentials).unsubscribe("name-1");
+        order.verify(credentials).unsubscribe("name-3");
+        order.verify(credentials).deleteApplication("entra-client");
+        order.verify(applicationRepository).delete(entra);
+        verify(credentials, never()).unsubscribe(null);
+    }
+
+    @Test
+    void an_application_entra_will_not_delete_should_be_kept() {
+        grantedWith(ViewerRole.OWNER, entraApplication());
+        doThrow(new ResponseStatusException(HttpStatus.BAD_GATEWAY, "no"))
+            .when(credentials).deleteApplication("entra-client");
+
+        assertThatThrownBy(() -> service.delete(AUTH, APP)).isInstanceOf(ResponseStatusException.class);
+
+        verify(applicationRepository, never()).delete(any());
+    }
+
+    @Test
+    void subscription_apim_will_not_delete_should_keep_the_application_and_leave_entra_alone() {
+        grantedWith(ViewerRole.OWNER, entraApplication());
+        when(apiKeyRepository.findByApplicationId(10L)).thenReturn(List.of(keyRow("api-1", "name-1")));
+        doThrow(new ResponseStatusException(HttpStatus.BAD_GATEWAY, "no")).when(credentials).unsubscribe("name-1");
+
+        assertThatThrownBy(() -> service.delete(AUTH, APP)).isInstanceOf(ResponseStatusException.class);
+
+        verify(credentials, never()).deleteApplication(any());
+        verify(applicationRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleting_an_application_the_service_made_itself_should_not_ask_entra() {
+        grantedAs(ViewerRole.OWNER);
+
+        service.delete(AUTH, APP);
+
+        verify(credentials, never()).deleteApplication(any());
+        verify(applicationRepository).delete(application);
+    }
+
+    @Test
+    void detail_should_include_the_subscription_key_for_each_connected_api() {
+        grantedAs(ViewerRole.DEVELOPER);
+        when(apiKeyRepository.findByApplicationId(10L)).thenReturn(List.of(keyRow("api-1", "name-1")));
+
+        ApplicationDetailResponse response = service.detail(AUTH, APP);
+
+        assertThat(response.apiSubscriptions()).containsExactly(new ApiSubscription("api-1", "sub-key-1"));
     }
 }

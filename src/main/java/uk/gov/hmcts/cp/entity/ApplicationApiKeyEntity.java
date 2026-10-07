@@ -41,5 +41,9 @@ public class ApplicationApiKeyEntity {
 
     private String subscriptionKey;
 
+    // APIM's name for the subscription behind the key; what deleting it there needs. Null on rows made
+    // before it was kept.
+    private String subscriptionName;
+
     private LocalDateTime createdAt;
 }

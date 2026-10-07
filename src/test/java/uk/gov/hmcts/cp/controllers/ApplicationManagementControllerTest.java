@@ -13,6 +13,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.cp.domain.AddTeamMemberRequest;
 import uk.gov.hmcts.cp.domain.ApiKeySummary;
+import uk.gov.hmcts.cp.domain.ApiSubscription;
 import uk.gov.hmcts.cp.domain.ApplicationDetailResponse;
 import uk.gov.hmcts.cp.domain.ApplicationEnvelope;
 import uk.gov.hmcts.cp.domain.ApplicationListResponse;
@@ -140,13 +141,16 @@ class ApplicationManagementControllerTest {
     @Test
     void detail_should_return_the_application_and_its_secrets_by_preview() throws Exception {
         when(applications.detail(AUTH, APP)).thenReturn(new ApplicationDetailResponse(VIEW,
-            List.of(new ApiKeySummary("key-1", "a1b2", "2026-10-02T10:00:00Z", null))));
+            List.of(new ApiKeySummary("key-1", "a1b2", "2026-10-02T10:00:00Z", null)),
+            List.of(new ApiSubscription("hearing-results", "sub-key-1"))));
 
         mvc.perform(get(BASE + "/" + APP).header("Authorization", AUTH))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.application.id").value(APP))
             .andExpect(jsonPath("$.apiKeys[0].preview").value("a1b2"))
-            .andExpect(jsonPath("$.apiKeys[0].revokedAt").doesNotExist());
+            .andExpect(jsonPath("$.apiKeys[0].revokedAt").doesNotExist())
+            .andExpect(jsonPath("$.apiSubscriptions[0].apiId").value("hearing-results"))
+            .andExpect(jsonPath("$.apiSubscriptions[0].subscriptionKey").value("sub-key-1"));
     }
 
     @Test

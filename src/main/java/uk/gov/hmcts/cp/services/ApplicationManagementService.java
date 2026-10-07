@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
+import uk.gov.hmcts.cp.domain.ApiSubscription;
 import uk.gov.hmcts.cp.domain.ApplicationDetailResponse;
 import uk.gov.hmcts.cp.domain.ApplicationEnvelope;
 import uk.gov.hmcts.cp.domain.ApplicationListResponse;
@@ -19,9 +20,11 @@ import uk.gov.hmcts.cp.domain.NewApiKeyResponse;
 import uk.gov.hmcts.cp.domain.OkResponse;
 import uk.gov.hmcts.cp.domain.UpdateApplicationRequest;
 import uk.gov.hmcts.cp.domain.ViewerRole;
+import uk.gov.hmcts.cp.entity.ApplicationApiKeyEntity;
 import uk.gov.hmcts.cp.entity.ApplicationEntity;
 import uk.gov.hmcts.cp.entity.ApplicationSecretEntity;
 import uk.gov.hmcts.cp.entity.UserEntity;
+import uk.gov.hmcts.cp.repository.ApplicationApiKeyRepository;
 import uk.gov.hmcts.cp.repository.ApplicationRepository;
 import uk.gov.hmcts.cp.repository.ApplicationSecretRepository;
 import uk.gov.hmcts.cp.repository.UserRepository;
@@ -35,6 +38,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -42,9 +46,13 @@ import java.util.UUID;
  * connect it to APIs - the behaviour the frontend was built against on amp-auth. Who may do what is
  * decided in {@link ApplicationAccessService}; each method here names the lowest role it needs.
  *
- * <p>The client secret is generated here and shown once: only its bcrypt hash is stored. Registering
- * the application with Entra and issuing APIM subscription keys is a separate path (see
- * ApplicationService); this one needs no external system, so it works wherever the database does.
+ * <p>A client secret is shown once: only its bcrypt hash is stored. Where credentials come from is a
+ * switch, {@code APPLICATION_CREDENTIALS} (see {@link EntraApimCredentials}). By default the service makes
+ * them up itself and needs no external system, so it works wherever the database does. With {@code entra}
+ * the Client ID and secrets are a real Entra application's, and each connected API gets a real APIM
+ * Subscription Key; taking any of them away takes it away there too, before the row that remembers it.
+ * The order throughout is the same: what can be refused is checked first, then the outside systems are
+ * asked, and the database is written last, because only the database can be rolled back.
  */
 @Slf4j
 @Service
@@ -68,6 +76,13 @@ public class ApplicationManagementService {
     private final ClientSecretGenerator secretGenerator;
     private final ClockService clockService;
     private final TransactionTemplate transactionTemplate;
+    private final ApplicationApiKeyRepository apiKeyRepository;
+    private final EntraApimCredentials credentials;
+
+    // Where a client secret came from, and so what undoing it takes: the service's own made-up one, or one
+    // Entra issued (which has a key id to revoke it by).
+    private record Issued(String clientId, String secret, String entraKeyId, boolean entra) {
+    }
 
     // Which environments may be registered. Production has no Entra or APIM configuration behind it
     // yet, so only sandbox is accepted; add the others here, by configuration, as they are wired up.
@@ -95,14 +110,15 @@ public class ApplicationManagementService {
         UserEntity owner = userRepository.findById(caller.id())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not signed in."));
 
-        // Hashed before the transaction opens: bcrypt is deliberately slow, and a transaction should
-        // not hold a connection while it runs.
-        String secret = secretGenerator.generate();
-        String hash = passwordService.hash(secret);
         UUID publicId = UUID.randomUUID();
-        LocalDateTime now = now();
-
+        // Entra is asked last of the things that can be refused above, and the database last of all: only
+        // the database can be rolled back, so what cannot be is not done until the rest is known to be fine.
+        Issued issued = issueFirstSecret(name, publicId);
         try {
+            // Hashed before the transaction opens: bcrypt is deliberately slow, and a transaction should
+            // not hold a connection while it runs.
+            String hash = passwordService.hash(issued.secret());
+            LocalDateTime now = now();
             ApplicationEntity saved = transactionTemplate.execute(status -> {
                 ApplicationEntity application = applicationRepository.save(ApplicationEntity.builder()
                     .user(owner)
@@ -110,18 +126,38 @@ public class ApplicationManagementService {
                     .environment(environment)
                     .description(description)
                     .publicId(publicId)
-                    .clientId(publicId.toString())
+                    .clientId(issued.clientId())
+                    .entraRegistered(issued.entra())
                     .createdAt(now)
                     .build());
-                secretRepository.save(secretFor(application, secret, hash, now));
+                secretRepository.save(secretFor(application, issued.secret(), hash, issued.entraKeyId(), now));
                 return application;
             });
             log.info("Application {} created for userId {}", publicId, caller.id());
-            return new CreatedApplicationResponse(views.view(saved, ViewerRole.OWNER), secret);
+            return new CreatedApplicationResponse(views.view(saved, ViewerRole.OWNER), issued.secret());
         } catch (DataIntegrityViolationException e) {
             // Two creations of the same name racing past the check above; the unique index decides.
             log.warn("Application creation lost a race for a name");
+            undoRegistration(issued);
             throw conflict(DUPLICATE);
+        } catch (RuntimeException failure) {
+            undoRegistration(issued);
+            throw failure;
+        }
+    }
+
+    // The Client ID and first secret: a real Entra application's, or - as before - the service's own.
+    private Issued issueFirstSecret(final String name, final UUID publicId) {
+        if (credentials.enabled()) {
+            EntraAppRegistrationClient.Registration registration = credentials.register(name);
+            return new Issued(registration.clientId(), registration.clientSecret(), registration.keyId(), true);
+        }
+        return new Issued(publicId.toString(), secretGenerator.generate(), null, false);
+    }
+
+    private void undoRegistration(final Issued issued) {
+        if (issued.entra()) {
+            credentials.undoRegistration(issued.clientId());
         }
     }
 
@@ -131,6 +167,11 @@ public class ApplicationManagementService {
             views.view(granted.application(), granted.role()),
             secretRepository.findByApplicationOrderByCreatedAtDesc(granted.application()).stream()
                 .map(views::summary)
+                .toList(),
+            // Every role that can see the application can see its subscription keys: they are what the
+            // application is built with. They are not in the list view, only here.
+            apiKeyRepository.findByApplicationId(granted.application().getId()).stream()
+                .map(key -> new ApiSubscription(key.getApiShortCode(), key.getSubscriptionKey()))
                 .toList());
     }
 
@@ -162,16 +203,45 @@ public class ApplicationManagementService {
         // Owner only, above administrator: it takes the application, and every team member's access
         // to it, away from everyone at once. Secrets and team members go with it (cascade).
         Access granted = access.require(authorization, applicationId, ViewerRole.OWNER);
-        applicationRepository.delete(granted.application());
+        ApplicationEntity application = granted.application();
+        // What was issued outside is taken back first, and a failure there stops the delete: with the row
+        // gone nothing would remember what to take back. Taking back what is already gone is not a failure,
+        // so a delete that stopped half-way can simply be tried again.
+        for (ApplicationApiKeyEntity key : apiKeyRepository.findByApplicationId(application.getId())) {
+            if (key.getSubscriptionName() != null) {
+                credentials.unsubscribe(key.getSubscriptionName());
+            }
+        }
+        if (application.isEntraRegistered()) {
+            credentials.deleteApplication(application.getClientId());
+        }
+        applicationRepository.delete(application);
         log.info("Application {} deleted by userId {}", applicationId, granted.caller().id());
     }
 
     public NewApiKeyResponse newSecret(final String authorization, final String applicationId) {
         Access granted = access.require(authorization, applicationId, ViewerRole.ADMINISTRATOR);
-        String secret = secretGenerator.generate();
-        ApplicationSecretEntity saved = secretRepository.save(
-            secretFor(granted.application(), secret, passwordService.hash(secret), now()));
-        return new NewApiKeyResponse(saved.getPublicId().toString(), secret);
+        ApplicationEntity application = granted.application();
+        Issued issued = issueSecret(application);
+        try {
+            ApplicationSecretEntity saved = secretRepository.save(secretFor(application, issued.secret(),
+                passwordService.hash(issued.secret()), issued.entraKeyId(), now()));
+            return new NewApiKeyResponse(saved.getPublicId().toString(), issued.secret());
+        } catch (RuntimeException failure) {
+            if (issued.entra()) {
+                credentials.undoSecret(application.getClientId(), issued.entraKeyId());
+            }
+            throw failure;
+        }
+    }
+
+    // A further secret comes from the same place the application's Client ID did.
+    private Issued issueSecret(final ApplicationEntity application) {
+        if (application.isEntraRegistered()) {
+            EntraAppRegistrationClient.Secret secret = credentials.addSecret(application.getClientId());
+            return new Issued(application.getClientId(), secret.secretText(), secret.keyId(), true);
+        }
+        return new Issued(application.getClientId(), secretGenerator.generate(), null, false);
     }
 
     public OkResponse revokeSecret(final String authorization, final String applicationId, final String secretId) {
@@ -180,7 +250,15 @@ public class ApplicationManagementService {
         ApplicationAccessService.parse(secretId)
             .flatMap(id -> secretRepository.findByPublicIdAndApplication(id, granted.application()))
             .filter(found -> found.getRevokedAt() == null)
-            .ifPresent(found -> secretRepository.save(found.toBuilder().revokedAt(now()).build()));
+            .ifPresent(found -> {
+                // A secret Entra issued has to be revoked there too, or "revoked" here would be a lie that
+                // leaves it working. If Entra refuses, it stays active here as well, so nothing is claimed
+                // that is not true.
+                if (found.getEntraKeyId() != null) {
+                    credentials.revokeSecret(granted.application().getClientId(), found.getEntraKeyId());
+                }
+                secretRepository.save(found.toBuilder().revokedAt(now()).build());
+            });
         return new OkResponse(true);
     }
 
@@ -196,7 +274,35 @@ public class ApplicationManagementService {
             throw conflict("That API is already connected.");
         }
         connected.add(new ConnectedApi(request.getId(), request.getName()));
-        return withConnectedApis(granted, connected);
+        if (!credentials.enabled()) {
+            return withConnectedApis(granted, connected);
+        }
+        return connectWithSubscription(granted, request.getId(), connected);
+    }
+
+    // Each API an application is connected to gets its own APIM Subscription Key. The Product is looked up
+    // first, so an API with none is turned away before anything exists to undo.
+    private ApplicationEnvelope connectWithSubscription(final Access granted, final String apiId,
+        final List<ConnectedApi> connected) {
+        ApplicationEntity application = granted.application();
+        String productId = credentials.productFor(apiId);
+        ApimSubscriptionClient.Subscription subscription = credentials.subscribe(application.getName(), productId);
+        try {
+            return transactionTemplate.execute(status -> {
+                apiKeyRepository.save(ApplicationApiKeyEntity.builder()
+                    .application(application)
+                    .apiShortCode(apiId)
+                    .publisherId(productId)
+                    .subscriptionKey(subscription.subscriptionKey())
+                    .subscriptionName(subscription.subscriptionName())
+                    .createdAt(now())
+                    .build());
+                return withConnectedApis(granted, connected);
+            });
+        } catch (RuntimeException failure) {
+            credentials.undoSubscription(subscription.subscriptionName());
+            throw failure;
+        }
     }
 
     public ApplicationEnvelope disconnectApi(final String authorization, final String applicationId,
@@ -205,7 +311,21 @@ public class ApplicationManagementService {
         List<ConnectedApi> remaining = views.connectedApis(granted.application().getConnectedApis()).stream()
             .filter(api -> !api.id().equals(apiId))
             .toList();
-        return withConnectedApis(granted, remaining);
+        List<ApplicationApiKeyEntity> keys =
+            apiKeyRepository.findByApplicationIdAndApiShortCode(granted.application().getId(), apiId);
+        if (keys.isEmpty()) {
+            return withConnectedApis(granted, remaining);
+        }
+        // The subscription is deleted before the row that remembers it, so a failure leaves the key
+        // visible and the disconnect something that can be tried again.
+        keys.stream()
+            .map(ApplicationApiKeyEntity::getSubscriptionName)
+            .filter(Objects::nonNull)
+            .forEach(credentials::unsubscribe);
+        return transactionTemplate.execute(status -> {
+            apiKeyRepository.deleteAll(keys);
+            return withConnectedApis(granted, remaining);
+        });
     }
 
     private ApplicationEnvelope withConnectedApis(final Access granted, final List<ConnectedApi> connected) {
@@ -215,11 +335,12 @@ public class ApplicationManagementService {
     }
 
     private ApplicationSecretEntity secretFor(final ApplicationEntity application, final String secret,
-        final String hash, final LocalDateTime createdAt) {
+        final String hash, final String entraKeyId, final LocalDateTime createdAt) {
         return ApplicationSecretEntity.builder()
             .application(application)
             .keyHash(hash)
             .keyPreview(ClientSecretGenerator.previewOf(secret))
+            .entraKeyId(entraKeyId)
             .createdAt(createdAt)
             .build();
     }

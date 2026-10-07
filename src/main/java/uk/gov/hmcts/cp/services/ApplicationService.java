@@ -97,6 +97,7 @@ public class ApplicationService {
                 .name(request.getName())
                 .environment(request.getEnvironment())
                 .clientId(registration.clientId())
+                .entraRegistered(true)
                 .createdAt(now)
                 .build());
 
@@ -106,6 +107,7 @@ public class ApplicationService {
                     .apiShortCode(shortCodeByProductId.get(subscription.publisherId()))
                     .publisherId(subscription.publisherId())
                     .subscriptionKey(subscription.subscriptionKey())
+                    .subscriptionName(subscription.subscriptionName())
                     .createdAt(now)
                     .build()))
                 .toList();

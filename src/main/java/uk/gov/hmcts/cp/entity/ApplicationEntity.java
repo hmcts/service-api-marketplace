@@ -60,6 +60,9 @@ public class ApplicationEntity {
 
     private String connectedApis;
 
+    // True when clientId is a real Entra application, which deleting this application must delete too.
+    private boolean entraRegistered;
+
     // Filled in here rather than only by the column defaults: an INSERT from the entity names every
     // column, so a null in one of these would override the default and fail the NOT NULL. This also
     // keeps the older registration path, which builds the entity without them, working.

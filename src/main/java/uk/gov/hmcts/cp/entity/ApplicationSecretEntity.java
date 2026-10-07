@@ -41,6 +41,10 @@ public class ApplicationSecretEntity {
 
     private String keyPreview;
 
+    // Entra's id for this secret, when Entra issued it; what revoking it there needs. Null for a secret
+    // the service made itself.
+    private String entraKeyId;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime revokedAt;

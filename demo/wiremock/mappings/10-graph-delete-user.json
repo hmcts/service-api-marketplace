@@ -1,0 +1,5 @@
+{
+  "name": "Graph: delete a user",
+  "request": { "method": "DELETE", "urlPathPattern": "/graph/users/[^/]+" },
+  "response": { "status": 204 }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "Graph: create the service principal for an application",
+  "request": { "method": "POST", "urlPath": "/graph/servicePrincipals" },
+  "response": {
+    "status": 201,
+    "headers": { "Content-Type": "application/json" },
+    "body": "{\"id\":\"{{randomValue type='UUID'}}\"}"
+  }
+}

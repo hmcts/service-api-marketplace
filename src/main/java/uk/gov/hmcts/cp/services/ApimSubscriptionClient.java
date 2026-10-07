@@ -39,7 +39,6 @@ import java.util.UUID;
 public class ApimSubscriptionClient {
 
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
-    private static final String ARM_BASE = "https://management.azure.com";
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -66,6 +65,14 @@ public class ApimSubscriptionClient {
     @Value("${APIM_SERVICE_NAME:sps-api-mgmt-sbox}")
     private String serviceName;
 
+    // Where Azure Resource Manager and the sign-in endpoint are. The real Microsoft addresses, unless a
+    // local demo or a test points them at a stand-in; leave both unset everywhere else.
+    @Value("${APIM_ARM_BASE_URL:https://management.azure.com}")
+    private String armBase = "https://management.azure.com";
+
+    @Value("${APIM_LOGIN_BASE_URL:https://login.microsoftonline.com}")
+    private String loginBase = "https://login.microsoftonline.com";
+
     public record Subscription(String publisherId, String subscriptionKey, String subscriptionName) {}
 
     public Subscription createSubscription(final String applicationName, final String productId) {
@@ -84,7 +91,8 @@ public class ApimSubscriptionClient {
     public void deleteSubscription(final String subscriptionName) {
         requireConfigured();
         String accessToken = getArmToken();
-        send("DELETE", subscriptionUrl(subscriptionName), null, null, accessToken);
+        // A subscription that is already gone is not a failure: the aim is that it does not exist.
+        send("DELETE", subscriptionUrl(subscriptionName), null, null, accessToken, true);
         log.info("Deleted APIM subscription {}", subscriptionName);
     }
 
@@ -113,7 +121,7 @@ public class ApimSubscriptionClient {
     }
 
     private String getArmToken() {
-        String tokenUrl = "https://login.microsoftonline.com/" + tenantId + "/oauth2/v2.0/token";
+        String tokenUrl = loginBase + "/" + tenantId + "/oauth2/v2.0/token";
         String form = "grant_type=client_credentials"
             + "&client_id=" + urlEncode(clientId)
             + "&client_secret=" + urlEncode(clientSecret)
@@ -134,11 +142,16 @@ public class ApimSubscriptionClient {
         return String.format(Locale.ROOT,
             "%s/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ApiManagement/service/%s"
                 + "/subscriptions/%s?api-version=2022-08-01",
-            ARM_BASE, azureSubscriptionId, resourceGroup, serviceName, subscriptionName);
+            armBase, azureSubscriptionId, resourceGroup, serviceName, subscriptionName);
     }
 
     private JsonNode send(final String method, final String url, final String body, final String contentType,
         final String bearerToken) {
+        return send(method, url, body, contentType, bearerToken, false);
+    }
+
+    private JsonNode send(final String method, final String url, final String body, final String contentType,
+        final String bearerToken, final boolean missingIsFine) {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
             .uri(URI.create(url))
             .timeout(REQUEST_TIMEOUT)
@@ -153,6 +166,9 @@ public class ApimSubscriptionClient {
         }
         try {
             HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+            if (missingIsFine && response.statusCode() == HttpStatus.NOT_FOUND.value()) {
+                return objectMapper.createObjectNode();
+            }
             if (response.statusCode() >= 300) {
                 // Logged in full (URL includes the Azure subscription/resource group;
                 // body is Azure's own error detail) - neither belongs in a response to

@@ -38,4 +38,7 @@ public class UserEntity {
 
     // 'consumer' or 'producer'; the column defaults to consumer, so rows that predate it read as one.
     private String role;
+
+    // The object id of this person's user in Microsoft Entra, when one was created for them; null otherwise.
+    private String entraObjectId;
 }

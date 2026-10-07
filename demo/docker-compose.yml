@@ -1,0 +1,89 @@
+# A self-contained, offline stack for trying the Entra and APIM credential flow on a laptop.
+#
+#   db          Postgres, on host port 5433 (5432 is left free for a Postgres you may already run)
+#   entra-stub  WireMock standing in for Microsoft Entra, Microsoft Graph and Azure API Management
+#   api         this service, in APPLICATION_CREDENTIALS=entra mode, pointed at the stand-in
+#
+# Nothing here talks to Microsoft. The service runs its real code path - the same requests, in the same
+# order - and only the addresses differ. See demo/README.md.
+name: amp-demo
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: marketplace
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d marketplace"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  entra-stub:
+    image: wiremock/wiremock:3.9.1
+    command: ["--global-response-templating", "--verbose"]
+    volumes:
+      - ./wiremock:/home/wiremock:ro
+    ports:
+      - "8099:8080"
+
+  api:
+    image: eclipse-temurin:25-jre
+    command: ["java", "-jar", "/app/apim-marketplace.jar"]
+    volumes:
+      # Built by ./gradlew bootJar (demo/run-demo.sh does it for you).
+      - ../build/libs/apim-marketplace.jar:/app/apim-marketplace.jar:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      entra-stub:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DATABASE: marketplace
+      POSTGRES_USER: postgres
+      POSTGRES_PASS: postgres
+
+      # Signs the bearer tokens for sign-in. A throwaway value for this demo only.
+      JWT_SECRET: demo-only-jwt-signing-key-do-not-reuse-anywhere
+
+      # The switch: real (here, stand-in) Entra Client ID/Secret and APIM Subscription Keys.
+      APPLICATION_CREDENTIALS: entra
+
+      # The credentials the service would normally read from Key Vault. Any value works against the stub.
+      ENTRA_ONBOARDING_CLIENT_ID: demo-onboarding-client
+      ENTRA_ONBOARDING_CLIENT_SECRET: demo-onboarding-secret
+      APIM_CLIENT_ID: demo-apim-client
+      APIM_CLIENT_SECRET: demo-apim-secret
+
+      # Registering an account also creates the person's user in Entra, through Graph. It uses its own credential,
+      # because creating users needs a far broader Graph permission than registering applications does.
+      ACCOUNT_IDENTITY: entra
+      ENTRA_USER_ONBOARDING_CLIENT_ID: demo-user-onboarding
+      ENTRA_USER_ONBOARDING_CLIENT_SECRET: demo-user-secret
+      ENTRA_TENANT_DOMAIN: demo.onmicrosoft.com
+
+      # Where Microsoft would be. Leave all four unset anywhere real.
+      ENTRA_LOGIN_BASE_URL: http://entra-stub:8080
+      ENTRA_GRAPH_BASE_URL: http://entra-stub:8080/graph
+      APIM_LOGIN_BASE_URL: http://entra-stub:8080
+      APIM_ARM_BASE_URL: http://entra-stub:8080/arm
+
+      # The frontend ids the prototype uses, mapped to APIM Products. Two are left out on purpose, to
+      # show an API with no Product being turned away. These Product ids are examples for the demo, not a
+      # statement of which Product backs which API.
+      APIM_PRODUCT_MAP: >-
+        crime-prosecution-case-details:cp-crime-prosecution-case-details,
+        hearing-results:cp-crime-hearing-results,
+        court-listings-and-scheduling:cp-crime-schedulingandlisting,
+        court-and-tribunal-reference-data:cp-refdata-courthearing
+
+      # The frontend prototype's local address, so a browser may call /api.
+      FRONTEND_ORIGIN: http://localhost:3100,http://127.0.0.1:3100

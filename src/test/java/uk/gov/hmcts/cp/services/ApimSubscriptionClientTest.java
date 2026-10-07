@@ -258,6 +258,30 @@ class ApimSubscriptionClientTest {
     }
 
     @Test
+    void deleting_a_subscription_that_is_already_gone_should_succeed() throws Exception {
+        send(token(), response(404, "{\"error\":\"" + AZURE_SUBSCRIPTION + " not found\"}"));
+
+        client.deleteSubscription("my-app-1a2b3c4d");
+
+        verify(httpClient, times(2)).send(any(HttpRequest.class), any());
+    }
+
+    @Test
+    void stand_in_for_azure_and_the_sign_in_endpoint_should_be_used_when_configured() throws Exception {
+        ReflectionTestUtils.setField(client, "armBase", "http://stand-in:8080/arm");
+        ReflectionTestUtils.setField(client, "loginBase", "http://stand-in:8080");
+        send(token(), response(200, ""));
+
+        client.deleteSubscription("my-app-1a2b3c4d");
+
+        ArgumentCaptor<HttpRequest> requests = ArgumentCaptor.forClass(HttpRequest.class);
+        verify(httpClient, times(2)).send(requests.capture(), any());
+        assertThat(requests.getAllValues().get(0).uri().toString())
+            .isEqualTo("http://stand-in:8080/tenant-1/oauth2/v2.0/token");
+        assertThat(requests.getAllValues().get(1).uri().toString()).startsWith("http://stand-in:8080/arm/subscriptions/");
+    }
+
+    @Test
     void deleting_without_a_configured_credential_should_return_503_and_call_nothing() throws Exception {
         ReflectionTestUtils.setField(client, "clientId", "NOT_SET");
 

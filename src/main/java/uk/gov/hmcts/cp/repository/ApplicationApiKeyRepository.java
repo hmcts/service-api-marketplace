@@ -10,4 +10,6 @@ import java.util.List;
 public interface ApplicationApiKeyRepository extends JpaRepository<ApplicationApiKeyEntity, Long> {
 
     List<ApplicationApiKeyEntity> findByApplicationId(Long applicationId);
+
+    List<ApplicationApiKeyEntity> findByApplicationIdAndApiShortCode(Long applicationId, String apiShortCode);
 }

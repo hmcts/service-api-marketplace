@@ -1,0 +1,12 @@
+{
+  "name": "Azure Resource Manager: create an APIM subscription - the Subscription Key comes back in the same response",
+  "request": {
+    "method": "PUT",
+    "urlPathPattern": "/arm/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.ApiManagement/service/[^/]+/subscriptions/[^/]+"
+  },
+  "response": {
+    "status": 201,
+    "headers": { "Content-Type": "application/json" },
+    "body": "{\"properties\":{\"primaryKey\":\"demo-key-{{randomValue length=32 type='ALPHANUMERIC'}}\",\"secondaryKey\":\"demo-key-{{randomValue length=32 type='ALPHANUMERIC'}}\"}}"
+  }
+}

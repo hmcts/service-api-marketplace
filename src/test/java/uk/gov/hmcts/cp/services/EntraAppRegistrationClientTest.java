@@ -78,11 +78,15 @@ class EntraAppRegistrationClientTest {
     }
 
     private HttpResponse<String> password() {
-        return response(200, "{\"secretText\":\"generated-secret\"}");
+        return response(200, "{\"keyId\":\"key-1\",\"secretText\":\"generated-secret\"}");
     }
 
     private HttpResponse<String> notYetReplicated() {
         return response(404, "{\"error\":\"" + AZURE_DETAIL + "\"}");
+    }
+
+    private HttpResponse<String> unavailable() {
+        return response(503, "{\"error\":\"" + AZURE_DETAIL + "\"}");
     }
 
     @SafeVarargs
@@ -251,8 +255,8 @@ class EntraAppRegistrationClientTest {
     }
 
     @Test
-    void deleting_an_application_that_is_not_visible_yet_should_be_retried() throws Exception {
-        send(token(), notYetReplicated(), response(204, ""));
+    void deleting_an_application_that_fails_at_first_should_be_retried() throws Exception {
+        send(token(), unavailable(), response(204, ""));
 
         client.delete("client-1");
 
@@ -261,9 +265,101 @@ class EntraAppRegistrationClientTest {
 
     @Test
     void deleting_an_application_that_keeps_failing_should_give_a_generic_message() throws Exception {
-        send(token(), notYetReplicated());
+        send(token(), unavailable());
 
         assertGeneric(() -> client.delete("client-1"));
+    }
+
+    @Test
+    void deleting_an_application_that_is_already_gone_should_succeed_without_a_retry() throws Exception {
+        send(token(), notYetReplicated());
+
+        client.delete("client-1");
+
+        verify(httpClient, times(2)).send(any(HttpRequest.class), any());
+    }
+
+    @Test
+    void registering_should_return_the_key_id_that_revoking_the_secret_needs() throws Exception {
+        send(token(), application(), servicePrincipal(), password());
+
+        EntraAppRegistrationClient.Registration registration = client.register("My App");
+
+        assertThat(registration.keyId()).isEqualTo("key-1");
+    }
+
+    @Test
+    void adding_a_secret_should_post_to_the_application_by_client_id_and_return_its_key_id() throws Exception {
+        send(token(), password());
+
+        EntraAppRegistrationClient.Secret secret = client.addSecret("client-1");
+
+        assertThat(secret.keyId()).isEqualTo("key-1");
+        assertThat(secret.secretText()).isEqualTo("generated-secret");
+        ArgumentCaptor<HttpRequest> requests = ArgumentCaptor.forClass(HttpRequest.class);
+        verify(httpClient, times(2)).send(requests.capture(), any());
+        HttpRequest add = requests.getAllValues().get(1);
+        assertThat(add.method()).isEqualTo("POST");
+        assertThat(add.uri().toString())
+            .isEqualTo("https://graph.microsoft.com/v1.0/applications(appId='client-1')/addPassword");
+        assertThat(add.headers().firstValue("Authorization")).contains("Bearer graph-token");
+    }
+
+    @Test
+    void adding_a_secret_that_keeps_failing_should_give_a_generic_message() throws Exception {
+        send(token(), unavailable());
+
+        assertGeneric(() -> client.addSecret("client-1"));
+    }
+
+    @Test
+    void removing_a_secret_should_post_its_key_id_to_the_application_by_client_id() throws Exception {
+        send(token(), response(204, ""));
+
+        client.removeSecret("client-1", "key-1");
+
+        ArgumentCaptor<HttpRequest> requests = ArgumentCaptor.forClass(HttpRequest.class);
+        verify(httpClient, times(2)).send(requests.capture(), any());
+        HttpRequest remove = requests.getAllValues().get(1);
+        assertThat(remove.method()).isEqualTo("POST");
+        assertThat(remove.uri().toString())
+            .isEqualTo("https://graph.microsoft.com/v1.0/applications(appId='client-1')/removePassword");
+        assertThat(remove.headers().firstValue("Content-Type")).contains("application/json");
+        assertThat(bodyOf(remove)).isEqualTo("{\"keyId\":\"key-1\"}");
+    }
+
+    @Test
+    void removing_a_secret_that_keeps_failing_should_give_a_generic_message() throws Exception {
+        send(token(), unavailable());
+
+        assertGeneric(() -> client.removeSecret("client-1", "key-1"));
+    }
+
+    @Test
+    void secrets_should_not_be_added_or_removed_without_a_configured_credential() throws Exception {
+        ReflectionTestUtils.setField(client, "onboardingClientId", "NOT_SET");
+
+        assertThatThrownBy(() -> client.addSecret("client-1")).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> client.removeSecret("client-1", "key-1"))
+            .isInstanceOf(ResponseStatusException.class);
+
+        verify(httpClient, never()).send(any(HttpRequest.class), any());
+    }
+
+    @Test
+    void stand_in_for_graph_and_the_sign_in_endpoint_should_be_used_when_configured() throws Exception {
+        ReflectionTestUtils.setField(client, "graphBase", "http://stand-in:8080/graph");
+        ReflectionTestUtils.setField(client, "loginBase", "http://stand-in:8080");
+        send(token(), response(204, ""));
+
+        client.delete("client-1");
+
+        ArgumentCaptor<HttpRequest> requests = ArgumentCaptor.forClass(HttpRequest.class);
+        verify(httpClient, times(2)).send(requests.capture(), any());
+        assertThat(requests.getAllValues().get(0).uri().toString())
+            .isEqualTo("http://stand-in:8080/tenant-1/oauth2/v2.0/token");
+        assertThat(requests.getAllValues().get(1).uri().toString())
+            .isEqualTo("http://stand-in:8080/graph/applications(appId='client-1')");
     }
 
     @Test

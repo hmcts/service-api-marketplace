@@ -37,7 +37,6 @@ import java.time.Duration;
 @RequiredArgsConstructor
 public class EntraAppRegistrationClient {
 
-    private static final String GRAPH_BASE = "https://graph.microsoft.com/v1.0";
     private static final int MAX_ATTEMPTS = 4;
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
 
@@ -59,7 +58,18 @@ public class EntraAppRegistrationClient {
     @Value("${ENTRA_ONBOARDING_CLIENT_SECRET:NOT_SET}")
     private String onboardingClientSecret;
 
-    public record Registration(String clientId, String clientSecret) {}
+    // Where Graph and the sign-in endpoint are. The real Microsoft addresses, unless a local demo or a
+    // test points them at a stand-in; leave both unset everywhere else.
+    @Value("${ENTRA_GRAPH_BASE_URL:https://graph.microsoft.com/v1.0}")
+    private String graphBase = "https://graph.microsoft.com/v1.0";
+
+    @Value("${ENTRA_LOGIN_BASE_URL:https://login.microsoftonline.com}")
+    private String loginBase = "https://login.microsoftonline.com";
+
+    /** A client secret as Graph returns it: its key id (needed to revoke it later) and the secret itself. */
+    public record Secret(String keyId, String secretText) {}
+
+    public record Registration(String clientId, String clientSecret, String keyId) {}
 
     public Registration register(final String applicationName) {
         requireConfigured();
@@ -72,23 +82,50 @@ public class EntraAppRegistrationClient {
             createServicePrincipal(accessToken, clientId);
             return null;
         });
-        String clientSecret = withRetry("add password", () -> addPassword(accessToken, objectId));
+        Secret secret = withRetry("add password", () -> addPassword(accessToken, "/applications/" + objectId));
 
         log.info("Registered Entra application {} for marketplace application '{}'", clientId, applicationName);
-        return new Registration(clientId, clientSecret);
+        return new Registration(clientId, secret.secretText(), secret.keyId());
+    }
+
+    /**
+     * Adds another client secret to an application registered earlier. Addressed by Client ID, as
+     * {@link #delete} is, so the object ID need not be kept.
+     */
+    public Secret addSecret(final String clientId) {
+        requireConfigured();
+        String accessToken = getOnboardingToken();
+        Secret secret = withRetry("add password",
+            () -> addPassword(accessToken, "/applications(appId='" + clientId + "')"));
+        log.info("Added a client secret to Entra application {}", clientId);
+        return secret;
+    }
+
+    /** Revokes one client secret, by the key id Graph gave when it was made. */
+    public void removeSecret(final String clientId, final String keyId) {
+        requireConfigured();
+        String accessToken = getOnboardingToken();
+        String body = "{\"keyId\":" + objectMapper.valueToTree(keyId) + "}";
+        withRetry("remove password", () -> {
+            send("POST", graphBase + "/applications(appId='" + clientId + "')/removePassword", body,
+                "application/json", accessToken);
+            return null;
+        });
+        log.info("Removed client secret {} from Entra application {}", keyId, clientId);
     }
 
     /**
      * Removes an application registered by {@link #register}, so that a registration that fails
      * part-way does not leave an orphaned Entra application whose secret nobody was ever shown.
      * Addressed by Client ID (Graph's alternate key) so the object ID need not be kept. Deleting
-     * the application also removes its service principal.
+     * the application also removes its service principal. An application that is already gone is
+     * not a failure: the aim is that it does not exist.
      */
     public void delete(final String clientId) {
         requireConfigured();
         String accessToken = getOnboardingToken();
         withRetry("delete application", () -> {
-            send("DELETE", GRAPH_BASE + "/applications(appId='" + clientId + "')", null, null, accessToken);
+            send("DELETE", graphBase + "/applications(appId='" + clientId + "')", null, null, accessToken, true);
             return null;
         });
         log.info("Deleted Entra application {}", clientId);
@@ -111,7 +148,7 @@ public class EntraAppRegistrationClient {
     }
 
     private String getOnboardingToken() {
-        String tokenUrl = "https://login.microsoftonline.com/" + tenantId + "/oauth2/v2.0/token";
+        String tokenUrl = loginBase + "/" + tenantId + "/oauth2/v2.0/token";
         String form = "grant_type=client_credentials"
             + "&client_id=" + urlEncode(onboardingClientId)
             + "&client_secret=" + urlEncode(onboardingClientSecret)
@@ -122,19 +159,21 @@ public class EntraAppRegistrationClient {
 
     private JsonNode createApplication(final String accessToken, final String applicationName) {
         String body = "{\"displayName\":" + objectMapper.valueToTree(applicationName) + "}";
-        return send("POST", GRAPH_BASE + "/applications", body, "application/json", accessToken);
+        return send("POST", graphBase + "/applications", body, "application/json", accessToken);
     }
 
     private void createServicePrincipal(final String accessToken, final String clientId) {
         String body = "{\"appId\":" + objectMapper.valueToTree(clientId) + "}";
-        send("POST", GRAPH_BASE + "/servicePrincipals", body, "application/json", accessToken);
+        send("POST", graphBase + "/servicePrincipals", body, "application/json", accessToken);
     }
 
-    private String addPassword(final String accessToken, final String objectId) {
+    // The application is named by its path - by object id when it has only just been made, by Client
+    // ID (Graph's alternate key) when it is an older one.
+    private Secret addPassword(final String accessToken, final String applicationPath) {
         String body = "{\"passwordCredential\":{\"displayName\":\"api-marketplace-generated\"}}";
-        JsonNode response = send("POST", GRAPH_BASE + "/applications/" + objectId + "/addPassword",
+        JsonNode response = send("POST", graphBase + applicationPath + "/addPassword",
             body, "application/json", accessToken);
-        return response.get("secretText").asText();
+        return new Secret(response.get("keyId").asText(), response.get("secretText").asText());
     }
 
     private interface RetryableCall<T> {
@@ -171,6 +210,11 @@ public class EntraAppRegistrationClient {
 
     private JsonNode send(final String method, final String url, final String body, final String contentType,
         final String bearerToken) {
+        return send(method, url, body, contentType, bearerToken, false);
+    }
+
+    private JsonNode send(final String method, final String url, final String body, final String contentType,
+        final String bearerToken, final boolean missingIsFine) {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
             .uri(URI.create(url))
             .timeout(REQUEST_TIMEOUT)
@@ -185,6 +229,9 @@ public class EntraAppRegistrationClient {
         }
         try {
             HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+            if (missingIsFine && response.statusCode() == HttpStatus.NOT_FOUND.value()) {
+                return objectMapper.createObjectNode();
+            }
             if (response.statusCode() >= 300) {
                 // Logged in full - body is Graph's own error detail, which has no
                 // business reaching whoever is registering an application.

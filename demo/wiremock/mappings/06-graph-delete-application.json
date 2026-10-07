@@ -1,0 +1,8 @@
+{
+  "name": "Graph: delete an application by Client ID",
+  "request": {
+    "method": "DELETE",
+    "urlPathPattern": "/graph/applications\\(appId='[^']+'\\)"
+  },
+  "response": { "status": 204 }
+}

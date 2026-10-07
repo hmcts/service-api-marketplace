@@ -77,7 +77,7 @@ class ApplicationServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-01-15T09:00:00Z");
     private static final EntraAppRegistrationClient.Registration REGISTRATION =
-        new EntraAppRegistrationClient.Registration("client-id", "client-secret");
+        new EntraAppRegistrationClient.Registration("client-id", "client-secret", "key-id");
 
     private final UserEntity user = UserEntity.builder().id(1).build();
 

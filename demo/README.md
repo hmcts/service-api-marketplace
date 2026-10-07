@@ -1,0 +1,119 @@
+# Demo: Entra Client ID/Secret and APIM Subscription Key, on your laptop
+
+A self-contained, offline stack that runs the real service through the whole application journey:
+
+1. create an account and sign in
+2. register an application, and get a **Client ID and Client Secret** (Microsoft Entra)
+3. connect it to an API, and get a **Subscription Key** for that API (Azure API Management)
+4. add and revoke client secrets, disconnect the API, delete the application, and see each of those
+   taken away in Entra and APIM too
+
+## What is real and what is a stand-in
+
+| | In this demo | In sandbox |
+|---|---|---|
+| The service, its code, its database schema and migrations | **real** | real |
+| Postgres | real (Postgres 16 in Docker) | Azure Postgres Flexible Server |
+| The requests to Entra, Graph and Azure Resource Manager | **real code**, same requests in the same order | same |
+| Entra, Microsoft Graph and Azure APIM themselves | **a WireMock stand-in** | Microsoft's |
+| Sign-in to the marketplace | the service's own email and password, signed as a bearer token | the same |
+
+There is no Entra you can run in Docker: it is a Microsoft cloud service. The stand-in answers the
+handful of calls the service makes, with fresh made-up Client IDs, secrets and keys each time. It proves
+the **flow** - what is asked for, in what order, what is kept, what is cleaned up when something fails. It
+does **not** prove Microsoft would accept the requests; that needs the real credentials (see "Going real").
+
+Signing in *as a user* through Entra is not part of this. The marketplace signs its users in itself.
+
+## Run it
+
+You need Docker, `curl` and `python3`.
+
+```bash
+./demo/run-demo.sh
+```
+
+It builds the jar, starts three containers, runs the journey, and prints what the service asked
+Entra, Graph and APIM for. The stack stays up afterwards:
+
+| | |
+|---|---|
+| API | http://localhost:8080 |
+| Stand-in's request log | http://localhost:8099/__admin/requests |
+| Postgres | `localhost:5433` (user `postgres`, password `postgres`, database `marketplace`) |
+
+```bash
+./demo/run-demo.sh --flow   # run the journey again
+./demo/run-demo.sh --up     # just start the stack (to use the frontend, below)
+./demo/run-demo.sh --down   # stop it and delete its data
+```
+
+Postgres is on 5433, not 5432, so it does not clash with one you already run.
+
+## See it in a browser
+
+The frontend prototype (`hmcts/hmcts-api-marketplace`) can use this stack. Check out the
+`feature/local-backend-demo` branch, start the stack with `./demo/run-demo.sh --up`, then:
+
+```bash
+npm install && npm run kit          # http://localhost:3100
+```
+
+Open http://localhost:3100/register/, and in the browser console, once:
+
+```js
+localStorage.setItem('hmctsMarketplaceApiBase', 'http://localhost:8080')
+```
+
+Reload. Create an account, then **Manage applications > Add new application**. The confirmation page shows
+the Client Secret Entra issued; the application's page shows the Client ID, and each API you add shows its
+Subscription Key. Removing the API or deleting the application removes them in Entra and APIM.
+
+Only `localhost` is accepted for that override, so nothing can use it to send a sign-in elsewhere. Undo it
+with `localStorage.removeItem('hmctsMarketplaceApiBase')`.
+
+The dev Kit does not serve `/account/applications/new/check-answers/` or `.../confirmation/` with a trailing
+slash (the exported site does). If you land on "Page not found" there, remove the final `/`.
+
+## How it is switched on
+
+One setting, `APPLICATION_CREDENTIALS`:
+
+| Value | Behaviour |
+|---|---|
+| `local` (the default) | The service makes up the Client ID and secrets itself. No Entra, no APIM. Nothing changes for anyone who does not set it. |
+| `entra` | Real Entra Client ID and secrets, and a real APIM Subscription Key for each connected API. |
+
+Anything else stops the service starting, rather than quietly issuing made-up credentials.
+
+`docker-compose.yml` sets `entra` and points the service at the stand-in with four settings that are
+**only** for this kind of demo or a test, and must be left unset everywhere real:
+`ENTRA_LOGIN_BASE_URL`, `ENTRA_GRAPH_BASE_URL`, `APIM_LOGIN_BASE_URL`, `APIM_ARM_BASE_URL`.
+
+## What happens when something fails
+
+The order is always: check what can be refused, then ask Entra and APIM, then write the database last -
+because only the database can be rolled back.
+
+| Step | If it fails |
+|---|---|
+| Create application | The Entra application is deleted again |
+| New client secret | The Entra secret is revoked again |
+| Connect an API | An API with no APIM Product is refused before anything is created; a key that could not be saved is deleted in APIM |
+| Revoke a secret | Revoked in Entra first; if Entra refuses, it stays active here too |
+| Disconnect an API / delete an application | The Subscription Key and Entra application are deleted first; if that fails, the row stays so it can be tried again. Deleting something already gone is not a failure |
+
+## Going real
+
+Everything above is exercised by unit tests and by this stack. Running it for real needs, in the
+`apim-sbox` vault: `marketplace-ENTRA-ONBOARDING-CLIENT-ID` and `-SECRET`, `marketplace-APIM-CLIENT-ID` and
+`-SECRET`, `marketplace-JWT-SECRET`; the matching entries in `cnp-flux-config`; the real `APIM_PRODUCT_MAP`;
+and `APPLICATION_CREDENTIALS=entra`. None of those exist yet.
+
+## Files
+
+```
+demo/docker-compose.yml          the three containers
+demo/run-demo.sh                 build, start, run the journey, show the request log
+demo/wiremock/mappings/*.json    one file per call the service makes to Entra, Graph or APIM
+```

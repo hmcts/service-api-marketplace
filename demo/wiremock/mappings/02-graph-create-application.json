@@ -1,0 +1,9 @@
+{
+  "name": "Graph: create an application - a fresh object id and Client ID (appId) each time",
+  "request": { "method": "POST", "urlPath": "/graph/applications" },
+  "response": {
+    "status": 201,
+    "headers": { "Content-Type": "application/json" },
+    "body": "{\"id\":\"{{randomValue type='UUID'}}\",\"appId\":\"{{randomValue type='UUID'}}\"}"
+  }
+}

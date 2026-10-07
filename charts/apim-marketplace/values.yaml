@@ -7,6 +7,11 @@ java:
   environment:
     APPLICATIONINSIGHTS_ENABLED: "false"
     APPLICATIONINSIGHTS_CONNECTION_STRING: "InstrumentationKey=00000000-0000-0000-0000-000000000000"
+    # Where an application's credentials come from: "local" (the default - the service makes them up) or
+    # "entra" (a real Entra Client ID/Secret, and an APIM Subscription Key for each connected API). Do not
+    # set "entra" until all four marketplace-ENTRA-*/marketplace-APIM-* secrets below exist in the vault and
+    # APIM_PRODUCT_MAP is set: until then every create and connect would be refused with a 503.
+    # APPLICATION_CREDENTIALS: "entra"
   # keyVaults are defined per-environment in cnp-flux-config overlays
   # so sbox can use apim-sbox without conflicting with the apim-{env} default
   # keyVaults:

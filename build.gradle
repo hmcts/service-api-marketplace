@@ -156,6 +156,13 @@ dependencies {
 
   // Bean validation on inbound request bodies - drives the 400 responses in the marketplace OpenAPI spec
   implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+  // Azure API Management subscription keys, as in service-hmcts-springboot-demo's
+  // ( including mocks so the integration test can run locally in the pipeline )
+  implementation 'com.azure.resourcemanager:azure-resourcemanager-apimanagement:2.0.0'
+  implementation 'com.azure:azure-identity:1.18.7'
+  testImplementation 'org.wiremock:wiremock-standalone:3.13.2'
+
   // Encodes caller-supplied values before they reach log lines, preventing log injection
   implementation 'org.owasp.encoder:encoder:1.4.0'
 

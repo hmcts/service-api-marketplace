@@ -1,0 +1,25 @@
+{
+  "value": [
+    {
+      "id": "/subscriptions/azure-sub/resourceGroups/rg-sps-platform-sbox/providers/Microsoft.ApiManagement/service/sps-api-mgmt-sbox/products/example-product",
+      "name": "example-product",
+      "properties": {
+        "displayName": "example-product",
+        "description": "A product for trying things against.",
+        "subscriptionRequired": true,
+        "state": "published"
+      },
+      "type": "Microsoft.ApiManagement/service/products"
+    },
+    {
+      "id": "/subscriptions/azure-sub/resourceGroups/rg-sps-platform-sbox/providers/Microsoft.ApiManagement/service/sps-api-mgmt-sbox/products/cp-crime-schedulingandlisting",
+      "name": "cp-crime-schedulingandlisting",
+      "properties": {
+        "displayName": "cp-crime-schedulingandlisting",
+        "subscriptionRequired": true,
+        "state": "published"
+      },
+      "type": "Microsoft.ApiManagement/service/products"
+    }
+  ]
+}

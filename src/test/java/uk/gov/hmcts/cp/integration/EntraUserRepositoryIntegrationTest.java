@@ -37,7 +37,7 @@ class EntraUserRepositoryIntegrationTest {
     }
 
     @Test
-    void a_user_without_a_password_should_be_saved_and_found_by_entra_object_id() {
+    void user_without_a_password_should_be_saved_and_found_by_entra_object_id() {
         UserEntity saved = userRepository.save(
             entraUser("repo-entra-one@example.com", "11111111-1111-1111-1111-111111111111"));
 

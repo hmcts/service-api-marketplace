@@ -76,7 +76,7 @@ class UserServiceEntraSignInTest {
     }
 
     @Test
-    void a_new_person_should_be_created_as_an_active_consumer_in_the_default_organisation() {
+    void new_person_should_be_created_as_an_active_consumer_in_the_default_organisation() {
         assertThat(userService.signInWithEntra(OID, request(" Jo@Example.com "))).isEqualTo(mapped);
 
         UserEntity created = saved();
@@ -109,7 +109,7 @@ class UserServiceEntraSignInTest {
     }
 
     @Test
-    void a_known_person_with_the_same_email_should_be_returned_without_saving() {
+    void known_person_with_the_same_email_should_be_returned_without_saving() {
         when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(account("jo@example.com", OID, "ACTIVE")));
 
         assertThat(userService.signInWithEntra(OID, request("JO@example.com"))).isEqualTo(mapped);
@@ -127,8 +127,9 @@ class UserServiceEntraSignInTest {
     }
 
     @Test
-    void a_known_person_with_a_new_email_should_have_only_the_email_updated() {
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(account("old@example.com", OID, "ACTIVE")));
+    void known_person_with_a_new_email_should_have_only_the_email_updated() {
+        when(userRepository.findByEntraObjectId(OID))
+            .thenReturn(Optional.of(account("old@example.com", OID, "ACTIVE")));
 
         userService.signInWithEntra(OID, request("new@example.com"));
 
@@ -140,8 +141,9 @@ class UserServiceEntraSignInTest {
     }
 
     @Test
-    void a_new_email_that_belongs_to_another_account_should_be_refused_with_409() {
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(account("old@example.com", OID, "ACTIVE")));
+    void new_email_that_belongs_to_another_account_should_be_refused_with_409() {
+        when(userRepository.findByEntraObjectId(OID))
+            .thenReturn(Optional.of(account("old@example.com", OID, "ACTIVE")));
         when(userRepository.findByEmail("taken@example.com"))
             .thenReturn(Optional.of(account("taken@example.com", null, "ACTIVE")));
 
@@ -179,7 +181,7 @@ class UserServiceEntraSignInTest {
     }
 
     @Test
-    void a_malformed_oid_should_be_refused_with_400() {
+    void malformed_oid_should_be_refused_with_400() {
         assertStatus(() -> userService.signInWithEntra("not-a-guid", request("jo@example.com")),
             HttpStatus.BAD_REQUEST);
     }

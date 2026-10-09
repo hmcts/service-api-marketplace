@@ -1,7 +1,7 @@
 apiVersion: v2
 appVersion: "1.0"
 description: A Helm chart for the HMCTS API Marketplace onboarding service
-name: apim-marketplace
+name: amp-marketplace
 home: https://github.com/hmcts/service-api-marketplace
 version: 0.0.9
 maintainers:

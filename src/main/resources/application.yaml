@@ -36,6 +36,18 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+# Required for the APIM subscription key endpoints. The zero default is so the application starts
+# without it; calls to API Management fail until the real subscription is supplied.
+#
+# One tenant covers all of HMCTS, and workload identity injects AZURE_TENANT_ID into the pod, so
+# only the subscription needs supplying - and it is the SPS platform's, not the one the cluster
+# runs in.
+apim:
+  tenant-id: ${AZURE_TENANT_ID:00000000-0000-0000-0000-000000000000}
+  subscription-id: ${APIM_SUBSCRIPTION_ID:00000000-0000-0000-0000-000000000000}
+  resource-group: ${APIM_RESOURCE_GROUP:rg-sps-platform-sbox}
+  service-name: ${APIM_SERVICE_NAME:sps-api-mgmt-sbox}
+
 azure:
   application-insights:
     instrumentation-key: ${rpe.AppInsightsInstrumentationKey:00000000-0000-0000-0000-000000000000}

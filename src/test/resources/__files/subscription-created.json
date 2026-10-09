@@ -1,0 +1,19 @@
+{
+  "id": "/subscriptions/azure-sub/resourceGroups/rg-demo/providers/Microsoft.ApiManagement/service/apim-demo/subscriptions/team-alpha",
+  "name": "team-alpha",
+  "properties": {
+    "allowTracing": false,
+    "createdDate": "2026-10-08T15:35:59.2877274Z",
+    "displayName": "Team Alpha",
+    "endDate": null,
+    "expirationDate": null,
+    "notificationDate": null,
+    "primaryKey": "stand-in-primary-key",
+    "scope": "/subscriptions/azure-sub/resourceGroups/rg-demo/providers/Microsoft.ApiManagement/service/apim-demo/products/example-product",
+    "secondaryKey": "stand-in-secondary-key",
+    "startDate": null,
+    "state": "active",
+    "stateComment": null
+  },
+  "type": "Microsoft.ApiManagement/service/subscriptions"
+}

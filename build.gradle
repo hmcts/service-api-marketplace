@@ -156,6 +156,20 @@ dependencies {
 
   // Bean validation on inbound request bodies - drives the 400 responses in the marketplace OpenAPI spec
   implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+  // Azure API Management subscription keys, as in service-hmcts-springboot-demo's
+  // ( including mocks so the integration test can run locally in the pipeline )
+  // The SDK defaults to a Netty transport, which is a large dependency this service has no other
+  // use for and which carried CVE-2026-89044. The JDK client needs nothing beyond java.net.http.
+  implementation('com.azure.resourcemanager:azure-resourcemanager-apimanagement:2.0.0') {
+    exclude group: 'com.azure', module: 'azure-core-http-netty'
+  }
+  implementation('com.azure:azure-identity:1.18.7') {
+    exclude group: 'com.azure', module: 'azure-core-http-netty'
+  }
+  implementation 'com.azure:azure-core-http-jdk-httpclient:1.2.0'
+  testImplementation 'org.wiremock:wiremock-standalone:3.13.2'
+
   // Encodes caller-supplied values before they reach log lines, preventing log injection
   implementation 'org.owasp.encoder:encoder:1.4.0'
 

@@ -72,10 +72,13 @@
     <packageUrl regex="true">^pkg:maven/(com\.azure/azure\-identity|com\.microsoft\.azure/msal4j.*)@.*$</packageUrl>
     <cve>CVE-2024-35255</cve>
   </suppress>
-  <!--Key Vault Keys is not on the classpath; matched against azure-core by name alone-->
+  <!--Key Vault Keys is not on the classpath. The CVE carries the blanket
+      cpe:2.3:a:microsoft:azure_sdk_for_java CPE with versionEndExcluding 4.10.6, which matches
+      every Azure SDK jar whatever its own version, so this is scoped by CVE across the group
+      rather than to one artifact.-->
   <suppress>
     <notes>CVE-2026-33117 is in azure-security-keyvault-keys, which this service does not depend on</notes>
-    <packageUrl regex="true">^pkg:maven/com\.azure/azure\-core.*@.*$</packageUrl>
+    <packageUrl regex="true">^pkg:maven/com\.(azure|microsoft\.azure).*/.*@.*$</packageUrl>
     <cve>CVE-2026-33117</cve>
   </suppress>
   <!--End of false positives section -->

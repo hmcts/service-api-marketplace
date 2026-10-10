@@ -63,7 +63,8 @@ class CorsConfigTest {
     void the_methods_the_frontend_uses_should_be_allowed() {
         CorsConfiguration cors = registeredFor("https://hmcts.github.io").get("/api/**");
 
-        assertThat(cors.getAllowedMethods()).containsExactlyInAnyOrder("GET", "POST", "PATCH", "DELETE", "OPTIONS");
+        assertThat(cors.getAllowedMethods())
+            .containsExactlyInAnyOrder("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
         assertThat(cors.getMaxAge()).isEqualTo(3600L);
     }
 }

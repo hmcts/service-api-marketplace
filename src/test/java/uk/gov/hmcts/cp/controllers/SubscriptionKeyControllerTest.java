@@ -15,11 +15,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Statuses and validation come from the annotations and are covered by
- * ApimSubscriptionKeyIntegrationTest; what is left here is that each endpoint passes the right
- * arguments to the right call.
- */
 @ExtendWith(MockitoExtension.class)
 class SubscriptionKeyControllerTest {
 

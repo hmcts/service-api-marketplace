@@ -49,7 +49,7 @@ entra:
   assignment-delay-millis: ${ENTRA_ASSIGNMENT_DELAY_MILLIS:15000}
   tenant-id: ${ENTRA_TENANT_ID:d44f885c-4fac-47bf-afde-d7d861ec4d7b}
   api-client-id: ${ENTRA_API_CLIENT_ID:30288840-e345-4543-99ee-f9253d789339}
-  onboarding-client-id: ${ENTRA_ONBOARDING_CLIENT_ID:aba0879b-39e2-452a-b934-f922cd9e6acb}
+  onboarding-client-id: ${ENTRA_ONBOARDING_CLIENT_ID:NOT_SET}
   onboarding-client-secret: ${ENTRA_ONBOARDING_CLIENT_SECRET:NOT_SET}
 
 azure:

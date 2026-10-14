@@ -74,7 +74,7 @@ class UserServiceEntraSignInTest {
     private static UserEntity account(final String email, final String oid, final String status) {
         return UserEntity.builder().id(7L).firstName("Colin").lastName("Greenwood").email(email)
             .organisation(OrganisationEntity.builder().id(1).name("Api Marketplace").build())
-            .role("producer").status(status).entraObjectId(oid).build();
+            .status(status).entraObjectId(oid).build();
     }
 
     private UserEntity saved() {
@@ -84,7 +84,7 @@ class UserServiceEntraSignInTest {
     }
 
     @Test
-    void new_person_should_be_created_as_an_active_consumer_in_the_default_organisation() {
+    void new_person_should_be_created_as_an_active_account_in_the_default_organisation() {
         assertThat(userService.signInWithEntra(OID, request(" Jo@Example.com "))).isEqualTo(mapped);
 
         UserEntity created = saved();
@@ -93,7 +93,6 @@ class UserServiceEntraSignInTest {
         assertThat(created.getFirstName()).isEqualTo("Jo");
         assertThat(created.getLastName()).isEqualTo("Bloggs");
         assertThat(created.getOrganisation()).isEqualTo(NOT_SPECIFIED);
-        assertThat(created.getRole()).isEqualTo("consumer");
         assertThat(created.getStatus()).isEqualTo("ACTIVE");
         assertThat(created.getPasswordHash()).isNull();
     }
@@ -174,7 +173,6 @@ class UserServiceEntraSignInTest {
         assertThat(updated.getId()).isEqualTo(7);
         assertThat(updated.getEmail()).isEqualTo("new@example.com");
         assertThat(updated.getFirstName()).isEqualTo("Colin");
-        assertThat(updated.getRole()).isEqualTo("producer");
     }
 
     @Test

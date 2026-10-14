@@ -39,7 +39,7 @@ class TokenServiceTest {
     private TokenService tokenService;
 
     private final UserEntity user = UserEntity.builder()
-        .id(7L).email("joe@example.com").role("producer").build();
+        .id(7L).email("joe@example.com").build();
 
     @BeforeEach
     void configure() {
@@ -57,7 +57,7 @@ class TokenServiceTest {
 
     private JWTClaimsSet.Builder validClaims() {
         return new JWTClaimsSet.Builder()
-            .subject("7").claim("email", "joe@example.com").claim("role", "producer")
+            .subject("7").claim("email", "joe@example.com")
             .expirationTime(Date.from(NOW.plus(Duration.ofHours(1))));
     }
 
@@ -76,7 +76,6 @@ class TokenServiceTest {
 
         assertThat(claims.userId()).isEqualTo(7);
         assertThat(claims.email()).isEqualTo("joe@example.com");
-        assertThat(claims.role()).isEqualTo("producer");
     }
 
     @Test

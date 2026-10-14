@@ -54,11 +54,11 @@ class AccountServiceTest {
 
     private final RegisterRequest valid = RegisterRequest.builder()
         .firstName("Joe").lastName("Bloggs").email("joe.bloggs@example.com")
-        .organisation("HMCTS").role("consumer").password(PASSWORD).build();
+        .organisation("HMCTS").password(PASSWORD).build();
 
     private final UserEntity stored = UserEntity.builder()
         .id(11L).organisation(HMCTS).firstName("Joe").lastName("Bloggs").email("joe.bloggs@example.com")
-        .passwordHash("stored-hash").status("ACTIVE").role("consumer").build();
+        .passwordHash("stored-hash").status("ACTIVE").build();
 
     private void assertRejected(final RegisterRequest request, final HttpStatus status, final String message) {
         assertThatThrownBy(() -> accountService.register(request))
@@ -93,7 +93,6 @@ class AccountServiceTest {
         assertThat(response.user().id()).isEqualTo(11);
         assertThat(response.user().firstName()).isEqualTo("Joe");
         assertThat(response.user().email()).isEqualTo("joe.bloggs@example.com");
-        assertThat(response.user().role()).isEqualTo("consumer");
     }
 
     @Test
@@ -105,7 +104,7 @@ class AccountServiceTest {
         when(tokenService.issue(stored)).thenReturn("the-token");
 
         accountService.register(valid.toBuilder()
-            .firstName("  Joe ").lastName(" Bloggs  ").email("Joe.Bloggs@Example.COM").role("producer").build());
+            .firstName("  Joe ").lastName(" Bloggs  ").email("Joe.Bloggs@Example.COM").build());
 
         ArgumentCaptor<UserEntity> saved = ArgumentCaptor.forClass(UserEntity.class);
         verify(userRepository).save(saved.capture());
@@ -114,7 +113,6 @@ class AccountServiceTest {
         assertThat(saved.getValue().getEmail()).isEqualTo("joe.bloggs@example.com");
         assertThat(saved.getValue().getPasswordHash()).isEqualTo("stored-hash").isNotEqualTo(PASSWORD);
         assertThat(saved.getValue().getStatus()).isEqualTo("ACTIVE");
-        assertThat(saved.getValue().getRole()).isEqualTo("producer");
         assertThat(saved.getValue().getOrganisation()).isEqualTo(HMCTS);
     }
 
@@ -123,7 +121,6 @@ class AccountServiceTest {
         assertBadRequest(valid.toBuilder().firstName(null).build(), "Missing required fields.");
         assertBadRequest(valid.toBuilder().lastName(" ").build(), "Missing required fields.");
         assertBadRequest(valid.toBuilder().email("").build(), "Missing required fields.");
-        assertBadRequest(valid.toBuilder().role(null).build(), "Missing required fields.");
         assertBadRequest(valid.toBuilder().password(null).build(), "Missing required fields.");
         assertBadRequest(new RegisterRequest(), "Missing required fields.");
     }
@@ -150,12 +147,6 @@ class AccountServiceTest {
         assertBadRequest(valid.toBuilder().email("has space@example.com").build(), "Enter a valid email address.");
         assertBadRequest(valid.toBuilder().email("a".repeat(250) + "@example.com").build(),
             "Enter a valid email address.");
-    }
-
-    @Test
-    void the_role_should_be_consumer_or_producer() {
-        assertBadRequest(valid.toBuilder().role("admin").build(), "Role must be \"consumer\" or \"producer\".");
-        assertBadRequest(valid.toBuilder().role("Consumer").build(), "Role must be \"consumer\" or \"producer\".");
     }
 
     @Test
@@ -374,7 +365,7 @@ class AccountServiceTest {
     @Test
     void valid_token_should_identify_the_user() {
         when(tokenService.verify("good-token")).thenReturn(
-            Optional.of(new TokenService.Claims(11, "joe.bloggs@example.com", "consumer")));
+            Optional.of(new TokenService.Claims(11, "joe.bloggs@example.com")));
         when(userRepository.findById(11L)).thenReturn(Optional.of(stored));
 
         MeResponse response = accountService.currentUser("Bearer good-token");
@@ -402,7 +393,7 @@ class AccountServiceTest {
     @Test
     void valid_token_for_an_account_that_no_longer_exists_should_mean_not_signed_in() {
         when(tokenService.verify("good-token")).thenReturn(
-            Optional.of(new TokenService.Claims(99, "gone@example.com", "consumer")));
+            Optional.of(new TokenService.Claims(99, "gone@example.com")));
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertNotSignedIn("Bearer good-token", "Not signed in.");
@@ -411,7 +402,7 @@ class AccountServiceTest {
     @Test
     void valid_token_for_a_deactivated_account_should_stop_working_at_once() {
         when(tokenService.verify("good-token")).thenReturn(
-            Optional.of(new TokenService.Claims(11, "joe.bloggs@example.com", "consumer")));
+            Optional.of(new TokenService.Claims(11, "joe.bloggs@example.com")));
         when(userRepository.findById(11L)).thenReturn(Optional.of(stored.toBuilder().status("DISABLED").build()));
 
         assertNotSignedIn("Bearer good-token", "Not signed in.");

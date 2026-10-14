@@ -9,8 +9,8 @@ import lombok.ToString;
 
 /**
  * Deliberately has no bean-validation annotations: the frontend shows the server's message as it
- * is, and the contract's messages and their order (missing fields, then email, then role, then
- * password) are not what annotation-driven validation would produce. AccountService validates.
+ * is, and the contract's messages and their order (missing fields, then email, then password) are
+ * not what annotation-driven validation would produce. AccountService validates.
  */
 @Getter
 @Builder(toBuilder = true)
@@ -27,8 +27,6 @@ public class RegisterRequest {
     private String email;
 
     private String organisation;
-
-    private String role;
 
     private String password;
 }

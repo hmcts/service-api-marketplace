@@ -24,7 +24,7 @@ import java.util.Optional;
 
 /**
  * The signed bearer token the frontend keeps in localStorage and sends as Authorization: Bearer.
- * HS256, seven days, carrying the user's id, email and role - the same token amp-auth issued, so a
+ * HS256, seven days, carrying the user's id and email - the same token amp-auth issued, so a
  * client cannot tell which of the two it is talking to.
  *
  * <p>The signing secret is JWT_SECRET. Like the credentials in the Entra/APIM clients, there is no
@@ -45,7 +45,7 @@ public class TokenService {
     @Value("${JWT_SECRET:NOT_SET}")
     private String secret;
 
-    public record Claims(long userId, String email, String role) {
+    public record Claims(long userId, String email) {
     }
 
     public String issue(final UserEntity user) {
@@ -54,7 +54,6 @@ public class TokenService {
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
             .subject(String.valueOf(user.getId()))
             .claim("email", user.getEmail())
-            .claim("role", user.getRole())
             .issueTime(Date.from(now))
             .expirationTime(Date.from(now.plus(VALIDITY)))
             .build();
@@ -83,8 +82,7 @@ public class TokenService {
             }
             return Optional.of(new Claims(
                 Long.parseLong(claims.getSubject()),
-                claims.getStringClaim("email"),
-                claims.getStringClaim("role")));
+                claims.getStringClaim("email")));
         } catch (ParseException | JOSEException | NumberFormatException e) {
             return Optional.empty();
         }

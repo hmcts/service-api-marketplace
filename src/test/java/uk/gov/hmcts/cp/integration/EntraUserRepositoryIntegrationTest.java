@@ -31,7 +31,6 @@ class EntraUserRepositoryIntegrationTest {
             .lastName("")
             .email(email)
             .status("ACTIVE")
-            .role("consumer")
             .entraObjectId(oid)
             .build();
     }

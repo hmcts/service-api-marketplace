@@ -46,7 +46,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 class AuthControllerTest {
 
-    private static final AccountResponse JOE = new AccountResponse(11, "Joe", "Bloggs", "joe@example.com", "consumer");
+    private static final AccountResponse JOE = new AccountResponse(11, "Joe", "Bloggs", "joe@example.com");
 
     @Mock
     private AccountService accountService;
@@ -78,7 +78,7 @@ class AuthControllerTest {
 
     private static final String REGISTER_BODY = """
         {"firstName":"Joe","lastName":"Bloggs","email":"joe@example.com",
-         "organisation":"HMCTS","role":"consumer","password":"correct-horse-battery-staple"}""";
+         "organisation":"HMCTS","password":"correct-horse-battery-staple"}""";
 
     @Test
     void registering_should_return_201_with_the_user_and_a_token_in_the_shape_the_frontend_reads() throws Exception {
@@ -91,7 +91,7 @@ class AuthControllerTest {
             .andExpect(jsonPath("$.user.firstName").value("Joe"))
             .andExpect(jsonPath("$.user.lastName").value("Bloggs"))
             .andExpect(jsonPath("$.user.email").value("joe@example.com"))
-            .andExpect(jsonPath("$.user.role").value("consumer"))
+            .andExpect(jsonPath("$.user.role").doesNotExist())
             .andExpect(jsonPath("$.user.password").doesNotExist())
             .andExpect(jsonPath("$.user.passwordHash").doesNotExist());
     }
@@ -108,7 +108,6 @@ class AuthControllerTest {
         assertThat(sent.getValue().getLastName()).isEqualTo("Bloggs");
         assertThat(sent.getValue().getEmail()).isEqualTo("joe@example.com");
         assertThat(sent.getValue().getOrganisation()).isEqualTo("HMCTS");
-        assertThat(sent.getValue().getRole()).isEqualTo("consumer");
         assertThat(sent.getValue().getPassword()).isEqualTo("correct-horse-battery-staple");
     }
 

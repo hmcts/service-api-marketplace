@@ -41,14 +41,13 @@ class EntraSignInIntegrationTest {
     }
 
     @Test
-    void first_sign_in_should_create_a_consumer_in_the_default_organisation() throws Exception {
+    void first_sign_in_should_create_an_account_in_the_default_organisation() throws Exception {
         signIn("aaaaaaaa-0000-0000-0000-000000000001", "entra-new@example.com")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").isNumber())
             .andExpect(jsonPath("$.email").value("entra-new@example.com"))
             .andExpect(jsonPath("$.firstName").value("Jo"))
-            .andExpect(jsonPath("$.orgName").value("Not specified"))
-            .andExpect(jsonPath("$.role").value("consumer"));
+            .andExpect(jsonPath("$.orgName").value("Not specified"));
     }
 
     @Test

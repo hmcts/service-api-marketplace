@@ -58,13 +58,12 @@ public class UserService {
     private static final Pattern OBJECT_ID =
         Pattern.compile("^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$");
     private static final String ACTIVE = "ACTIVE";
-    private static final String CONSUMER = "consumer";
 
     /**
      * Records someone Entra External ID has just signed in, and returns their account. Entra owns
      * the email address only: a known person has their email brought up to date and nothing else;
-     * an account that already has this email is linked and keeps its name, organisation and role;
-     * anyone else gets a new consumer account in the default organisation, with no password.
+     * an account that already has this email is linked and keeps its name and organisation;
+     * anyone else gets a new account in the default organisation, with no password.
      */
     public UserResponse signInWithEntra(final String entraObjectId, final EntraSignInRequest request) {
         final String oid = requireObjectId(entraObjectId);
@@ -101,7 +100,6 @@ public class UserService {
             .lastName(trimToEmpty(request.getLastName()))
             .email(email)
             .status(ACTIVE)
-            .role(CONSUMER)
             .entraObjectId(oid)
             .build());
         log.info("Entra sign in created userId {}", created.getId());

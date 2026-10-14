@@ -39,9 +39,6 @@ public class UserEntity {
     private String passwordHash;
     private String status;
 
-    // 'consumer' or 'producer'; the column defaults to consumer, so rows that predate it read as one.
-    private String role;
-
     // Entra External ID's object id (oid) for a person who signs in with Entra; null for everyone else.
     private String entraObjectId;
 

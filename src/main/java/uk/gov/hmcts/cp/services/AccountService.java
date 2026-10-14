@@ -16,7 +16,6 @@ import uk.gov.hmcts.cp.entity.UserEntity;
 import uk.gov.hmcts.cp.repository.OrganisationRepository;
 import uk.gov.hmcts.cp.repository.UserRepository;
 
-import java.util.List;
 import java.util.Locale;
 
 /**
@@ -33,7 +32,6 @@ public class AccountService {
     static final int MAX_NAME_LENGTH = 200;
     static final String DEFAULT_ORGANISATION = "Not specified";
     static final String ACTIVE = "ACTIVE";
-    private static final List<String> ROLES = List.of("consumer", "producer");
 
     private final UserRepository userRepository;
     private final OrganisationRepository organisationRepository;
@@ -60,7 +58,6 @@ public class AccountService {
             .email(email)
             .passwordHash(passwordService.hash(request.getPassword()))
             .status(ACTIVE)
-            .role(request.getRole())
             .build();
 
         UserEntity saved;
@@ -114,14 +111,11 @@ public class AccountService {
 
     private void validate(final RegisterRequest request) {
         if (isBlank(request.getFirstName()) || isBlank(request.getLastName()) || isBlank(request.getEmail())
-            || isBlank(request.getRole()) || isBlank(request.getPassword())) {
+            || isBlank(request.getPassword())) {
             throw badRequest("Missing required fields.");
         }
         if (!EmailAddresses.isValid(request.getEmail())) {
             throw badRequest("Enter a valid email address.");
-        }
-        if (!ROLES.contains(request.getRole())) {
-            throw badRequest("Role must be \"consumer\" or \"producer\".");
         }
         if (request.getPassword().length() < MIN_PASSWORD_LENGTH) {
             throw badRequest("Password must be at least 12 characters long.");
@@ -149,8 +143,7 @@ public class AccountService {
     }
 
     private AccountResponse toResponse(final UserEntity user) {
-        return new AccountResponse(user.getId(), user.getFirstName(), user.getLastName(), user.getEmail(),
-            user.getRole());
+        return new AccountResponse(user.getId(), user.getFirstName(), user.getLastName(), user.getEmail());
     }
 
     private String normalise(final String email) {

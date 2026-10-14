@@ -134,6 +134,8 @@ repositories {
 }
 
 ext['snakeyaml.version'] = '2.0'
+// microsoft-graph pulls okhttp, which pulls kotlin-stdlib; the BOM's 2.3.21 carries CVE-2026-53914
+ext['kotlin.version'] = '2.4.21'
 // 28/06/2026 temp fix for tomcat CVE-2026-65182 pending spring boot catchup
 ext['tomcat.version'] = '11.0.25'
 

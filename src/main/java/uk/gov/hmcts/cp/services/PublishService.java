@@ -44,7 +44,7 @@ public class PublishService {
         log.info("Publish request {} deleted", reference);
     }
 
-    public PublishResponse submit(final int userId, final PublishRequest request) {
+    public PublishResponse submit(final long userId, final PublishRequest request) {
         log.info("Publish request submitted by userId:{}", userId);
         UserEntity userEntity = userRepository.findById(userId).orElseThrow();
         PublishRequestEntity entity = publishMapper.toEntity(

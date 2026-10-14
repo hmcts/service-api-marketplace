@@ -79,7 +79,7 @@ class ApplicationServiceTest {
     private static final EntraAppRegistrationClient.Registration REGISTRATION =
         new EntraAppRegistrationClient.Registration("client-id", "client-secret");
 
-    private final UserEntity user = UserEntity.builder().id(1).build();
+    private final UserEntity user = UserEntity.builder().id(1L).build();
 
     private final ApplicationRequest request = ApplicationRequest.builder()
         .name("Test App")
@@ -91,7 +91,7 @@ class ApplicationServiceTest {
     void runTransactionalWorkInline() {
         lenient().when(transactionTemplate.execute(any())).thenAnswer(invocation ->
             invocation.<TransactionCallback<?>>getArgument(0).doInTransaction(null));
-        lenient().when(userRepository.findById(1)).thenReturn(Optional.of(user));
+        lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         lenient().when(clockService.now()).thenReturn(NOW);
     }
 
@@ -242,7 +242,7 @@ class ApplicationServiceTest {
 
     @Test
     void registering_for_an_unknown_user_should_throw_unauthorized_and_touch_nothing_external() {
-        when(userRepository.findById(99)).thenReturn(Optional.empty());
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> applicationService.register(99, request))
             .isInstanceOfSatisfying(ResponseStatusException.class, e -> {
@@ -256,7 +256,7 @@ class ApplicationServiceTest {
     @Test
     void getting_applications_for_a_user_should_map_each_one_with_a_null_client_secret() {
         ApplicationEntity application = ApplicationEntity.builder().id(10L).build();
-        when(applicationRepository.findByUserId(1)).thenReturn(List.of(application));
+        when(applicationRepository.findByUserId(1L)).thenReturn(List.of(application));
         when(applicationApiKeyRepository.findByApplicationId(10L)).thenReturn(List.of());
         ApplicationResponse mappedResponse = ApplicationResponse.builder().build();
         when(applicationMapper.toResponse(application, List.of(), null)).thenReturn(mappedResponse);

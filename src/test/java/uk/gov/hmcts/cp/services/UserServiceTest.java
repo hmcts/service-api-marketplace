@@ -43,7 +43,7 @@ class UserServiceTest {
 
     @Test
     void validating_a_known_user_should_return_the_user_entity() {
-        when(userRepository.findById(1)).thenReturn(Optional.of(userEntity));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(userEntity));
         when(userMapper.fromEntity(userEntity)).thenReturn(userResponse);
 
         assertThat(userService.validateUser(1)).isEqualTo(userResponse);
@@ -77,7 +77,7 @@ class UserServiceTest {
 
     @Test
     void validating_an_unknown_user_should_throw_401() {
-        when(userRepository.findById(1)).thenReturn(Optional.empty());
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userService.validateUser(1))
             .isInstanceOf(ResponseStatusException.class)

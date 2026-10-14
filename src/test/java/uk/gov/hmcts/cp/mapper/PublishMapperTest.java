@@ -23,7 +23,7 @@ class PublishMapperTest {
     private PublishMapperImpl mapper;
 
     private final UserEntity user = UserEntity.builder()
-        .id(1)
+        .id(1L)
         .organisation(OrganisationEntity.builder().name("Test Org").build())
         .firstName("Joe")
         .lastName("Bloggs")

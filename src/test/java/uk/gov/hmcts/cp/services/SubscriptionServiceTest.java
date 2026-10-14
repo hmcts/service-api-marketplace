@@ -55,7 +55,7 @@ class SubscriptionServiceTest {
     private OrganisationEntity organisationEntity = OrganisationEntity.builder().name("Org").build();
     private UserEntity userEntity = UserEntity.builder()
         .organisation(organisationEntity)
-        .id(1)
+        .id(1L)
         .email("email")
         .firstName("first")
         .lastName("last")

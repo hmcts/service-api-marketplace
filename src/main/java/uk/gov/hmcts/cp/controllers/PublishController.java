@@ -46,7 +46,7 @@ public class PublishController {
 
     @PostMapping("/publish-requests")
     public ResponseEntity<PublishResponse> submit(
-        @RequestHeader("requestingUserId") final int requestingUserId,
+        @RequestHeader("requestingUserId") final long requestingUserId,
         @Valid @RequestBody final PublishRequest request) {
         log.info("Publish request for user {}", requestingUserId);
         UserResponse userResponse = userService.validateUser(requestingUserId);

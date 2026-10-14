@@ -9,5 +9,5 @@ import java.util.List;
 @Repository
 public interface ApplicationRepository extends JpaRepository<ApplicationEntity, Long> {
 
-    List<ApplicationEntity> findByUserId(Integer userId);
+    List<ApplicationEntity> findByUserId(Long userId);
 }

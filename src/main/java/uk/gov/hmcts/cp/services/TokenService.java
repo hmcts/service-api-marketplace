@@ -45,7 +45,7 @@ public class TokenService {
     @Value("${JWT_SECRET:NOT_SET}")
     private String secret;
 
-    public record Claims(int userId, String email, String role) {
+    public record Claims(long userId, String email, String role) {
     }
 
     public String issue(final UserEntity user) {
@@ -82,7 +82,7 @@ public class TokenService {
                 return Optional.empty();
             }
             return Optional.of(new Claims(
-                Integer.parseInt(claims.getSubject()),
+                Long.parseLong(claims.getSubject()),
                 claims.getStringClaim("email"),
                 claims.getStringClaim("role")));
         } catch (ParseException | JOSEException | NumberFormatException e) {

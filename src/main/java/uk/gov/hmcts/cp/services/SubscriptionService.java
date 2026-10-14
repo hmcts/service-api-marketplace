@@ -43,7 +43,7 @@ public class SubscriptionService {
         log.info("Subscription request {} deleted", reference);
     }
 
-    public SubscriptionResponse submit(final int userId, final SubscriptionRequest request) {
+    public SubscriptionResponse submit(final long userId, final SubscriptionRequest request) {
         log.info("Subscription request submitted by userId:{}", userId);
         UserEntity userEntity = userRepository.findById(userId).orElseThrow();
         SubscriptionRequestEntity entity = subscriptionMapper.toEntity(

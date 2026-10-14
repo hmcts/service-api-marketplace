@@ -7,7 +7,7 @@ import lombok.Value;
 @Builder
 public class UserResponse {
 
-    int id;
+    long id;
     String firstName;
     String lastName;
     String email;

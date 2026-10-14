@@ -45,7 +45,7 @@ public class ApplicationService {
     private final ApimProductRegistry apimProductRegistry;
     private final TransactionTemplate transactionTemplate;
 
-    public List<ApplicationResponse> getForUser(final int userId) {
+    public List<ApplicationResponse> getForUser(final long userId) {
         return applicationRepository.findByUserId(userId).stream()
             // No clientSecret here: Entra only ever returns it once, on the response that
             // created the application, and it is never persisted.
@@ -64,7 +64,7 @@ public class ApplicationService {
      * side effects are undone rather than left orphaned - an Entra application whose secret nobody
      * was ever shown, and live APIM keys nobody was given.
      */
-    public ApplicationResponse register(final int userId, final ApplicationRequest request) {
+    public ApplicationResponse register(final long userId, final ApplicationRequest request) {
         UserEntity user = userRepository.findById(userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Requesting user not found."));
 

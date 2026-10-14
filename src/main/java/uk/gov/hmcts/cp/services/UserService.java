@@ -28,7 +28,7 @@ public class UserService {
     private final OrganisationRepository organisationRepository;
     private final UserMapper userMapper;
 
-    public UserResponse validateUser(final int requestingUserId) {
+    public UserResponse validateUser(final long requestingUserId) {
         UserEntity user = userRepository.findById(requestingUserId)
             .orElseThrow(() -> {
                 log.warn("Requesting user not found: {}", requestingUserId);

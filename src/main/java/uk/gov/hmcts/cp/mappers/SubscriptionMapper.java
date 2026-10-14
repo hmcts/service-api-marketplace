@@ -28,7 +28,7 @@ public abstract class SubscriptionMapper {
     @Mapping(target = "status", constant = "NEW")
     @Mapping(target = "submittedAt", ignore = true)
     public abstract SubscriptionRequestEntity toEntity(
-        int userId,
+        long userId,
         String orgName,
         String userEmail,
         String firstName,

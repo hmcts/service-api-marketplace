@@ -24,7 +24,7 @@ public class RequestController {
 
     @GetMapping("/requests")
     public ResponseEntity<List<RequestSummaryResponse>> getForUser(
-        @RequestHeader("requestingUserId") final int requestingUserId) {
+        @RequestHeader("requestingUserId") final long requestingUserId) {
         log.info("List requests for user {}", requestingUserId);
         UserResponse user = userService.validateUser(requestingUserId);
         return ResponseEntity.ok(requestService.getForUser(user.getEmail()));

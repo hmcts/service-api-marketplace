@@ -28,7 +28,7 @@ public abstract class PublishMapper {
     @Mapping(target = "status", constant = "NEW")
     @Mapping(target = "submittedAt", ignore = true)
     public abstract PublishRequestEntity toEntity(
-        int userId,
+        long userId,
         String orgName,
         String userEmail,
         String firstName,

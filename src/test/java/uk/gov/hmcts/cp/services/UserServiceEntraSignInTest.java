@@ -64,7 +64,7 @@ class UserServiceEntraSignInTest {
     }
 
     private static UserEntity account(final String email, final String oid, final String status) {
-        return UserEntity.builder().id(7).firstName("Colin").lastName("Greenwood").email(email)
+        return UserEntity.builder().id(7L).firstName("Colin").lastName("Greenwood").email(email)
             .organisation(OrganisationEntity.builder().id(1).name("Api Marketplace").build())
             .role("producer").status(status).entraObjectId(oid).build();
     }

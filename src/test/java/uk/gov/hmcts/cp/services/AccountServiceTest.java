@@ -57,7 +57,7 @@ class AccountServiceTest {
         .organisation("HMCTS").role("consumer").password(PASSWORD).build();
 
     private final UserEntity stored = UserEntity.builder()
-        .id(11).organisation(HMCTS).firstName("Joe").lastName("Bloggs").email("joe.bloggs@example.com")
+        .id(11L).organisation(HMCTS).firstName("Joe").lastName("Bloggs").email("joe.bloggs@example.com")
         .passwordHash("stored-hash").status("ACTIVE").role("consumer").build();
 
     private void assertRejected(final RegisterRequest request, final HttpStatus status, final String message) {
@@ -375,7 +375,7 @@ class AccountServiceTest {
     void valid_token_should_identify_the_user() {
         when(tokenService.verify("good-token")).thenReturn(
             Optional.of(new TokenService.Claims(11, "joe.bloggs@example.com", "consumer")));
-        when(userRepository.findById(11)).thenReturn(Optional.of(stored));
+        when(userRepository.findById(11L)).thenReturn(Optional.of(stored));
 
         MeResponse response = accountService.currentUser("Bearer good-token");
 
@@ -403,7 +403,7 @@ class AccountServiceTest {
     void valid_token_for_an_account_that_no_longer_exists_should_mean_not_signed_in() {
         when(tokenService.verify("good-token")).thenReturn(
             Optional.of(new TokenService.Claims(99, "gone@example.com", "consumer")));
-        when(userRepository.findById(99)).thenReturn(Optional.empty());
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertNotSignedIn("Bearer good-token", "Not signed in.");
     }
@@ -412,7 +412,7 @@ class AccountServiceTest {
     void valid_token_for_a_deactivated_account_should_stop_working_at_once() {
         when(tokenService.verify("good-token")).thenReturn(
             Optional.of(new TokenService.Claims(11, "joe.bloggs@example.com", "consumer")));
-        when(userRepository.findById(11)).thenReturn(Optional.of(stored.toBuilder().status("DISABLED").build()));
+        when(userRepository.findById(11L)).thenReturn(Optional.of(stored.toBuilder().status("DISABLED").build()));
 
         assertNotSignedIn("Bearer good-token", "Not signed in.");
     }

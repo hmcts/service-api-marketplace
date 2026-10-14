@@ -39,7 +39,7 @@ class TokenServiceTest {
     private TokenService tokenService;
 
     private final UserEntity user = UserEntity.builder()
-        .id(7).email("joe@example.com").role("producer").build();
+        .id(7L).email("joe@example.com").role("producer").build();
 
     @BeforeEach
     void configure() {

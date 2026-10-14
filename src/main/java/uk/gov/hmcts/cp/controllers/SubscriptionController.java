@@ -46,7 +46,7 @@ public class SubscriptionController {
 
     @PostMapping("/subscriptions")
     public ResponseEntity<SubscriptionResponse> submit(
-        @RequestHeader("requestingUserId") final int requestingUserId,
+        @RequestHeader("requestingUserId") final long requestingUserId,
         @Valid @RequestBody final SubscriptionRequest request) {
         log.info("Subscription request for user {}", requestingUserId);
         UserResponse userResponse = userService.validateUser(requestingUserId);

@@ -30,7 +30,7 @@ public class ApplicationController {
 
     @GetMapping("/applications")
     public ResponseEntity<List<ApplicationResponse>> getForUser(
-        @RequestHeader("requestingUserId") final int requestingUserId) {
+        @RequestHeader("requestingUserId") final long requestingUserId) {
         log.info("List applications for user {}", requestingUserId);
         UserResponse user = userService.validateUser(requestingUserId);
         return ResponseEntity.ok(applicationService.getForUser(user.getId()));
@@ -38,7 +38,7 @@ public class ApplicationController {
 
     @PostMapping("/applications")
     public ResponseEntity<ApplicationResponse> register(
-        @RequestHeader("requestingUserId") final int requestingUserId,
+        @RequestHeader("requestingUserId") final long requestingUserId,
         @Valid @RequestBody final ApplicationRequest request) {
         log.info("Application registration for user {}", requestingUserId);
         UserResponse user = userService.validateUser(requestingUserId);

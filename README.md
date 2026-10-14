@@ -171,6 +171,34 @@ docker image rm <image-id>
 
 There is no need to remove postgres and java or similar core images.
 
+### Smoke tests against the full stack
+
+[amp-marketplace-docker](https://github.com/hmcts/amp-marketplace-docker) runs this service with
+web, Postgres and a mock Entra login. CI runs web's `@smoke` tests against it on every PR to `master`.
+It builds whatever branch is checked out here, so switch to yours first.
+
+```bash
+# 1. Start the stack with this branch (rebuilds only the service)
+cd ../amp-marketplace-docker
+docker compose up --build -d service-api
+curl -s localhost:8080/health/readiness   # wait for {"status":"UP",...}
+
+# 2. This service's smoke test: GET / returns "Welcome"
+cd ../service-api-marketplace
+TEST_URL=http://localhost:8080 ./gradlew smoke
+
+# 3. Web's smoke tests, which exercise web and service together as CI does
+cd ../web-api-marketplace
+nvm use 22 && corepack enable
+yarn install --immutable --mode=skip-build
+TEST_URL=http://localhost:3344 yarn test:smoke --project=chrome
+```
+
+The task is `smoke`, not `smokeTest`: `./gradlew smokeTest` only compiles the tests, and still
+reports success.
+
+`./gradlew test` and `./gradlew check` (what CI's build job runs) don't need the stack.
+
 ## AAT Deployment
 
 The service is deployed to the `apim` namespace on `cft-aat-00-aks` via Flux (`cnp-flux-config`).

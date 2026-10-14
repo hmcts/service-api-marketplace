@@ -1,0 +1,23 @@
+# Postgres for the organisation approval demo. On host port 5435, so it does not collide with the other demos'
+# database (5433) or a Postgres you already run (5432). Data is kept in a named volume: ./run-demo.sh --reset
+# throws it away.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: amp-orgdemo-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5435:5432"
+    volumes:
+      - orgdemo-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  orgdemo-data:

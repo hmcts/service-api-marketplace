@@ -13,6 +13,8 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "marketplace_user")
 @Getter
@@ -41,4 +43,11 @@ public class UserEntity {
 
     // The object id of this person's user in Microsoft Entra, when one was created for them; null otherwise.
     private String entraObjectId;
+
+    // A producer who has asked for the role and has not yet been approved; null otherwise.
+    private String requestedRole;
+
+    // The admin who last approved, suspended or reinstated this person, and when.
+    private String approvedBy;
+    private LocalDateTime approvedAt;
 }

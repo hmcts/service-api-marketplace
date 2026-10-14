@@ -7,7 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class EntraPropertiesTest {
 
     private EntraProperties properties(final String clientId, final String secret) {
-        return new EntraProperties("a-tenant", clientId, secret, "an-api", 1, 1, 1, 1);
+        return new EntraProperties("a-tenant", clientId, secret, "an-api", 1, 1);
     }
 
     @Test

@@ -105,53 +105,43 @@ class EntraAppRegistrationServiceTest {
     }
 
     @Test
-    void role_the_api_does_not_offer_should_say_what_it_does_offer() {
-        stubRegistrationCalls();
+    void granting_a_role_should_assign_it_on_the_apis_service_principal() {
         stubServicePrincipalLookups();
         stubApiRoles();
-        mockEntra.stubFor(delete(urlPathMatching("/applications/.*")).willReturn(aResponse().withStatus(204)));
+        mockEntra.stubFor(post(urlPathEqualTo(ASSIGNED_TO)).willReturn(json("{\"id\":\"assignment-1\"}")));
 
-        assertThatThrownBy(() -> service.register("Team Alpha", List.of("nonsense.read")))
+        service.grantApiAccess(CLIENT_ID, "slc.read");
+
+        // Assigned on the API's principal, naming the consumer as principalId - not the other way round.
+        mockEntra.verify(postRequestedFor(urlPathEqualTo(ASSIGNED_TO)).withRequestBody(equalToJson("""
+            {"principalId":"%s","resourceId":"%s","appRoleId":"%s"}"""
+            .formatted(CONSUMER_SP_ID, API_SP_ID, ROLE_ID), true, true)));
+    }
+
+    @Test
+    void role_the_api_does_not_offer_should_say_what_it_does_offer() {
+        stubServicePrincipalLookups();
+        stubApiRoles();
+
+        assertThatThrownBy(() -> service.grantApiAccess(CLIENT_ID, "nonsense.read"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST))
             .hasMessageContaining("slc.read");
     }
 
     @Test
-    void assignment_rejected_while_the_principal_settles_should_be_retried_not_rolled_back() {
-        stubRegistrationCalls();
-        stubServicePrincipalLookups();
-        stubApiRoles();
-        // Entra rejects an assignment against a principal seconds old as "Not a valid reference update".
-        mockEntra.stubFor(post(urlPathEqualTo(ASSIGNED_TO)).inScenario("assignable")
-            .whenScenarioStateIs(STARTED)
-            .willReturn(aResponse().withStatus(400))
-            .willSetStateTo("settled"));
-        mockEntra.stubFor(post(urlPathEqualTo(ASSIGNED_TO)).inScenario("assignable")
-            .whenScenarioStateIs("settled")
-            .willReturn(json("{\"id\":\"assignment-1\"}")));
-
-        assertThat(service.register("Team Alpha", List.of("slc.read")).roles()).containsExactly("slc.read");
-
-        mockEntra.verify(2, postRequestedFor(urlPathEqualTo(ASSIGNED_TO)));
-        mockEntra.verify(0, deleteRequestedFor(urlPathEqualTo("/applications/" + OBJECT_ID)));
-    }
-
-    @Test
     void refused_assignment_should_name_the_permission_that_is_missing() {
-        stubRegistrationCalls();
         stubServicePrincipalLookups();
         stubApiRoles();
         mockEntra.stubFor(post(urlPathEqualTo(ASSIGNED_TO)).willReturn(aResponse().withStatus(403)));
-        mockEntra.stubFor(delete(urlPathMatching("/applications/.*")).willReturn(aResponse().withStatus(204)));
 
-        assertThatThrownBy(() -> service.register("Team Alpha", List.of("slc.read")))
+        assertThatThrownBy(() -> service.grantApiAccess(CLIENT_ID, "slc.read"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 // Not 503: a missing consent grant is not temporary, and 503 invites endless retrying.
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR))
             .hasMessageContaining("AppRoleAssignment.ReadWrite.All");
 
-        // No amount of waiting grants a permission, so it is not retried.
+        // The caller decides whether to retry, so the service asks exactly once.
         mockEntra.verify(1, postRequestedFor(urlPathEqualTo(ASSIGNED_TO)));
     }
 
@@ -324,7 +314,7 @@ class EntraAppRegistrationServiceTest {
     }
 
     private EntraProperties properties(final String secret) {
-        return new EntraProperties("a-tenant", "an-onboarding-app", secret, API_CLIENT_ID, ATTEMPTS, 1, ATTEMPTS, 1);
+        return new EntraProperties("a-tenant", "an-onboarding-app", secret, API_CLIENT_ID, ATTEMPTS, 1);
     }
 
     private void stubRegistrationCalls() {

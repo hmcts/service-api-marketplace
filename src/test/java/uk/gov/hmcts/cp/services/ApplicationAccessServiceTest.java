@@ -38,6 +38,12 @@ class ApplicationAccessServiceTest {
     private AccountService accountService;
 
     @Mock
+    private TokenService tokenService;
+
+    @Mock
+    private OrganisationApprovalService approvals;
+
+    @Mock
     private ApplicationRepository applicationRepository;
 
     @Mock
@@ -64,6 +70,64 @@ class ApplicationAccessServiceTest {
             assertThat(e.getStatusCode()).isEqualTo(status);
             assertThat(e.getReason()).isEqualTo(message);
         });
+    }
+
+    @Test
+    void with_approval_on_a_person_signed_in_with_entra_is_identified_from_the_entra_token() {
+        when(approvals.enabled()).thenReturn(true);
+        when(tokenService.verify("entra-token")).thenReturn(Optional.empty());
+        when(approvals.caller("Bearer entra-token")).thenReturn(new OrganisationApprovalService.Caller(
+            new uk.gov.hmcts.cp.domain.EntraIdentity("oid", "tid", "dee@example.gov.uk", "Dee"),
+            UserEntity.builder().id(8).email("dee@example.gov.uk").build()));
+
+        assertThat(access.caller("Bearer entra-token")).isEqualTo(new Caller(8, "dee@example.gov.uk"));
+        verifyNoInteractions(accountService);
+    }
+
+    @Test
+    void with_approval_on_an_entra_person_on_an_unapproved_domain_is_refused() {
+        when(approvals.enabled()).thenReturn(true);
+        when(tokenService.verify("entra-token")).thenReturn(Optional.empty());
+        when(approvals.caller("Bearer entra-token")).thenThrow(
+            new ResponseStatusException(HttpStatus.FORBIDDEN, "DOMAIN_NOT_APPROVED: no"));
+
+        assertThatThrownBy(() -> access.caller("Bearer entra-token"))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
+    }
+
+    @Test
+    void with_approval_on_a_local_account_is_held_to_the_same_list() {
+        when(approvals.enabled()).thenReturn(true);
+        when(tokenService.verify("t")).thenReturn(
+            Optional.of(new TokenService.Claims(5, "dan@example.com", "consumer")));
+        signedInAs(5, "dan@example.com");
+        org.mockito.Mockito.doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "DOMAIN_NOT_APPROVED: no"))
+            .when(approvals).requireApprovedDomain("dan@example.com");
+
+        assertThatThrownBy(() -> access.caller("Bearer t"))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
+    }
+
+    @Test
+    void token_that_cannot_be_checked_for_want_of_a_signing_secret_is_tried_as_an_entra_token() {
+        when(approvals.enabled()).thenReturn(true);
+        when(tokenService.verify("anything")).thenThrow(
+            new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "no secret"));
+        when(approvals.caller("Bearer anything")).thenReturn(new OrganisationApprovalService.Caller(
+            new uk.gov.hmcts.cp.domain.EntraIdentity("oid", "tid", "dee@example.gov.uk", "Dee"),
+            UserEntity.builder().id(8).email("dee@example.gov.uk").build()));
+
+        assertThat(access.caller("Bearer anything").id()).isEqualTo(8);
+    }
+
+    @Test
+    void with_approval_off_nothing_changes_and_no_entra_token_is_accepted() {
+        signedInAs(5, "dan@example.com");
+
+        assertThat(access.caller("Bearer t")).isEqualTo(new Caller(5, "dan@example.com"));
+        verify(approvals, never()).caller(any());
     }
 
     @Test

@@ -5,21 +5,24 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.transaction.autoconfigure.TransactionAutoConfiguration;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import uk.gov.hmcts.cp.controllers.AuthController;
 import uk.gov.hmcts.cp.mappers.ApplicationMapper;
 import uk.gov.hmcts.cp.repository.ApplicationApiKeyRepository;
 import uk.gov.hmcts.cp.repository.ApplicationRepository;
+import uk.gov.hmcts.cp.repository.OrganisationDomainRepository;
 import uk.gov.hmcts.cp.repository.OrganisationRepository;
 import uk.gov.hmcts.cp.repository.UserRepository;
-import uk.gov.hmcts.cp.services.ApimProductRegistry;
 import uk.gov.hmcts.cp.services.AccountService;
+import uk.gov.hmcts.cp.services.ApimProductRegistry;
+import uk.gov.hmcts.cp.services.ApimSubscriptionClient;
 import uk.gov.hmcts.cp.services.ApplicationService;
 import uk.gov.hmcts.cp.services.AuthRateLimiter;
+import uk.gov.hmcts.cp.services.EntraAppRegistrationClient;
+import uk.gov.hmcts.cp.services.EntraTokenVerifier;
+import uk.gov.hmcts.cp.services.EntraUserClient;
+import uk.gov.hmcts.cp.services.OrganisationApprovalService;
 import uk.gov.hmcts.cp.services.PasswordService;
 import uk.gov.hmcts.cp.services.TokenService;
-import uk.gov.hmcts.cp.controllers.AuthController;
-import uk.gov.hmcts.cp.services.ApimSubscriptionClient;
-import uk.gov.hmcts.cp.services.EntraAppRegistrationClient;
-import uk.gov.hmcts.cp.services.EntraUserClient;
 
 import java.net.http.HttpClient;
 
@@ -90,9 +93,12 @@ class AppConfigTest {
         // collaborator the account code asks Spring for exists and that nothing is missing or ambiguous.
         new ApplicationContextRunner()
             .withUserConfiguration(AppConfig.class, CorsConfig.class, AuthController.class, AccountService.class,
-                PasswordService.class, TokenService.class, AuthRateLimiter.class, EntraUserClient.class)
+                PasswordService.class, TokenService.class, AuthRateLimiter.class, EntraUserClient.class,
+                OrganisationApprovalService.class, EntraTokenVerifier.class)
             .withBean(UserRepository.class, () -> mock(UserRepository.class))
             .withBean(OrganisationRepository.class, () -> mock(OrganisationRepository.class))
+            .withBean(OrganisationDomainRepository.class, () -> mock(OrganisationDomainRepository.class))
+            .withBean(TransactionTemplate.class, () -> mock(TransactionTemplate.class))
             .run(context -> {
                 assertThat(context).hasNotFailed();
                 assertThat(context).hasSingleBean(AuthController.class);

@@ -82,7 +82,16 @@ r=$(call GET /api/entra/applications "$DEE"); expect "Dee is refused" "$(status 
 r=$(call POST /api/admin/users/$DEEID/reinstate "$ADMIN"); expect "Ada reinstates Dee" "$(status "$r")" 200
 r=$(call GET /api/entra/applications "$DEE"); expect "Dee is back" "$(status "$r")" 200
 
-say "5. The token is checked every time"
+say "5. Registering an application needs an approved domain, whichever way the person signed in"
+r=$(call POST /api/applications "$DEE" '{"name":"Demo app","environment":"sandbox"}'); expect "Dee (Entra, approved domain) registers an application" "$(status "$r")" 201
+r=$(call GET /api/applications "$DEE"); expect "Dee sees it" "$(status "$r")" 200
+r=$(call POST /api/applications "$BOB" '{"name":"Bob app","environment":"sandbox"}'); expect "Bob (Entra, unknown domain) cannot register one" "$(status "$r")" 403; echo "      $(field "$r" "['error']")"
+r=$(call POST /api/register "" '{"firstName":"Una","lastName":"Known","email":"una@unknown.example","organisation":"X","role":"consumer","password":"correct-horse-battery-staple"}'); expect "a local account on an unknown domain cannot even register" "$(status "$r")" 403
+r=$(call POST /api/register "" '{"firstName":"Alf","lastName":"Approved","email":"alf@approved.example","organisation":"X","role":"consumer","password":"correct-horse-battery-staple"}'); expect "a local account on an approved domain can" "$(status "$r")" 201
+LOCAL=$(field "$r" "['token']")
+r=$(call POST /api/applications "$LOCAL" '{"name":"Local app","environment":"sandbox"}'); expect "and can register an application" "$(status "$r")" 201
+
+say "6. The token is checked every time"
 expect "no token" "$(status "$(call GET /api/entra/me '')")" 401
 expect "garbage token" "$(status "$(call GET /api/entra/me 'not.a.token')")" 401
 expect "token for another client" "$(status "$(call GET /api/entra/me "$(curl -s "$FAKE/token?aud=someone-else&email=dee@approved.example&oid=x1" | json "d['token']")")")" 401

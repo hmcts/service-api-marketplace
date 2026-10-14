@@ -41,9 +41,12 @@ public class AccountService {
     private final PasswordService passwordService;
     private final TokenService tokenService;
     private final EntraUserClient entraUsers;
+    private final OrganisationApprovalService approvals;
 
     public AuthResponse register(final RegisterRequest request) {
         validate(request);
+        // Before anything is created, here or in Entra: an address on an unknown domain cannot register.
+        approvals.requireApprovedDomain(request.getEmail());
         // Before anything is written: an account that exists but cannot be signed in to is worse
         // than a registration that was refused.
         tokenService.requireConfigured();
@@ -109,6 +112,7 @@ public class AccountService {
             // is not active - the response must not say which.
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Incorrect email or password.");
         }
+        approvals.requireApprovedDomain(user.getEmail());
         return new AuthResponse(toResponse(user), tokenService.issue(user));
     }
 

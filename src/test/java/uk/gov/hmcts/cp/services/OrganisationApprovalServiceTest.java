@@ -229,6 +229,25 @@ class OrganisationApprovalServiceTest {
     }
 
     @Test
+    void local_accounts_address_is_checked_against_the_list_only_when_the_switch_is_on() {
+        ReflectionTestUtils.setField(service, "mode", "off");
+        service.requireApprovedDomain("anyone@unknown.example");
+        verify(domainRepository, never()).findByDomainIgnoreCase(anyString());
+
+        ReflectionTestUtils.setField(service, "mode", "on");
+        listed("example.gov.uk");
+        service.requireApprovedDomain("Dee@Example.gov.uk");
+        when(domainRepository.findByDomainIgnoreCase("unknown.example")).thenReturn(Optional.empty());
+
+        ResponseStatusException refused = refusal(() -> service.requireApprovedDomain("dee@unknown.example"));
+        assertThat(refused.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(refused.getReason()).startsWith("DOMAIN_NOT_APPROVED").contains("unknown.example");
+        assertThat(refusal(() -> service.requireApprovedDomain("not-an-address")).getStatusCode())
+            .isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(refusal(() -> service.requireApprovedDomain(null)).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
     void profile_names_the_organisation() {
         signedInAs("dee@example.gov.uk", "Dee Mo");
         listed("example.gov.uk");

@@ -54,6 +54,9 @@ class AccountServiceTest {
     @Mock
     private EntraUserClient entraUsers;
 
+    @Mock
+    private OrganisationApprovalService approvals;
+
     @InjectMocks
     private AccountService accountService;
 
@@ -99,6 +102,17 @@ class AccountServiceTest {
         assertThat(response.user().firstName()).isEqualTo("Joe");
         assertThat(response.user().email()).isEqualTo("joe.bloggs@example.com");
         assertThat(response.user().role()).isEqualTo("consumer");
+    }
+
+    @Test
+    void an_address_on_an_unapproved_domain_should_be_refused_before_anything_is_created() {
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "DOMAIN_NOT_APPROVED: no"))
+            .when(approvals).requireApprovedDomain("joe.bloggs@example.com");
+
+        assertRejected(valid, HttpStatus.FORBIDDEN, "DOMAIN_NOT_APPROVED: no");
+
+        verify(userRepository, never()).save(any());
+        verifyNoInteractions(entraUsers, passwordService);
     }
 
     @Test
@@ -303,6 +317,21 @@ class AccountServiceTest {
         assertThat(accountService.login(
             LoginRequest.builder().email(" Joe.Bloggs@EXAMPLE.com ").password(PASSWORD).build()).token())
             .isEqualTo("the-token");
+    }
+
+    @Test
+    void correct_password_on_an_address_whose_domain_is_no_longer_approved_should_not_sign_in() {
+        when(userRepository.findByEmail("joe.bloggs@example.com")).thenReturn(Optional.of(stored));
+        when(passwordService.matches(PASSWORD, "stored-hash")).thenReturn(true);
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "DOMAIN_NOT_APPROVED: no"))
+            .when(approvals).requireApprovedDomain("joe.bloggs@example.com");
+
+        assertThatThrownBy(() -> accountService.login(LoginRequest.builder()
+            .email("joe.bloggs@example.com").password(PASSWORD).build()))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
+
+        verify(tokenService, never()).issue(any());
     }
 
     @Test

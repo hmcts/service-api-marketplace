@@ -124,6 +124,22 @@ public class OrganisationApprovalService {
         return identity;
     }
 
+    /**
+     * For people with a local account (email and password) rather than an Entra sign-in: when the switch is on, an
+     * address whose domain is not on the approved list is refused, so nobody on an unknown domain can register, sign in
+     * or use an application whichever way they came. Does nothing when the switch is off, and saves nothing.
+     */
+    public void requireApprovedDomain(final String email) {
+        if (!enabled()) {
+            return;
+        }
+        String domain = EmailDomain.of(email).orElse(null);
+        if (domain == null || domainRepository.findByDomainIgnoreCase(domain).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, NOT_APPROVED + ": the email domain "
+                + (domain == null ? "" : domain + " ") + "is not on the approved list for the API Marketplace.");
+        }
+    }
+
     public EntraProfileResponse profile(final Caller caller) {
         UserEntity user = caller.user();
         return new EntraProfileResponse(caller.identity().oid(), user.getEmail(), name(user),

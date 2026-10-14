@@ -1,0 +1,20 @@
+# Runs this change in the full marketplace stack (amp-marketplace-docker) against the other app's master
+name: Stack smoke
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  stack-smoke:
+    uses: hmcts/amp-marketplace-docker/.github/workflows/stack-smoke.yml@main
+    with:
+      service-repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+      service-ref: ${{ github.event.pull_request.head.sha || github.sha }}

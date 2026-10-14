@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The organisation approval flow end to end, offline: the real service and a real Postgres, with a stand-in that
-# signs tokens the way Entra would. Proves the wiring (token checks, domain rule, held/active, admin approval,
-# suspension) without a Microsoft account. The real thing is run-demo.sh.
+# signs tokens the way Entra would. Proves the wiring (token checks, the pre-approved domain list, listing and
+# removing a domain, suspension) without a Microsoft account. The real thing is run-demo.sh.
 #
 #   ./local-check.sh        runs the scenario, prints each step, exits non-zero if any step is wrong
 set -uo pipefail
@@ -40,49 +40,49 @@ docker compose up -d db >/dev/null 2>&1 || { echo "Docker is not running"; exit 
 until docker exec amp-orgdemo-db pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done
 docker exec amp-orgdemo-db psql -U postgres -qc "drop database if exists $DB" -c "create database $DB" >/dev/null
 node fake-entra.js $ENTRA_PORT >/dev/null 2>&1 & pids+=($!)
-JAR=$(ls "$ROOT"/build/libs/*.jar 2>/dev/null | grep -v plain | head -1)
-[ -n "$JAR" ] || (cd "$ROOT" && ./gradlew bootJar -x test -q >/dev/null 2>&1; JAR=$(ls "$ROOT"/build/libs/*.jar | grep -v plain | head -1))
+(cd "$ROOT" && ./gradlew bootJar -x test -q >/dev/null 2>&1)
 JAR=$(ls "$ROOT"/build/libs/*.jar | grep -v plain | head -1)
 POSTGRES_HOST=localhost POSTGRES_PORT=5435 POSTGRES_DATABASE=$DB POSTGRES_USER=postgres POSTGRES_PASS=postgres \
 SERVER_PORT=$SERVICE_PORT JWT_SECRET=$(openssl rand -hex 32) \
-ORGANISATION_APPROVAL=on ADMIN_EMAILS=admin@approved.example \
+ORGANISATION_APPROVAL=on ADMIN_EMAILS=admin@approved.example APPROVED_DOMAINS='Example Council=approved.example' \
 ENTRA_TOKEN_ISSUER=http://localhost:$ENTRA_PORT/issuer ENTRA_TOKEN_JWKS_URI=$FAKE/keys ENTRA_TOKEN_AUDIENCES=$AUDIENCE \
   "$JAVA" -jar "$JAR" >/tmp/orgcheck-service.log 2>&1 & pids+=($!)
-for _ in $(seq 1 60); do [ "$(curl -s -o /dev/null -w '%{http_code}' $API/actuator/health 2>/dev/null)" = 200 ] && break; sleep 2; done
+for _ in $(seq 1 60); do [ "$(curl -s -o /dev/null -w '%{http_code}' $API/health 2>/dev/null)" = 200 ] && break; sleep 2; done
 
 ADMIN=$(token "email=admin@approved.example&name=Ada+Admin&oid=00000000-0000-0000-0000-0000000000a1")
 DEE=$(token "email=dee@approved.example&name=Dee+Mo&oid=00000000-0000-0000-0000-0000000000d1")
 BOB=$(token "email=bob@unknown.example&name=Bob+Lee&oid=00000000-0000-0000-0000-0000000000b1")
 
-say "1. Nothing is approved yet: everyone who signs in is held"
-r=$(call GET /api/entra/me "$DEE"); expect "Dee signs in" "$(status "$r")" 200; echo "      status: $(field "$r" "['status']")"
-r=$(call GET /api/entra/applications "$DEE"); expect "Dee is turned away" "$(status "$r")" 403; echo "      $(field "$r" "['error']")"
+say "1. A person on a pre-approved domain is let in automatically (the list came from APPROVED_DOMAINS)"
+r=$(call GET /api/entra/me "$DEE"); expect "Dee signs in" "$(status "$r")" 200
+echo "      $(field "$r" "['status']") in $(field "$r" "['organisation']")"
+[ "$(field "$r" "['status']")" = ACTIVE ] && echo "   ok   Dee is active, with nobody approving her" || { echo "   WRONG Dee should be active"; failures=$((failures+1)); }
+r=$(call GET /api/entra/applications "$DEE"); expect "Dee can use the marketplace" "$(status "$r")" 200
 
-say "2. Only an admin may use the admin endpoints (anyone else gets 404)"
-r=$(call GET /api/admin/users "$DEE"); expect "Dee is not an admin" "$(status "$r")" 404
-r=$(call POST /api/admin/organisations "$ADMIN" '{"name":"Example Council"}'); expect "Ada creates an organisation" "$(status "$r")" 201
+say "2. Anyone else is refused, and nothing about them is saved"
+r=$(call GET /api/entra/me "$BOB"); expect "Bob is refused" "$(status "$r")" 403; echo "      $(field "$r" "['error']")"
+r=$(call GET /api/entra/applications "$BOB"); expect "Bob cannot use the marketplace" "$(status "$r")" 403
+r=$(call GET "/api/admin/users?status=ACTIVE" "$ADMIN"); expect "the admin lists active people" "$(status "$r")" 200
+[ "$(field "$r" "['users']" | grep -c bob@)" = 0 ] && echo "   ok   Bob was not saved" || { echo "   WRONG Bob should not be saved"; failures=$((failures+1)); }
+
+say "3. Keeping the list: only an admin may, and a listed domain takes effect at once (no approving individuals)"
+r=$(call GET /api/admin/organisations "$DEE"); expect "Dee is not an admin (404)" "$(status "$r")" 404
+r=$(call POST /api/admin/organisations "$ADMIN" '{"name":"Second Org"}'); expect "Ada creates an organisation" "$(status "$r")" 201
 ORG=$(field "$r" "['id']")
 r=$(call POST /api/admin/organisations/$ORG/domains "$ADMIN" '{"domain":"gmail.com"}'); expect "a shared mail domain is refused" "$(status "$r")" 400
-r=$(call POST /api/admin/organisations/$ORG/domains "$ADMIN" '{"domain":"Approved.Example"}'); expect "Ada lists approved.example" "$(status "$r")" 201
+r=$(call POST /api/admin/organisations/$ORG/domains "$ADMIN" '{"domain":"Unknown.Example"}'); expect "Ada lists unknown.example" "$(status "$r")" 201
+r=$(call GET /api/entra/applications "$BOB"); expect "Bob is now let in, with nobody approving him" "$(status "$r")" 200
+r=$(call DELETE /api/admin/organisations/$ORG/domains/unknown.example "$ADMIN"); expect "Ada takes the domain off the list" "$(status "$r")" 200
+r=$(call GET /api/entra/applications "$BOB"); expect "Bob is refused again on his next call" "$(status "$r")" 403
 
-say "3. Listing the domain made everyone held on it active, and the check is made on every call"
-r=$(call GET /api/entra/me "$DEE"); echo "      Dee: $(field "$r" "['status']") in $(field "$r" "['organisation']")"
-[ "$(field "$r" "['status']")" = ACTIVE ] && echo "   ok   Dee is active" || { echo "   WRONG Dee should be active"; failures=$((failures+1)); }
-r=$(call GET /api/entra/applications "$DEE"); expect "Dee can now use the marketplace" "$(status "$r")" 200
-
-say "4. A person on an unlisted domain stays held until an admin approves them"
-r=$(call GET /api/entra/applications "$BOB"); expect "Bob is turned away" "$(status "$r")" 403
-r=$(call GET "/api/admin/users?status=HELD" "$ADMIN"); echo "      waiting: $(field "$r" "['users'][0]['email']")"
-BOBID=$(field "$r" "['users'][0]['id']")
-r=$(call POST /api/admin/users/$BOBID/approve "$ADMIN" "{\"organisationId\":$ORG}"); expect "Ada approves Bob" "$(status "$r")" 200
-r=$(call GET /api/entra/applications "$BOB"); expect "Bob can now use the marketplace" "$(status "$r")" 200
-
-say "5. A leaver is suspended and refused on the next call"
+say "4. A leaver is suspended and refused on the next call"
 DEEID=$(call GET "/api/admin/users?status=ACTIVE" "$ADMIN" | cut -d' ' -f2- | json "[u['id'] for u in d['users'] if u['email']=='dee@approved.example'][0]")
 r=$(call POST /api/admin/users/$DEEID/suspend "$ADMIN"); expect "Ada suspends Dee" "$(status "$r")" 200
 r=$(call GET /api/entra/applications "$DEE"); expect "Dee is refused" "$(status "$r")" 403; echo "      $(field "$r" "['error']")"
+r=$(call POST /api/admin/users/$DEEID/reinstate "$ADMIN"); expect "Ada reinstates Dee" "$(status "$r")" 200
+r=$(call GET /api/entra/applications "$DEE"); expect "Dee is back" "$(status "$r")" 200
 
-say "6. The token is checked every time"
+say "5. The token is checked every time"
 expect "no token" "$(status "$(call GET /api/entra/me '')")" 401
 expect "garbage token" "$(status "$(call GET /api/entra/me 'not.a.token')")" 401
 expect "token for another client" "$(status "$(call GET /api/entra/me "$(curl -s "$FAKE/token?aud=someone-else&email=dee@approved.example&oid=x1" | json "d['token']")")")" 401

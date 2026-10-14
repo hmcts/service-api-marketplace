@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.cp.domain.AdminUserResponse;
 import uk.gov.hmcts.cp.domain.AdminUsersResponse;
@@ -19,11 +18,13 @@ import uk.gov.hmcts.cp.repository.OrganisationRepository;
 import uk.gov.hmcts.cp.repository.UserRepository;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Locale;
 
 /**
- * What an admin does to the approved list and to people waiting on it. The caller has already been checked as an
- * admin; everything recorded against a person names that admin and the time.
+ * What an admin does to the list of approved domains, and to a leaver. The caller has already been checked as an
+ * admin. There is nothing here to approve a person: the list of domains is the approval. Suspending and
+ * reinstating record who did it and when.
  */
 @Slf4j
 @Service
@@ -36,12 +37,10 @@ public class OrganisationAdminService {
     private final UserRepository userRepository;
     private final OrganisationRepository organisationRepository;
     private final OrganisationDomainRepository domainRepository;
-    private final OrganisationApprovalService approvals;
-    private final TransactionTemplate transactionTemplate;
     private final ClockService clockService;
 
     public AdminUsersResponse users(final String status) {
-        String wanted = status == null || status.isBlank() ? OrganisationApprovalService.HELD
+        String wanted = status == null || status.isBlank() ? OrganisationApprovalService.ACTIVE
             : status.trim().toUpperCase(Locale.ROOT);
         return new AdminUsersResponse(userRepository.findByStatusOrderByIdAsc(wanted).stream()
             .map(this::view).toList());
@@ -73,8 +72,8 @@ public class OrganisationAdminService {
         }
     }
 
-    /** Lists a domain for an organisation, and makes everyone held on that domain active in it. */
-    public OrganisationResponse addDomain(final Integer organisationId, final String domain, final String adminEmail) {
+    /** Puts a domain on the approved list for an organisation; everyone with an address on it may then sign in. */
+    public OrganisationResponse addDomain(final Integer organisationId, final String domain) {
         OrganisationEntity organisation = organisation(organisationId);
         String normalised = EmailDomain.normalise(domain).orElseThrow(() ->
             new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -86,34 +85,25 @@ public class OrganisationAdminService {
         if (domainRepository.findByDomainIgnoreCase(normalised).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "That domain is already listed.");
         }
-        LocalDateTime now = now();
         try {
-            transactionTemplate.executeWithoutResult(status -> {
-                domainRepository.save(OrganisationDomainEntity.builder()
-                    .organisation(organisation).domain(normalised).createdAt(now).build());
-                for (UserEntity held : userRepository.findByStatusAndEmailEndingWithIgnoreCase(
-                    OrganisationApprovalService.HELD, "@" + normalised)) {
-                    userRepository.save(held.toBuilder().organisation(organisation)
-                        .status(OrganisationApprovalService.ACTIVE).approvedBy(adminEmail).approvedAt(now).build());
-                }
-            });
+            domainRepository.save(OrganisationDomainEntity.builder()
+                .organisation(organisation).domain(normalised).createdAt(now()).build());
         } catch (DataIntegrityViolationException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "That domain is already listed.");
         }
-        log.info("Domain {} listed for organisation {} by an admin", normalised, organisationId);
+        log.info("Domain {} approved for organisation {}", normalised, organisationId);
         return view(organisation);
     }
 
-    /** Approves one person into an organisation, and grants the producer role if they asked for it. */
-    public AdminUserResponse approve(final Integer userId, final Integer organisationId, final String adminEmail) {
-        UserEntity user = user(userId);
+    /** Takes a domain off the list: its people are refused from their next call. */
+    public OrganisationResponse removeDomain(final Integer organisationId, final String domain) {
         OrganisationEntity organisation = organisation(organisationId);
-        UserEntity.UserEntityBuilder builder = user.toBuilder().organisation(organisation)
-            .status(OrganisationApprovalService.ACTIVE).approvedBy(adminEmail).approvedAt(now());
-        if (user.getRequestedRole() != null) {
-            builder.role(user.getRequestedRole()).requestedRole(null);
-        }
-        return view(userRepository.save(builder.build()));
+        OrganisationDomainEntity found = domainRepository.findByDomainIgnoreCase(domain == null ? "" : domain.trim())
+            .filter(entry -> entry.getOrganisation().getId().equals(organisationId))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, NOT_FOUND));
+        domainRepository.delete(found);
+        log.info("Domain {} taken off the approved list for organisation {}", found.getDomain(), organisationId);
+        return view(organisation);
     }
 
     public AdminUserResponse suspend(final Integer userId, final String adminEmail) {
@@ -122,19 +112,16 @@ public class OrganisationAdminService {
             .approvedBy(adminEmail).approvedAt(now()).build()));
     }
 
-    /** Back to active if they have an organisation or a listed domain; otherwise held again. */
     public AdminUserResponse reinstate(final Integer userId, final String adminEmail) {
         UserEntity user = user(userId);
-        UserEntity back = user.toBuilder().status(user.getOrganisation() == null
-            ? OrganisationApprovalService.HELD : OrganisationApprovalService.ACTIVE)
-            .approvedBy(adminEmail).approvedAt(now()).build();
-        return view(userRepository.save(approvals.applyDomainRule(back)));
+        return view(userRepository.save(user.toBuilder().status(OrganisationApprovalService.ACTIVE)
+            .approvedBy(adminEmail).approvedAt(now()).build()));
     }
 
     private AdminUserResponse view(final UserEntity user) {
         return new AdminUserResponse(user.getId(), user.getEmail(), OrganisationApprovalService.name(user),
             user.getStatus(), EmailDomain.of(user.getEmail()).orElse(""),
-            user.getOrganisation() == null ? null : user.getOrganisation().getName(), user.getRequestedRole());
+            user.getOrganisation() == null ? null : user.getOrganisation().getName());
     }
 
     private OrganisationResponse view(final OrganisationEntity organisation) {
@@ -154,6 +141,6 @@ public class OrganisationAdminService {
     }
 
     private LocalDateTime now() {
-        return LocalDateTime.ofInstant(clockService.now(), java.time.ZoneId.systemDefault());
+        return LocalDateTime.ofInstant(clockService.now(), ZoneId.systemDefault());
     }
 }

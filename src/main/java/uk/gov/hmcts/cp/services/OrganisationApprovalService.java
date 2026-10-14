@@ -23,10 +23,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Who may use the marketplace, for people who sign in with Entra: the user is identified from a validated token,
- * saved once keyed by their Entra object id, and placed in an organisation by the domain of their email address.
- * A domain on the approved list makes them ACTIVE; any other leaves them HELD until an admin approves them. The
- * check is made on every call, so a removed domain or a suspension takes effect on the next request.
+ * Who may use the marketplace, for people who sign in with Entra. The only rule is the list of pre-approved email
+ * domains: a person whose address is on one of them is let in, as a member of that organisation; anyone else is
+ * refused (403 DOMAIN_NOT_APPROVED) and nothing about them is saved. There is no queue and nobody approves
+ * individuals. The person is identified from a validated token, saved once keyed by their Entra object id, and the
+ * list is checked on every call, so a domain taken off it, or a suspension, takes effect on the next request.
  *
  * <p>Off unless ORGANISATION_APPROVAL=on, so nothing changes until it is switched on; anything but on or off stops
  * the service starting.
@@ -37,9 +38,8 @@ import java.util.stream.Collectors;
 public class OrganisationApprovalService {
 
     public static final String ACTIVE = "ACTIVE";
-    public static final String HELD = "HELD";
     public static final String SUSPENDED = "SUSPENDED";
-    public static final String NOT_APPROVED = "ORGANISATION_NOT_APPROVED";
+    public static final String NOT_APPROVED = "DOMAIN_NOT_APPROVED";
 
     private static final String ON = "on";
     private static final String OFF = "off";
@@ -50,7 +50,6 @@ public class OrganisationApprovalService {
     private final UserRepository userRepository;
     private final OrganisationDomainRepository domainRepository;
     private final TransactionTemplate transactionTemplate;
-    private final ClockService clockService;
 
     // Not final so tests can set it; the default leaves the service exactly as it was.
     @Value("${ORGANISATION_APPROVAL:off}")
@@ -76,52 +75,53 @@ public class OrganisationApprovalService {
         return ON.equals(normalised());
     }
 
-    /** Validates the token and returns the caller, creating or refreshing their row. Held people are returned too. */
+    /**
+     * Validates the token and returns the person, creating or refreshing their row. Refuses anyone whose email
+     * domain is not on the approved list, and anyone who has been suspended.
+     */
     public Caller caller(final String authorization) {
         requireEnabled();
         EntraIdentity identity = verifier.verify(authorization);
-        if (identity.oid() == null || identity.email() == null || EmailDomain.of(identity.email()).isEmpty()) {
+        if (identity.oid() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not signed in.");
+        }
+        String domain = identity.email() == null ? null : EmailDomain.of(identity.email()).orElse(null);
+        if (domain == null) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Your sign-in did not include an email address.");
         }
+        OrganisationDomainEntity approved = domainRepository.findByDomainIgnoreCase(domain).orElseThrow(() ->
+            new ResponseStatusException(HttpStatus.FORBIDDEN, NOT_APPROVED
+                + ": the email domain " + domain + " is not on the approved list for the API Marketplace."));
+        UserEntity user;
         try {
-            return new Caller(identity, transactionTemplate.execute(status -> upsert(identity)));
+            user = transactionTemplate.execute(status -> upsert(identity, approved));
         } catch (DataIntegrityViolationException e) {
             // Two first calls at once, or an address that already belongs to a different account here.
-            return new Caller(identity, userRepository.findByEntraObjectId(identity.oid())
+            user = userRepository.findByEntraObjectId(identity.oid())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT,
-                    "An account with this email address already exists.")));
+                    "An account with this email address already exists."));
         }
-    }
-
-    /**
-     * As {@link #caller}, and refuses anyone who is not ACTIVE with the reason.
-     */
-    public Caller activeCaller(final String authorization) {
-        Caller caller = caller(authorization);
-        String status = caller.user().getStatus();
-        if (HELD.equals(status)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                NOT_APPROVED + ": your organisation is not approved for the API Marketplace yet.");
-        }
-        if (SUSPENDED.equals(status)) {
+        if (SUSPENDED.equals(user.getStatus())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Your access has been suspended.");
         }
-        return caller;
+        return new Caller(identity, user);
     }
 
     /**
-     * As {@link #caller}, and answers 404 (so the endpoint is not discoverable) unless they are an admin.
+     * Validates the token and answers 404 (so the endpoint is not discoverable) unless the person is an admin. An
+     * admin is named in ADMIN_EMAILS and needs no approved domain, so the very first domain can be listed.
      */
-    public Caller adminCaller(final String authorization) {
-        Caller caller = caller(authorization);
+    public EntraIdentity admin(final String authorization) {
+        requireEnabled();
+        EntraIdentity identity = verifier.verify(authorization);
         Set<String> admins = Arrays.stream(adminEmails == null ? new String[0] : adminEmails.split(","))
             .map(value -> value.trim().toLowerCase(Locale.ROOT))
             .filter(value -> !value.isEmpty())
             .collect(Collectors.toSet());
-        if (!admins.contains(caller.identity().email().trim().toLowerCase(Locale.ROOT))) {
+        if (identity.email() == null || !admins.contains(identity.email().trim().toLowerCase(Locale.ROOT))) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, NOT_FOUND);
         }
-        return caller;
+        return identity;
     }
 
     public EntraProfileResponse profile(final Caller caller) {
@@ -130,25 +130,7 @@ public class OrganisationApprovalService {
             user.getOrganisation() == null ? null : user.getOrganisation().getName(), user.getStatus(), user.getRole());
     }
 
-    /**
-     * Sets an organisation and status from the person's email domain: a listed domain makes them ACTIVE in that
-     * organisation, an unlisted one makes them HELD with none. Someone suspended stays suspended.
-     */
-    public UserEntity applyDomainRule(final UserEntity user) {
-        if (SUSPENDED.equals(user.getStatus())) {
-            return user;
-        }
-        Optional<OrganisationDomainEntity> domain = EmailDomain.of(user.getEmail())
-            .flatMap(domainRepository::findByDomainIgnoreCase);
-        if (domain.isPresent()) {
-            return user.toBuilder().organisation(domain.get().getOrganisation()).status(ACTIVE).build();
-        }
-        // An unlisted domain: held, unless an admin has placed this person in an organisation by hand.
-        return user.getOrganisation() != null && ACTIVE.equals(user.getStatus())
-            && user.getApprovedBy() != null ? user : user.toBuilder().organisation(null).status(HELD).build();
-    }
-
-    private UserEntity upsert(final EntraIdentity identity) {
+    private UserEntity upsert(final EntraIdentity identity, final OrganisationDomainEntity approved) {
         Optional<UserEntity> existing = userRepository.findByEntraObjectId(identity.oid());
         String address = identity.email().trim().toLowerCase(Locale.ROOT);
         if (existing.isEmpty() && userRepository.findByEmail(address).isPresent()) {
@@ -156,25 +138,25 @@ public class OrganisationApprovalService {
             // take over someone else's account.
             throw new DataIntegrityViolationException("email already used by another account");
         }
-
         String[] names = splitName(identity.name(), address);
-        UserEntity base = existing
-            .map(user -> user.toBuilder().email(address).firstName(names[0]).lastName(names[1]).build())
+        UserEntity wanted = existing
+            .map(user -> user.toBuilder().email(address).firstName(names[0]).lastName(names[1])
+                .organisation(approved.getOrganisation()).build())
             .orElseGet(() -> UserEntity.builder()
                 .email(address)
                 .firstName(names[0])
                 .lastName(names[1])
                 .role(CONSUMER)
-                .status(HELD)
+                .status(ACTIVE)
+                .organisation(approved.getOrganisation())
                 .entraObjectId(identity.oid())
                 .build());
-        UserEntity ruled = applyDomainRule(base);
-        if (existing.isPresent() && ruled.equals(existing.get())) {
+        if (existing.isPresent() && wanted.equals(existing.get())) {
             return existing.get();
         }
-        UserEntity saved = userRepository.save(ruled);
-        log.info("Entra user {} is {} (organisation {})", identity.oid(), saved.getStatus(),
-            saved.getOrganisation() == null ? "none" : saved.getOrganisation().getId());
+        UserEntity saved = userRepository.save(wanted);
+        log.info("Entra user {} is {} in organisation {}", identity.oid(), saved.getStatus(),
+            saved.getOrganisation().getId());
         return saved;
     }
 
@@ -193,8 +175,8 @@ public class OrganisationApprovalService {
         return (user.getFirstName() + " " + last).trim();
     }
 
-    // Entra gives one display name; the first word is the first name and the rest the last. Both columns are required,
-    // so a missing name falls back to the part of the address before the @.
+    // Entra gives one display name; the first word is the first name and the rest the last. Both columns are
+    // required, so a missing name falls back to the part of the address before the @.
     static String[] splitName(final String displayName, final String email) {
         String name = displayName == null ? "" : displayName.trim();
         if (name.isEmpty()) {

@@ -25,6 +25,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
@@ -50,15 +51,11 @@ class OrganisationApprovalServiceTest {
     @Mock
     private TransactionTemplate transactionTemplate;
 
-    @Mock
-    private ClockService clockService;
-
     private OrganisationApprovalService service;
 
     @BeforeEach
     void setUp() {
-        service = new OrganisationApprovalService(verifier, userRepository, domainRepository, transactionTemplate,
-            clockService);
+        service = new OrganisationApprovalService(verifier, userRepository, domainRepository, transactionTemplate);
         ReflectionTestUtils.setField(service, "mode", "on");
         ReflectionTestUtils.setField(service, "adminEmails", "Admin@Example.gov.uk, other@example.gov.uk");
         lenient().when(transactionTemplate.execute(any())).thenAnswer(invocation ->
@@ -76,11 +73,11 @@ class OrganisationApprovalServiceTest {
     }
 
     private ResponseStatusException refusal(final Runnable call) {
-        return org.junit.jupiter.api.Assertions.assertThrows(ResponseStatusException.class, call::run);
+        return assertThrows(ResponseStatusException.class, call::run);
     }
 
     @Test
-    void new_person_on_a_listed_domain_is_saved_active_in_that_organisation() {
+    void new_person_on_an_approved_domain_is_saved_active_in_that_organisation() {
         signedInAs("Dee.Mo@Example.gov.uk", "Dee Mo");
         listed("example.gov.uk");
 
@@ -100,74 +97,72 @@ class OrganisationApprovalServiceTest {
     }
 
     @Test
-    void new_person_on_an_unlisted_domain_is_saved_held_with_no_organisation() {
+    void person_on_a_domain_that_is_not_approved_is_refused_and_nothing_is_saved() {
         signedInAs("dee@unknown.example", "Dee");
         when(domainRepository.findByDomainIgnoreCase("unknown.example")).thenReturn(Optional.empty());
 
-        Caller caller = service.caller("Bearer t");
-
-        assertThat(caller.user().getStatus()).isEqualTo("HELD");
-        assertThat(caller.user().getOrganisation()).isNull();
-        assertThat(caller.user().getFirstName()).isEqualTo("Dee");
-        assertThat(caller.user().getLastName()).isEmpty();
-    }
-
-    @Test
-    void held_person_is_refused_with_the_reason_but_can_still_be_identified() {
-        signedInAs("dee@unknown.example", null);
-        when(domainRepository.findByDomainIgnoreCase("unknown.example")).thenReturn(Optional.empty());
-
-        assertThat(service.caller("Bearer t").user().getFirstName()).isEqualTo("dee");
-        ResponseStatusException refused = refusal(() -> service.activeCaller("Bearer t"));
+        ResponseStatusException refused = refusal(() -> service.caller("Bearer t"));
 
         assertThat(refused.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-        assertThat(refused.getReason()).startsWith("ORGANISATION_NOT_APPROVED");
-    }
-
-    @Test
-    void active_person_whose_domain_has_been_removed_is_held_on_the_next_call() {
-        signedInAs("dee@example.gov.uk", "Dee Mo");
-        UserEntity before = UserEntity.builder().id(3).entraObjectId(OID).email("dee@example.gov.uk").firstName("Dee")
-            .lastName("Mo").role("consumer").status("ACTIVE").organisation(ORG).build();
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(before));
-        when(domainRepository.findByDomainIgnoreCase("example.gov.uk")).thenReturn(Optional.empty());
-
-        Caller caller = service.caller("Bearer t");
-
-        assertThat(caller.user().getStatus()).isEqualTo("HELD");
-        assertThat(caller.user().getOrganisation()).isNull();
-    }
-
-    @Test
-    void person_an_admin_placed_by_hand_stays_active_without_a_listed_domain() {
-        signedInAs("dee@elsewhere.example", "Dee Mo");
-        UserEntity placed = UserEntity.builder().id(3).entraObjectId(OID).email("dee@elsewhere.example")
-            .firstName("Dee").lastName("Mo").role("consumer").status("ACTIVE").organisation(ORG)
-            .approvedBy("admin@example.gov.uk").build();
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(placed));
-        when(domainRepository.findByDomainIgnoreCase("elsewhere.example")).thenReturn(Optional.empty());
-
-        assertThat(service.caller("Bearer t").user().getStatus()).isEqualTo("ACTIVE");
+        assertThat(refused.getReason()).startsWith("DOMAIN_NOT_APPROVED").contains("unknown.example");
         verify(userRepository, never()).save(any(UserEntity.class));
     }
 
     @Test
-    void suspended_person_stays_suspended_even_on_a_listed_domain_and_is_refused() {
+    void existing_person_is_refused_as_soon_as_their_domain_comes_off_the_list() {
         signedInAs("dee@example.gov.uk", "Dee Mo");
+        when(domainRepository.findByDomainIgnoreCase("example.gov.uk")).thenReturn(Optional.empty());
+
+        assertThat(refusal(() -> service.caller("Bearer t")).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verify(userRepository, never()).findByEntraObjectId(anyString());
+    }
+
+    @Test
+    void existing_person_is_refreshed_from_the_token_but_not_saved_again_if_nothing_changed() {
+        signedInAs("dee@example.gov.uk", "Dee Mo");
+        listed("example.gov.uk");
+        UserEntity same = UserEntity.builder().id(3).entraObjectId(OID).email("dee@example.gov.uk").firstName("Dee")
+            .lastName("Mo").role("consumer").status("ACTIVE").organisation(ORG).build();
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(same));
+
+        assertThat(service.caller("Bearer t").user()).isEqualTo(same);
+        verify(userRepository, never()).save(any(UserEntity.class));
+    }
+
+    @Test
+    void existing_person_whose_name_or_organisation_changed_is_updated() {
+        signedInAs("dee@example.gov.uk", "Deirdre Mo");
+        listed("example.gov.uk");
+        UserEntity before = UserEntity.builder().id(3).entraObjectId(OID).email("dee@example.gov.uk")
+            .firstName("Dee").lastName("Mo").role("consumer").status("ACTIVE")
+            .organisation(OrganisationEntity.builder().id(1).name("Old").build()).build();
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(before));
+
+        Caller caller = service.caller("Bearer t");
+
+        assertThat(caller.user().getFirstName()).isEqualTo("Deirdre");
+        assertThat(caller.user().getOrganisation()).isEqualTo(ORG);
+        verify(userRepository).save(any(UserEntity.class));
+    }
+
+    @Test
+    void suspended_person_is_refused_even_on_an_approved_domain() {
+        signedInAs("dee@example.gov.uk", "Dee Mo");
+        listed("example.gov.uk");
         UserEntity suspended = UserEntity.builder().id(3).entraObjectId(OID).email("dee@example.gov.uk")
             .firstName("Dee").lastName("Mo").role("consumer").status("SUSPENDED").organisation(ORG).build();
         when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(suspended));
 
-        ResponseStatusException refused = refusal(() -> service.activeCaller("Bearer t"));
+        ResponseStatusException refused = refusal(() -> service.caller("Bearer t"));
 
         assertThat(refused.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
         assertThat(refused.getReason()).contains("suspended");
-        verify(domainRepository, never()).findByDomainIgnoreCase(anyString());
     }
 
     @Test
     void an_address_already_used_by_another_account_is_never_linked() {
         signedInAs("dee@example.gov.uk", "Dee Mo");
+        listed("example.gov.uk");
         when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.empty());
         when(userRepository.findByEmail("dee@example.gov.uk"))
             .thenReturn(Optional.of(UserEntity.builder().id(9).build()));
@@ -202,6 +197,7 @@ class OrganisationApprovalServiceTest {
 
         assertThat(service.enabled()).isFalse();
         assertThat(refusal(() -> service.caller("Bearer t")).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(refusal(() -> service.admin("Bearer t")).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         verify(verifier, never()).verify(anyString());
     }
 
@@ -219,26 +215,25 @@ class OrganisationApprovalServiceTest {
     @Test
     void admin_endpoints_look_like_they_do_not_exist_to_anyone_else() {
         signedInAs("dee@example.gov.uk", "Dee Mo");
-        listed("example.gov.uk");
 
-        assertThat(refusal(() -> service.adminCaller("Bearer t")).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(refusal(() -> service.admin("Bearer t")).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     @Test
-    void admins_are_matched_on_email_without_regard_to_case_or_spaces() {
+    void admins_are_matched_on_email_without_regard_to_case_or_spaces_and_need_no_approved_domain() {
         signedInAs("ADMIN@example.gov.uk", "An Admin");
-        listed("example.gov.uk");
 
-        assertThat(service.adminCaller("Bearer t").identity().email()).isEqualTo("ADMIN@example.gov.uk");
+        assertThat(service.admin("Bearer t").email()).isEqualTo("ADMIN@example.gov.uk");
+        verify(domainRepository, never()).findByDomainIgnoreCase(anyString());
+        verify(userRepository, never()).save(any(UserEntity.class));
     }
 
     @Test
-    void profile_names_the_organisation_or_none() {
-        signedInAs("dee@unknown.example", "Dee Mo");
-        when(domainRepository.findByDomainIgnoreCase("unknown.example")).thenReturn(Optional.empty());
+    void profile_names_the_organisation() {
+        signedInAs("dee@example.gov.uk", "Dee Mo");
+        listed("example.gov.uk");
 
-        assertThat(service.profile(service.caller("Bearer t")).organisation()).isNull();
-        assertThat(service.profile(service.caller("Bearer t")).status()).isEqualTo("HELD");
+        assertThat(service.profile(service.caller("Bearer t")).organisation()).isEqualTo("Example Council");
     }
 
     @Test

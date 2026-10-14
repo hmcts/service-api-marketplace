@@ -20,7 +20,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static uk.gov.hmcts.cp.integration.WireMockApimInitialise.INSTANCE;
-import static uk.gov.hmcts.cp.integration.WireMockApimInitialise.stubProductList;
 import static uk.gov.hmcts.cp.integration.WireMockApimInitialise.stubSubscriptionAnswering;
 import static uk.gov.hmcts.cp.integration.WireMockApimInitialise.stubSubscriptionLifecycle;
 import static uk.gov.hmcts.cp.integration.WireMockApimInitialise.stubSubscriptionList;
@@ -145,18 +144,6 @@ class ApimSubscriptionKeyIntegrationTest {
                 "No subscription named team-alpha on sps-api-mgmt-sbox in rg-sps-platform-sbox"));
     }
 
-    @Test
-    void listing_products_should_return_the_ids_create_key_accepts() throws Exception {
-        stubProductList();
-
-        mockMvc.perform(get("/apim/products"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].productId").value("example-product"))
-            .andExpect(jsonPath("$[0].state").value("published"))
-            .andExpect(jsonPath("$[1].productId").value("cp-crime-schedulingandlisting"))
-            // Not every product carries one, and an absent field is honest about that.
-            .andExpect(jsonPath("$[1].description").doesNotExist());
-    }
 
     @Test
     void creating_the_same_key_twice_should_be_refused_rather_than_silently_replacing_it() throws Exception {

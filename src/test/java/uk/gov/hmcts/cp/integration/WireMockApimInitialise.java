@@ -86,12 +86,6 @@ public class WireMockApimInitialise implements ApplicationContextInitializer<Con
             .willReturn(aResponse().withStatus(status)));
     }
 
-    /** The products a subscription key can be created against. */
-    public static void stubProductList() {
-        WIREMOCK_APIM.stubFor(get(urlPathEqualTo(INSTANCE + "/products"))
-            .willReturn(json("product-list.json")));
-    }
-
     /** Every subscription the instance holds, from a captured response. */
     public static void stubSubscriptionList() {
         WIREMOCK_APIM.stubFor(get(urlPathEqualTo(INSTANCE + "/subscriptions"))

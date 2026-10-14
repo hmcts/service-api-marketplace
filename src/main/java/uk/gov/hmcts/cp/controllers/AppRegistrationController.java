@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import uk.gov.hmcts.cp.domain.ApiAccess;
 import uk.gov.hmcts.cp.domain.AppRegistration;
 import uk.gov.hmcts.cp.domain.NewAppRegistration;
 import uk.gov.hmcts.cp.services.EntraAppRegistrationService;
@@ -43,6 +44,17 @@ public class AppRegistrationController {
     public AppRegistration createApplication(@Valid @RequestBody final NewAppRegistration request) {
         log.info("Register Entra application '{}' with roles {}", request.name(), request.roles());
         return registrations.register(request.name(), request.roles());
+    }
+
+    /**
+     * Separate from creation because a new service principal is not assignable for minutes. The
+     * caller retries this rather than the registration blocking, or failing and rolling itself back.
+     */
+    @PostMapping("/{clientId}/roles")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void grantRole(@PathVariable final String clientId, @Valid @RequestBody final ApiAccess request) {
+        log.info("Grant role {} to Entra application {}", request.role(), clientId);
+        registrations.grantApiAccess(clientId, request.role());
     }
 
     @DeleteMapping("/{clientId}")

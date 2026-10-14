@@ -21,7 +21,9 @@ public class TestContainersInitialise implements ApplicationContextInitializer<C
         TestPropertyValues.of(
             "spring.datasource.url=" + POSTGRES.getJdbcUrl(),
             "spring.datasource.username=" + POSTGRES.getUsername(),
-            "spring.datasource.password=" + POSTGRES.getPassword()
+            "spring.datasource.password=" + POSTGRES.getPassword(),
+            // @NotBlank on the real one, so a context without it does not start
+            "entra.onboarding-client-secret=a-test-secret"
         ).applyTo(context.getEnvironment());
     }
 }

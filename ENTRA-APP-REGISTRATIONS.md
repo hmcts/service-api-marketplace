@@ -7,6 +7,7 @@
 | GET | listApplications | `/applications-new` | 200 |
 | GET | getApplication | `/applications-new/{clientId}` | 200 |
 | POST | createApplication | `/applications-new` | 201 |
+| POST | grantRole | `/applications-new/{clientId}/roles` | 204 |
 | DELETE | deleteApplication | `/applications-new/{clientId}` | 204 |
 
 `{clientId}` is the Entra **Client ID** (`appId`) - the one a subscriber authenticates with, and
@@ -55,7 +56,7 @@ Registers the application and grants its roles in one act.
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `name` | string | yes | Free text, the Entra display name |
-| `roles` | string[] | yes | **At least one.** Role names the API offers, e.g. `slc.read` |
+| `roles` | string[] | no | Granted inline if given. Omit and use `grantRole`, which is what `test-app-registration.sh` does |
 
 **Response**
 
@@ -71,19 +72,39 @@ Registers the application and grants its roles in one act.
 
 | Status | When |
 |---|---|
-| 400 | `name` blank, `roles` empty, or a role the API does not offer - the message lists the ones it does |
+| 400 | `name` blank, or a role the API does not offer - the message lists the ones it does |
 | 500 | Graph refused the role assignment; the message names the permission that is missing |
 | 502 | Graph could not be reached, or a call did not succeed within its retries |
 | 503 | `ENTRA_ONBOARDING_CLIENT_SECRET` is not configured |
 
-**A new service principal is not immediately assignable.** Entra rejects an app role assignment
-against one seconds old as *"Not a valid reference update"*, and can keep doing so for minutes -
-far longer than the seconds a read replica takes to catch up. So the assignment is retried on its
-own schedule (`ENTRA_ASSIGNMENT_*`, 10 attempts 15s apart) and **a create can legitimately take a
-couple of minutes**. A 403 is not retried: that is a missing permission, and waiting never fixes it.
-
 **Anything that fails after the application exists takes it away again**, a role that cannot be
 granted included.
+
+## grantRole
+
+Assigns one app role on the marketplace API's service principal, so the consumer's token starts
+carrying it. Nothing in APIM changes - its `validate-jwt` policy already requires the role.
+
+**Request**
+
+| Field | Type | Required |
+|---|---|---|
+| `role` | string | yes |
+
+**Response** - 204, no body.
+
+**Failures**
+
+| Status | When |
+|---|---|
+| 400 | The API offers no such role; the message lists the ones it does |
+| 404 | No service principal for that Client ID - usually means it has not replicated yet |
+| 500 | Graph refused; the message names `AppRoleAssignment.ReadWrite.All` |
+| 502 | Graph could not be reached |
+
+**Not retried here.** One attempt, and the failure is returned. A principal that is not assignable
+yet looks the same as one that never will be, and only the caller knows how long it is prepared to
+wait - `test-app-registration.sh` tries eight times, fifteen seconds apart.
 
 ## deleteApplication
 
@@ -148,9 +169,15 @@ curl -s localhost:8080/applications-new | jq '.[] | {clientId, displayName, crea
 ```
 
 ```bash
-# register one with a role ... this is the only moment the secret exists
+# register one ... this is the only moment the secret exists
 curl -s -X POST localhost:8080/applications-new -H 'Content-Type: application/json' \
-  -d '{"name":"colin-test","roles":["slc.read"]}' | jq
+  -d '{"name":"colin-test"}' | jq
+```
+
+```bash
+# grant it a role ... retry this, the principal is not assignable for a minute or two
+curl -i -X POST localhost:8080/applications-new/<clientId>/roles \
+  -H 'Content-Type: application/json' -d '{"role":"slc.read"}'
 ```
 
 ```bash
@@ -168,16 +195,22 @@ leave behind shows in the Entra portal under App registrations.
 
 ### The whole journey in one run
 
-`app-register.sh` does all of it against the real sandbox - register with a role, get a token, call
-`slc` through APIM - and deletes the application again however the run turns out:
+`test-app-registration.sh` does all of it against the real sandbox - register, grant the role, wait for a
+token that actually carries it, call `slc` through APIM - and deletes the application again however
+the run turns out:
 
 ```bash
 export APIM_SUBSCRIPTION_KEY='<the slc product key - quoted>'
-./app-register.sh
+./test-app-registration.sh
 ```
 
-`KEEP=1` leaves the application behind; `ROLE`, `NAME`, `CASE_URN` and `BASE_URL` override the
-defaults. The gateway is only reachable from inside the HMCTS network, so the last step needs the
+`KEEP=1` leaves the application behind; `ROLE`, `NAME`, `CASE_URN`, `BASE_URL`, `GRANT_ATTEMPTS`
+and `TOKEN_ATTEMPTS` override the defaults.
+
+**Two waits, not one.** The script retries the grant while the principal becomes assignable, and
+then retries the *token* until the role is actually in it. The assignment reaches the directory
+before the token service sees it, so the first token back can carry `"roles": null` - which APIM
+rejects two steps later as *"Your JWT token failed CNP validation"*, a long way from the cause. The gateway is only reachable from inside the HMCTS network, so the last step needs the
 VPN - the first two work without it.
 
 ### Proving the role actually did something
@@ -208,5 +241,3 @@ authenticated and authorised for nothing, which is exactly what the role assignm
 | `ENTRA_API_CLIENT_ID` | `30288840-...`, `hmcts-api-marketplace`, which defines `slc.read` and `app.read` |
 | `ENTRA_MAX_ATTEMPTS` | `20` - directory reads, which lag by seconds |
 | `ENTRA_RETRY_DELAY_MILLIS` | `500` |
-| `ENTRA_ASSIGNMENT_ATTEMPTS` | `10` - role assignment, which can be refused for minutes |
-| `ENTRA_ASSIGNMENT_DELAY_MILLIS` | `15000` |

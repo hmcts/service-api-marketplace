@@ -153,7 +153,8 @@ public class EntraAppRegistrationService {
      * Assigns an app role on the marketplace API's service principal. Nothing in APIM changes: its
      * validate-jwt policy already requires the role, and the consumer's token starts carrying it.
      */
-    private void grantApiAccess(final String consumerClientId, final String roleValue) {
+    public void grantApiAccess(final String consumerClientId, final String roleValue) {
+        requireCredential();
         String consumerPrincipalId = servicePrincipalObjectId(consumerClientId,
             "No service principal for application " + consumerClientId);
         String apiPrincipalId = apiPrincipalId();
@@ -162,36 +163,13 @@ public class EntraAppRegistrationService {
         assignment.setPrincipalId(UUID.fromString(consumerPrincipalId));
         assignment.setResourceId(UUID.fromString(apiPrincipalId));
         assignment.setAppRoleId(appRoleId(apiPrincipalId, roleValue));
-        assign(apiPrincipalId, assignment);
-        log.info("Granted {} on {} to application {}", roleValue, config.apiClientId(), consumerClientId);
-    }
-
-    /**
-     * Retried far longer than a lookup: a service principal seconds old is not yet assignable, and
-     * Entra rejects the assignment as "Not a valid reference update" for minutes rather than the
-     * seconds a read replica takes to catch up. A refusal is not retried - that is a missing
-     * permission, and no amount of waiting fixes it.
-     */
-    private void assign(final String apiPrincipalId, final AppRoleAssignment assignment) {
-        ResponseStatusException lastFailure = null;
-        for (int attempt = 1; attempt <= config.assignmentAttempts(); attempt++) {
-            try {
-                graph.servicePrincipals().byServicePrincipalId(apiPrincipalId)
-                    .appRoleAssignedTo().post(assignment);
-                return;
-            } catch (final ApiException e) {
-                lastFailure = assignmentRefused(e);
-                if (lastFailure.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR) {
-                    throw lastFailure;
-                }
-                log.warn("App role assignment failed on attempt {}/{}: {}",
-                    attempt, config.assignmentAttempts(), e.getMessage());
-                if (attempt < config.assignmentAttempts()) {
-                    pause(config.assignmentDelayMillis());
-                }
-            }
+        try {
+            graph.servicePrincipals().byServicePrincipalId(apiPrincipalId)
+                .appRoleAssignedTo().post(assignment);
+        } catch (final ApiException e) {
+            throw assignmentRefused(e);
         }
-        throw lastFailure;
+        log.info("Granted {} on {} to application {}", roleValue, config.apiClientId(), consumerClientId);
     }
 
     private String apiPrincipalId() {

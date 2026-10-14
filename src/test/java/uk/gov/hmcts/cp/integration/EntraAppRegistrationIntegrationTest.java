@@ -32,6 +32,7 @@ import static uk.gov.hmcts.cp.integration.WireMockGraphInitialise.wireMockGraph;
 
 /** The four endpoints against WireMock, so no credential and no network beyond localhost. */
 @SpringBootTest(properties = {
+    "entra.onboarding-client-id=a-test-onboarding-app",
     "entra.onboarding-client-secret=a-test-secret",
     "entra.api-client-id=" + API_CLIENT_ID,
     "entra.max-attempts=2",

@@ -11,19 +11,19 @@ class EntraPropertiesTest {
     }
 
     @Test
-    void a_client_id_and_secret_should_count_as_configured() {
+    void client_id_and_secret_should_count_as_configured() {
         assertThat(properties("an-onboarding-app", "a-secret").credentialConfigured()).isTrue();
     }
 
     @Test
-    void a_missing_secret_should_not_count_as_configured() {
+    void missing_secret_should_not_count_as_configured() {
         assertThat(properties("an-onboarding-app", "NOT_SET").credentialConfigured()).isFalse();
         assertThat(properties("an-onboarding-app", " ").credentialConfigured()).isFalse();
         assertThat(properties("an-onboarding-app", null).credentialConfigured()).isFalse();
     }
 
     @Test
-    void a_missing_client_id_should_not_count_as_configured() {
+    void missing_client_id_should_not_count_as_configured() {
         // A secret alone would otherwise only fail later, when Entra rejects the sign-in.
         assertThat(properties("NOT_SET", "a-secret").credentialConfigured()).isFalse();
         assertThat(properties(" ", "a-secret").credentialConfigured()).isFalse();

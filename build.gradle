@@ -134,6 +134,8 @@ repositories {
 }
 
 ext['snakeyaml.version'] = '2.0'
+// microsoft-graph pulls okhttp, which pulls kotlin-stdlib; the BOM's 2.3.21 carries CVE-2026-53914
+ext['kotlin.version'] = '2.4.21'
 // 28/06/2026 temp fix for tomcat CVE-2026-65182 pending spring boot catchup
 ext['tomcat.version'] = '11.0.25'
 
@@ -168,6 +170,10 @@ dependencies {
     exclude group: 'com.azure', module: 'azure-core-http-netty'
   }
   implementation 'com.azure:azure-core-http-jdk-httpclient:1.2.0'
+
+  // Entra application registrations, as in service-hmcts-springboot-demo's entra-app-registration-demo
+  implementation 'com.microsoft.graph:microsoft-graph:6.71.0'
+
   testImplementation 'org.wiremock:wiremock-standalone:3.13.2'
 
   // Encodes caller-supplied values before they reach log lines, preventing log injection

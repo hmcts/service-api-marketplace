@@ -8,7 +8,10 @@ public record EntraProperties(String tenantId, String onboardingClientId, String
                               int assignmentAttempts, int assignmentDelayMillis) {
 
     public boolean credentialConfigured() {
-        return onboardingClientSecret != null && !onboardingClientSecret.isBlank()
-            && !"NOT_SET".equals(onboardingClientSecret);
+        return isSet(onboardingClientId) && isSet(onboardingClientSecret);
+    }
+
+    private static boolean isSet(final String value) {
+        return value != null && !value.isBlank() && !"NOT_SET".equals(value);
     }
 }

@@ -4,9 +4,6 @@ import com.azure.core.http.HttpResponse;
 import com.azure.core.http.rest.PagedIterable;
 import com.azure.core.management.exception.ManagementException;
 import com.azure.resourcemanager.apimanagement.ApiManagementManager;
-import com.azure.resourcemanager.apimanagement.models.ProductContract;
-import com.azure.resourcemanager.apimanagement.models.ProductState;
-import com.azure.resourcemanager.apimanagement.models.Products;
 import com.azure.resourcemanager.apimanagement.models.SubscriptionContract;
 import com.azure.resourcemanager.apimanagement.models.SubscriptionCreateParameters;
 import com.azure.resourcemanager.apimanagement.models.SubscriptionKeysContract;
@@ -18,7 +15,6 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
-import uk.gov.hmcts.cp.domain.ApimProduct;
 import uk.gov.hmcts.cp.domain.SubscriptionKey;
 
 import java.util.List;
@@ -42,16 +38,13 @@ class ApimSubscriptionKeyServiceTest {
         "/subscriptions/sub/resourceGroups/rg-test/providers/Microsoft.ApiManagement/service/apim-test";
 
     private Subscriptions subscriptions;
-    private Products products;
     private ApimSubscriptionKeyService service;
 
     @BeforeEach
     void setUp() {
         subscriptions = mock(Subscriptions.class);
-        products = mock(Products.class);
         ApiManagementManager apim = mock(ApiManagementManager.class);
         when(apim.subscriptions()).thenReturn(subscriptions);
-        lenientProducts(apim);
         service = new ApimSubscriptionKeyService(apim);
         ReflectionTestUtils.setField(service, "resourceGroup", RESOURCE_GROUP);
         ReflectionTestUtils.setField(service, "serviceName", SERVICE_NAME);
@@ -183,31 +176,6 @@ class ApimSubscriptionKeyServiceTest {
             });
     }
 
-    @Test
-    @SuppressWarnings("unchecked") // mock() of the SDK's generic PagedIterable
-    void listing_products_should_return_the_ids_create_accepts() {
-        ProductContract product = mock(ProductContract.class);
-        when(product.name()).thenReturn("hearing-results");
-        when(product.displayName()).thenReturn("Hearing Results");
-        when(product.description()).thenReturn(null);
-        when(product.state()).thenReturn(ProductState.PUBLISHED);
-        PagedIterable<ProductContract> page = mock(PagedIterable.class);
-        when(page.stream()).thenReturn(Stream.of(product));
-        when(products.listByService(RESOURCE_GROUP, SERVICE_NAME)).thenReturn(page);
-
-        List<ApimProduct> listed = service.listProducts();
-
-        assertThat(listed).singleElement().satisfies(p -> {
-            assertThat(p.productId()).isEqualTo("hearing-results");
-            assertThat(p.displayName()).isEqualTo("Hearing Results");
-            assertThat(p.description()).isNull();
-            assertThat(p.state()).isEqualTo("published");
-        });
-    }
-
-    private void lenientProducts(final ApiManagementManager apim) {
-        lenient().when(apim.products()).thenReturn(products);
-    }
 
     @SuppressWarnings("unchecked") // mock() of the SDK's generic PagedIterable
     private void givenListed(final SubscriptionContract... contracts) {

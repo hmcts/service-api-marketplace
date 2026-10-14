@@ -2,7 +2,6 @@ package uk.gov.hmcts.cp.services;
 
 import com.azure.core.management.exception.ManagementException;
 import com.azure.resourcemanager.apimanagement.ApiManagementManager;
-import com.azure.resourcemanager.apimanagement.models.ProductContract;
 import com.azure.resourcemanager.apimanagement.models.SubscriptionContract;
 import com.azure.resourcemanager.apimanagement.models.SubscriptionCreateParameters;
 import com.azure.resourcemanager.apimanagement.models.SubscriptionKeysContract;
@@ -13,7 +12,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-import uk.gov.hmcts.cp.domain.ApimProduct;
 import uk.gov.hmcts.cp.domain.SubscriptionKey;
 
 import java.util.List;
@@ -37,12 +35,6 @@ public class ApimSubscriptionKeyService {
     public List<SubscriptionKey> list() {
         return apim.subscriptions().list(resourceGroup, serviceName).stream()
             .map(ApimSubscriptionKeyService::asSubscriptionKey)
-            .toList();
-    }
-
-    public List<ApimProduct> listProducts() {
-        return apim.products().listByService(resourceGroup, serviceName).stream()
-            .map(ApimSubscriptionKeyService::asProduct)
             .toList();
     }
 
@@ -118,14 +110,6 @@ public class ApimSubscriptionKeyService {
             productIdIn(subscription.scope()),
             subscription.state() == null ? null : subscription.state().toString(),
             null, null);
-    }
-
-    private static ApimProduct asProduct(final ProductContract product) {
-        return new ApimProduct(
-            product.name(),
-            product.displayName(),
-            product.description(),
-            product.state() == null ? null : product.state().toString());
     }
 
     // Azure returns the scope as a full resource path. Null for a subscription scoped to the whole

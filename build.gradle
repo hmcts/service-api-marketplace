@@ -176,9 +176,6 @@ dependencies {
 
   testImplementation 'org.wiremock:wiremock-standalone:3.13.2'
 
-  // Encodes caller-supplied values before they reach log lines, preventing log injection
-  implementation 'org.owasp.encoder:encoder:1.5.0'
-
   implementation group: 'com.github.hmcts.java-logging', name: 'logging', version: '8.0.0'
 
   implementation 'org.apache.logging.log4j:log4j-to-slf4j'
@@ -191,14 +188,6 @@ dependencies {
   testAnnotationProcessor 'org.projectlombok:lombok:1.18.48'
 
   implementation 'com.fasterxml.jackson.core:jackson-databind'
-
-  // Passwords (bcrypt only - not the full Spring Security filter chain, which would lock every
-  // existing endpoint) and the signed bearer token the frontend keeps in localStorage.
-  implementation 'org.springframework.security:spring-security-crypto'
-  implementation 'com.nimbusds:nimbus-jose-jwt:10.10'
-
-  implementation 'org.mapstruct:mapstruct:1.6.3'
-  annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
 
   testImplementation group: 'org.springframework.boot', name: 'spring-boot-starter-test'
   testImplementation group: 'org.springframework.boot', name: 'spring-boot-starter-webmvc-test'

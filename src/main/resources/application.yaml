@@ -20,7 +20,8 @@ management:
 
 spring:
   config:
-    import: "optional:configtree:/mnt/secrets/apim/,optional:configtree:/mnt/secrets/apim-sbox/"
+    # kvspsextidsbox holds the Entra onboarding credentials, managed by hmcts/external-entra-id.
+    import: "optional:configtree:/mnt/secrets/apim/,optional:configtree:/mnt/secrets/apim-sbox/,optional:configtree:/mnt/secrets/kvspsextidsbox/"
   application:
     name: service-api-marketplace
   jpa:
@@ -36,17 +37,21 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
-# Required for the APIM subscription key endpoints. The zero default is so the application starts
-# without it; calls to API Management fail until the real subscription is supplied.
-#
-# One tenant covers all of HMCTS, and workload identity injects AZURE_TENANT_ID into the pod, so
-# only the subscription needs supplying - and it is the SPS platform's, not the one the cluster
-# runs in.
 apim:
   tenant-id: ${AZURE_TENANT_ID:00000000-0000-0000-0000-000000000000}
   subscription-id: ${APIM_SUBSCRIPTION_ID:00000000-0000-0000-0000-000000000000}
   resource-group: ${APIM_RESOURCE_GROUP:rg-sps-platform-sbox}
   service-name: ${APIM_SERVICE_NAME:sps-api-mgmt-sbox}
+
+entra:
+  max-attempts: ${ENTRA_MAX_ATTEMPTS:20}
+  retry-delay-millis: ${ENTRA_RETRY_DELAY_MILLIS:500}
+  assignment-attempts: ${ENTRA_ASSIGNMENT_ATTEMPTS:10}
+  assignment-delay-millis: ${ENTRA_ASSIGNMENT_DELAY_MILLIS:15000}
+  tenant-id: ${ENTRA_TENANT_ID:d44f885c-4fac-47bf-afde-d7d861ec4d7b}
+  api-client-id: ${ENTRA_API_CLIENT_ID:30288840-e345-4543-99ee-f9253d789339}
+  onboarding-client-id: ${ENTRA_ONBOARDING_CLIENT_ID:NOT_SET}
+  onboarding-client-secret: ${ENTRA_ONBOARDING_CLIENT_SECRET:NOT_SET}
 
 azure:
   application-insights:

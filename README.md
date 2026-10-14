@@ -194,11 +194,6 @@ yarn install --immutable --mode=skip-build
 TEST_URL=http://localhost:3344 yarn test:smoke --project=chrome
 ```
 
-The task is `smoke`, not `smokeTest`: `./gradlew smokeTest` only compiles the tests, and still
-reports success.
-
-`./gradlew test` and `./gradlew check` (what CI's build job runs) don't need the stack.
-
 ## AAT Deployment
 
 The service is deployed to the `apim` namespace on `cft-aat-00-aks` via Flux (`cnp-flux-config`).

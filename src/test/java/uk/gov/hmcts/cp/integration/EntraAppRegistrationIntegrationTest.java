@@ -36,9 +36,7 @@ import static uk.gov.hmcts.cp.integration.WireMockGraphInitialise.wireMockGraph;
     "entra.onboarding-client-secret=a-test-secret",
     "entra.api-client-id=" + API_CLIENT_ID,
     "entra.max-attempts=2",
-    "entra.retry-delay-millis=1",
-    "entra.assignment-attempts=2",
-    "entra.assignment-delay-millis=1"})
+    "entra.retry-delay-millis=1"})
 @AutoConfigureMockMvc
 @ContextConfiguration(initializers = {TestContainersInitialise.class, WireMockGraphInitialise.class})
 class EntraAppRegistrationIntegrationTest {
@@ -81,13 +79,28 @@ class EntraAppRegistrationIntegrationTest {
     }
 
     @Test
-    void registering_without_a_role_should_be_rejected_before_anything_is_created() throws Exception {
-        mockMvc.perform(post(PATH).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Team Alpha\",\"roles\":[]}"))
-            .andExpect(status().isBadRequest());
+    void registering_without_roles_should_still_create_the_application() throws Exception {
+        stubRegistration();
 
-        // An application with no role authenticates and can call nothing, so none is made.
-        wireMockGraph().verify(0, postRequestedFor(urlPathEqualTo("/applications")));
+        mockMvc.perform(post(PATH).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Team Alpha\"}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.clientId").value(CLIENT_ID));
+
+        // Roles are granted separately, so nothing is assigned here.
+        wireMockGraph().verify(0, postRequestedFor(urlPathEqualTo(assignedTo())));
+    }
+
+    @Test
+    void granting_a_role_should_answer_no_content() throws Exception {
+        stubServicePrincipals();
+        stubRoleAssignment();
+
+        mockMvc.perform(post(PATH + "/" + CLIENT_ID + "/roles").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"role\":\"" + ROLE + "\"}"))
+            .andExpect(status().isNoContent());
+
+        wireMockGraph().verify(postRequestedFor(urlPathEqualTo(assignedTo())));
     }
 
     @Test

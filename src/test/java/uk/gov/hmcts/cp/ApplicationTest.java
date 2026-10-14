@@ -3,7 +3,7 @@ package uk.gov.hmcts.cp;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 
-@SpringBootTest
+@SpringBootTest(properties = "entra.onboarding-client-secret=a-test-secret")
 @AutoConfigureMockMvc
 class ApplicationTest {
 

@@ -20,6 +20,9 @@ import uk.gov.hmcts.cp.mappers.UserMapper;
 import uk.gov.hmcts.cp.repository.OrganisationRepository;
 import uk.gov.hmcts.cp.repository.UserRepository;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,6 +37,8 @@ import static org.mockito.Mockito.when;
 class UserServiceEntraSignInTest {
 
     private static final String OID = "3f2504e0-4f89-11d3-9a0c-0305e82c3301";
+    private static final Instant NOW = Instant.parse("2026-10-14T12:00:00Z");
+    private static final LocalDateTime NOW_UTC = LocalDateTime.ofInstant(NOW, ZoneOffset.UTC);
     private static final OrganisationEntity NOT_SPECIFIED =
         OrganisationEntity.builder().id(9).name(AccountService.DEFAULT_ORGANISATION).build();
 
@@ -43,6 +48,8 @@ class UserServiceEntraSignInTest {
     private OrganisationRepository organisationRepository;
     @Mock
     private UserMapper userMapper;
+    @Mock
+    private ClockService clockService;
 
     @InjectMocks
     private UserService userService;
@@ -51,6 +58,7 @@ class UserServiceEntraSignInTest {
 
     @BeforeEach
     void setUp() {
+        when(clockService.now()).thenReturn(NOW);
         when(userMapper.fromEntity(any())).thenReturn(mapped);
         when(userRepository.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));
         when(userRepository.findByEntraObjectId(any())).thenReturn(Optional.empty());
@@ -109,12 +117,40 @@ class UserServiceEntraSignInTest {
     }
 
     @Test
-    void known_person_with_the_same_email_should_be_returned_without_saving() {
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(account("jo@example.com", OID, "ACTIVE")));
+    void known_person_with_the_same_email_should_have_only_the_sign_in_time_recorded() {
+        UserEntity known = account("jo@example.com", OID, "ACTIVE");
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(known));
 
         assertThat(userService.signInWithEntra(OID, request("JO@example.com"))).isEqualTo(mapped);
 
-        verify(userRepository, never()).saveAndFlush(any());
+        assertThat(saved()).isEqualTo(known.toBuilder().lastSignedInAt(NOW_UTC).build());
+    }
+
+    @Test
+    void new_person_should_have_the_sign_in_time_recorded() {
+        userService.signInWithEntra(OID, request("jo@example.com"));
+
+        assertThat(saved().getLastSignedInAt()).isEqualTo(NOW_UTC);
+    }
+
+    @Test
+    void known_person_with_a_new_email_should_have_the_sign_in_time_recorded() {
+        when(userRepository.findByEntraObjectId(OID))
+            .thenReturn(Optional.of(account("old@example.com", OID, "ACTIVE")));
+
+        userService.signInWithEntra(OID, request("new@example.com"));
+
+        assertThat(saved().getLastSignedInAt()).isEqualTo(NOW_UTC);
+    }
+
+    @Test
+    void an_existing_account_linked_on_sign_in_should_have_the_sign_in_time_recorded() {
+        when(userRepository.findByEmail("jo@example.com"))
+            .thenReturn(Optional.of(account("jo@example.com", null, "ACTIVE")));
+
+        userService.signInWithEntra(OID, request("jo@example.com"));
+
+        assertThat(saved().getLastSignedInAt()).isEqualTo(NOW_UTC);
     }
 
     @Test
@@ -123,7 +159,8 @@ class UserServiceEntraSignInTest {
 
         userService.signInWithEntra(OID.toUpperCase(), request("jo@example.com"));
 
-        verify(userRepository, never()).saveAndFlush(any());
+        assertThat(saved().getEntraObjectId()).isEqualTo(OID);
+        verify(organisationRepository, never()).findByNameIgnoreCase(any());
     }
 
     @Test

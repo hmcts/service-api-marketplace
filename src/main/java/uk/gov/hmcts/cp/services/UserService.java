@@ -14,6 +14,8 @@ import uk.gov.hmcts.cp.mappers.UserMapper;
 import uk.gov.hmcts.cp.repository.OrganisationRepository;
 import uk.gov.hmcts.cp.repository.UserRepository;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -27,6 +29,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final OrganisationRepository organisationRepository;
     private final UserMapper userMapper;
+    private final ClockService clockService;
 
     public UserResponse validateUser(final long requestingUserId) {
         UserEntity user = userRepository.findById(requestingUserId)
@@ -71,7 +74,7 @@ public class UserService {
         if (known.isPresent()) {
             final UserEntity user = requireActive(known.get());
             if (email.equals(user.getEmail())) {
-                return userMapper.fromEntity(user);
+                return save(user);
             }
             if (userRepository.findByEmail(email).isPresent()) {
                 log.warn("Entra sign in for userId {} brought an email address another account has", user.getId());
@@ -105,9 +108,11 @@ public class UserService {
         return created;
     }
 
+    /** Every Entra sign-in ends here, so every one is recorded as the latest. */
     private UserResponse save(final UserEntity user) {
+        final LocalDateTime now = LocalDateTime.ofInstant(clockService.now(), ZoneOffset.UTC);
         try {
-            return userMapper.fromEntity(userRepository.saveAndFlush(user));
+            return userMapper.fromEntity(userRepository.saveAndFlush(user.toBuilder().lastSignedInAt(now).build()));
         } catch (DataIntegrityViolationException e) {
             // Two sign-ins for one person, or one email, racing; the unique indexes decide.
             log.warn("Entra sign in lost a race for an email address or object id");

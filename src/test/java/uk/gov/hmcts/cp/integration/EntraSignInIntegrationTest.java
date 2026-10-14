@@ -6,11 +6,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import uk.gov.hmcts.cp.domain.EntraSignInRequest;
 
+import java.sql.Timestamp;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -25,6 +30,9 @@ class EntraSignInIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private ResultActions signIn(final String oid, final String email) throws Exception {
         String body = OBJECT_MAPPER.writeValueAsString(
@@ -81,5 +89,33 @@ class EntraSignInIntegrationTest {
     @Test
     void an_invalid_email_should_be_refused_with_400() throws Exception {
         signIn("aaaaaaaa-0000-0000-0000-000000000006", "not-an-email").andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void user_ids_and_the_ids_pointing_at_them_should_be_bigint() {
+        String type = "select data_type from information_schema.columns where table_name = ? and column_name = ?";
+
+        assertThat(jdbcTemplate.queryForObject(type, String.class, "marketplace_user", "id")).isEqualTo("bigint");
+        assertThat(jdbcTemplate.queryForObject(type, String.class, "application", "user_id")).isEqualTo("bigint");
+    }
+
+    @Test
+    void each_sign_in_should_record_its_time_and_keep_the_creation_time() throws Exception {
+        String oid = "aaaaaaaa-0000-0000-0000-000000000007";
+        signIn(oid, "entra-times@example.com").andExpect(status().isOk());
+        Map<String, Object> first = timesFor(oid);
+
+        signIn(oid, "entra-times@example.com").andExpect(status().isOk());
+        Map<String, Object> second = timesFor(oid);
+
+        assertThat(first.get("created_at")).isNotNull();
+        assertThat(second.get("created_at")).isEqualTo(first.get("created_at"));
+        assertThat((Timestamp) second.get("last_signed_in_at"))
+            .isAfterOrEqualTo((Timestamp) first.get("last_signed_in_at"));
+    }
+
+    private Map<String, Object> timesFor(final String oid) {
+        return jdbcTemplate.queryForMap(
+            "select created_at, last_signed_in_at from marketplace_user where entra_object_id = ?", oid);
     }
 }

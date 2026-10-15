@@ -9,7 +9,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
-import uk.gov.hmcts.amp.domain.EntraUserRequest;
+import uk.gov.hmcts.amp.domain.SessionRequest;
 import uk.gov.hmcts.amp.domain.UserResponse;
 import uk.gov.hmcts.amp.entity.UserEntity;
 import uk.gov.hmcts.amp.repository.UserRepository;
@@ -51,14 +51,14 @@ class UserServiceTest {
         when(userRepository.findByEmail("joe@example.com")).thenReturn(Optional.empty());
         when(userRepository.saveAndFlush(any(UserEntity.class))).thenAnswer(call -> withId(call.getArgument(0), 1L));
 
-        UserResponse result = userService.upsertEntraUser(OID.toUpperCase(),
-            new EntraUserRequest("Joe@Example.com", " Joe ", "Bloggs"));
+        UserResponse result = userService.signIn(
+            new SessionRequest(OID.toUpperCase(), "Joe@Example.com", "Joe Bloggs"));
 
         assertThat(result.id()).isEqualTo(1L);
         assertThat(result.entraObjectId()).isEqualTo(OID);
         assertThat(result.email()).isEqualTo("joe@example.com");
-        assertThat(result.firstName()).isEqualTo("Joe");
-        assertThat(result.lastName()).isEqualTo("Bloggs");
+        assertThat(result.name()).isEqualTo("Joe Bloggs");
+        assertThat(result.userReference()).isEqualTo("user001");
         assertThat(result.status()).isEqualTo(UserEntity.ACTIVE);
         assertThat(result.createdAt()).isEqualTo(NOW_UTC);
         assertThat(result.lastLoginAt()).isEqualTo(NOW_UTC);
@@ -71,7 +71,7 @@ class UserServiceTest {
         when(userRepository.findByEmail("joseph@example.com")).thenReturn(Optional.empty());
         when(userRepository.saveAndFlush(any(UserEntity.class))).thenAnswer(call -> call.getArgument(0));
 
-        userService.upsertEntraUser(OID, new EntraUserRequest("joseph@example.com", "Joseph", "Bloggs"));
+        userService.signIn(new SessionRequest(OID, "joseph@example.com", "Joseph Bloggs"));
 
         ArgumentCaptor<UserEntity> saved = ArgumentCaptor.forClass(UserEntity.class);
         verify(userRepository).saveAndFlush(saved.capture());
@@ -90,21 +90,20 @@ class UserServiceTest {
         when(userRepository.findByEmail("joe@example.com")).thenReturn(Optional.of(joe));
         when(userRepository.saveAndFlush(joe)).thenReturn(joe);
 
-        assertThat(userService.upsertEntraUser(OID, new EntraUserRequest("joe@example.com", "Joe", "Bloggs")).id())
+        assertThat(userService.signIn(new SessionRequest(OID, "joe@example.com", "Joe Bloggs")).id())
             .isEqualTo(7L);
     }
 
     @Test
-    void missing_names_should_be_saved_as_empty() {
+    void missing_name_should_be_saved_as_empty() {
         when(clockService.now()).thenReturn(NOW);
         when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.empty());
         when(userRepository.findByEmail("joe@example.com")).thenReturn(Optional.empty());
         when(userRepository.saveAndFlush(any(UserEntity.class))).thenAnswer(call -> withId(call.getArgument(0), 1L));
 
-        UserResponse result = userService.upsertEntraUser(OID, new EntraUserRequest("joe@example.com", null, null));
+        UserResponse result = userService.signIn(new SessionRequest(OID, "joe@example.com", null));
 
-        assertThat(result.firstName()).isEmpty();
-        assertThat(result.lastName()).isEmpty();
+        assertThat(result.name()).isEmpty();
     }
 
     @Test
@@ -114,7 +113,7 @@ class UserServiceTest {
         when(userRepository.findByEmail("joe@example.com"))
             .thenReturn(Optional.of(existing(OTHER_OID, "joe@example.com")));
 
-        assertStatus(() -> userService.upsertEntraUser(OID, new EntraUserRequest("joe@example.com", "Joe", "")),
+        assertStatus(() -> userService.signIn(new SessionRequest(OID, "joe@example.com", "Joe")),
             HttpStatus.CONFLICT);
         verify(userRepository, never()).saveAndFlush(any());
     }
@@ -126,14 +125,14 @@ class UserServiceTest {
         when(clockService.now()).thenReturn(NOW);
         when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(suspended));
 
-        assertStatus(() -> userService.upsertEntraUser(OID, new EntraUserRequest("joe@example.com", "Joe", "")),
+        assertStatus(() -> userService.signIn(new SessionRequest(OID, "joe@example.com", "Joe")),
             HttpStatus.FORBIDDEN);
         verify(userRepository, never()).saveAndFlush(any());
     }
 
     @Test
     void an_object_id_that_is_not_a_guid_should_throw_400_without_touching_the_database() {
-        assertStatus(() -> userService.upsertEntraUser("not-an-oid", new EntraUserRequest("joe@example.com", "", "")),
+        assertStatus(() -> userService.signIn(new SessionRequest("not-an-oid", "joe@example.com", "")),
             HttpStatus.BAD_REQUEST);
         verifyNoInteractions(userRepository);
     }
@@ -151,7 +150,7 @@ class UserServiceTest {
             .thenThrow(new DataIntegrityViolationException("duplicate key"))
             .thenAnswer(call -> call.getArgument(0));
 
-        UserResponse result = userService.upsertEntraUser(OID, new EntraUserRequest("joe@example.com", "Joe", ""));
+        UserResponse result = userService.signIn(new SessionRequest(OID, "joe@example.com", "Joe"));
 
         assertThat(result.id()).isEqualTo(7L);
         verify(userRepository, times(2)).saveAndFlush(any(UserEntity.class));
@@ -165,9 +164,37 @@ class UserServiceTest {
         when(userRepository.saveAndFlush(any(UserEntity.class)))
             .thenThrow(new DataIntegrityViolationException("duplicate key"));
 
-        assertStatus(() -> userService.upsertEntraUser(OID, new EntraUserRequest("joe@example.com", "Joe", "")),
+        assertStatus(() -> userService.signIn(new SessionRequest(OID, "joe@example.com", "Joe")),
             HttpStatus.CONFLICT);
         verify(userRepository, times(2)).saveAndFlush(any(UserEntity.class));
+    }
+
+    @Test
+    void the_name_should_be_split_at_the_first_space_into_first_and_last_name() {
+        when(clockService.now()).thenReturn(NOW);
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("joe@example.com")).thenReturn(Optional.empty());
+        when(userRepository.saveAndFlush(any(UserEntity.class))).thenAnswer(call -> withId(call.getArgument(0), 1L));
+
+        userService.signIn(new SessionRequest(OID, "joe@example.com", "  Ada  King Lovelace "));
+
+        ArgumentCaptor<UserEntity> saved = ArgumentCaptor.forClass(UserEntity.class);
+        verify(userRepository).saveAndFlush(saved.capture());
+        assertThat(saved.getValue().getFirstName()).isEqualTo("Ada");
+        assertThat(saved.getValue().getLastName()).isEqualTo("King Lovelace");
+    }
+
+    @Test
+    void the_user_reference_should_be_formatted_from_the_id() {
+        when(clockService.now()).thenReturn(NOW);
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("joe@example.com")).thenReturn(Optional.empty());
+        when(userRepository.saveAndFlush(any(UserEntity.class))).thenAnswer(call -> withId(call.getArgument(0), 7L));
+
+        UserResponse result = userService.signIn(new SessionRequest(OID, "joe@example.com", "Joe"));
+
+        assertThat(result.userReference()).isEqualTo("user007");
+        assertThat(result.name()).isEqualTo("Joe");
     }
 
     private static UserEntity existing(final String oid, final String email) {

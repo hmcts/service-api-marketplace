@@ -12,14 +12,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ContextConfiguration(initializers = TestContainersInitialise.class)
-class EntraUserIntegrationTest {
+class SessionIntegrationTest {
 
     private static final String OID = "aaaaaaaa-1111-2222-3333-444444444444";
     private static final String OTHER_OID = "bbbbbbbb-1111-2222-3333-444444444444";
@@ -39,12 +39,13 @@ class EntraUserIntegrationTest {
 
     @Test
     void first_sign_in_should_create_an_active_user() throws Exception {
-        signIn(OID, "{\"email\":\"Joe@Example.com\",\"firstName\":\"Joe\",\"lastName\":\"Bloggs\"}")
+        signIn(OID, "{\"email\":\"Joe@Example.com\",\"name\":\"Joe Bloggs\"}")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").isNumber())
             .andExpect(jsonPath("$.entraObjectId").value(OID))
             .andExpect(jsonPath("$.email").value("joe@example.com"))
-            .andExpect(jsonPath("$.firstName").value("Joe"))
+            .andExpect(jsonPath("$.name").value("Joe Bloggs"))
+            .andExpect(jsonPath("$.userReference").value(org.hamcrest.Matchers.matchesPattern("user\\d{3,}")))
             .andExpect(jsonPath("$.status").value("ACTIVE"))
             .andExpect(jsonPath("$.createdAt").isNotEmpty())
             .andExpect(jsonPath("$.lastLoginAt").isNotEmpty());
@@ -54,25 +55,23 @@ class EntraUserIntegrationTest {
 
     @Test
     void signing_in_again_should_update_the_same_user_from_entra() throws Exception {
-        final String first = signIn(OID, "{\"email\":\"joe@example.com\",\"firstName\":\"Joe\"}")
+        final String first = signIn(OID, "{\"email\":\"joe@example.com\",\"name\":\"Joe\"}")
             .andReturn().getResponse().getContentAsString();
 
-        signIn(OID.toUpperCase(), "{\"email\":\"joseph@example.com\",\"firstName\":\"Joseph\",\"lastName\":\"Bloggs\"}")
+        signIn(OID.toUpperCase(), "{\"email\":\"joseph@example.com\",\"name\":\"Joseph Bloggs\"}")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(idIn(first)))
             .andExpect(jsonPath("$.email").value("joseph@example.com"))
-            .andExpect(jsonPath("$.firstName").value("Joseph"))
-            .andExpect(jsonPath("$.lastName").value("Bloggs"));
+            .andExpect(jsonPath("$.name").value("Joseph Bloggs"));
 
         assertThat(users()).isEqualTo(1);
     }
 
     @Test
-    void missing_names_should_be_stored_as_empty() throws Exception {
-        signIn(OID, "{\"email\":\"joe@example.com\",\"firstName\":\"  \"}")
+    void blank_name_should_be_stored_as_empty() throws Exception {
+        signIn(OID, "{\"email\":\"joe@example.com\",\"name\":\"  \"}")
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.firstName").value(""))
-            .andExpect(jsonPath("$.lastName").value(""));
+            .andExpect(jsonPath("$.name").value(""));
     }
 
     @Test
@@ -103,7 +102,7 @@ class EntraUserIntegrationTest {
 
     @Test
     void missing_email_should_be_refused() throws Exception {
-        signIn(OID, "{\"firstName\":\"Joe\"}")
+        signIn(OID, "{\"name\":\"Joe\"}")
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.error").value("Enter a valid email address."));
     }
@@ -129,7 +128,8 @@ class EntraUserIntegrationTest {
     }
 
     private ResultActions signIn(final String oid, final String body) throws Exception {
-        return mockMvc.perform(put("/users/entra/" + oid).contentType(MediaType.APPLICATION_JSON).content(body));
+        final String withObjectId = "{\"objectId\":\"" + oid + "\"," + body.substring(1);
+        return mockMvc.perform(post("/session").contentType(MediaType.APPLICATION_JSON).content(withObjectId));
     }
 
     private int users() {

@@ -6,7 +6,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-import uk.gov.hmcts.amp.domain.EntraUserRequest;
+import uk.gov.hmcts.amp.domain.SessionRequest;
 import uk.gov.hmcts.amp.domain.UserResponse;
 import uk.gov.hmcts.amp.entity.UserEntity;
 import uk.gov.hmcts.amp.repository.UserRepository;
@@ -28,8 +28,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final ClockService clockService;
 
-    public UserResponse upsertEntraUser(final String entraObjectId, final EntraUserRequest request) {
-        final String oid = requireObjectId(entraObjectId);
+    public UserResponse signIn(final SessionRequest request) {
+        final String oid = requireObjectId(request.objectId());
         try {
             return upsert(oid, request);
         } catch (DataIntegrityViolationException first) {
@@ -43,7 +43,7 @@ public class UserService {
         }
     }
 
-    private UserResponse upsert(final String oid, final EntraUserRequest request) {
+    private UserResponse upsert(final String oid, final SessionRequest request) {
         final LocalDateTime now = LocalDateTime.ofInstant(clockService.now(), ZoneOffset.UTC);
         final String email = request.email().trim().toLowerCase(Locale.UK);
 
@@ -61,8 +61,9 @@ public class UserService {
 
         final boolean created = user.getId() == null;
         user.setEmail(email);
-        user.setFirstName(trimToEmpty(request.firstName()));
-        user.setLastName(trimToEmpty(request.lastName()));
+        final String[] names = request.name() == null ? new String[0] : request.name().trim().split("\\s+", 2);
+        user.setFirstName(names.length > 0 ? names[0] : "");
+        user.setLastName(names.length > 1 ? names[1] : "");
         user.setLastLoginAt(now);
         final UserEntity saved = userRepository.saveAndFlush(user);
         log.info("Entra sign in {} userId {}", created ? "created" : "updated", saved.getId());
@@ -87,9 +88,5 @@ public class UserService {
     private static ResponseStatusException emailInUse() {
         return new ResponseStatusException(HttpStatus.CONFLICT,
             "This email address is already used by another account.");
-    }
-
-    private static String trimToEmpty(final String value) {
-        return value == null ? "" : value.trim();
     }
 }

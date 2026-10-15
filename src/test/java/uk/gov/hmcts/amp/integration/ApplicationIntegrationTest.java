@@ -29,6 +29,8 @@ import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.wireMockGraph
 
 /** /applications against WireMock, with the ownership boundary the -new endpoints do not have. */
 @SpringBootTest(properties = {
+    "entra.onboarding-client-id=a-test-onboarding-app",
+    "entra.onboarding-client-secret=a-test-secret",
     "entra.api-client-id=" + API_CLIENT_ID,
     "entra.max-attempts=2",
     "entra.retry-delay-millis=1"})

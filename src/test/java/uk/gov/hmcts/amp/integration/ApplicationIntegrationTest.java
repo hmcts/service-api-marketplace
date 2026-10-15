@@ -6,9 +6,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
+import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
+import uk.gov.hmcts.amp.repository.ApplicationRepository;
+import uk.gov.hmcts.amp.repository.UserRepository;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.deleteRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
@@ -46,14 +48,20 @@ class ApplicationIntegrationTest {
     private MockMvc mockMvc;
 
     @Autowired
-    private JdbcTemplate jdbc;
+    private ApplicationApiRepository applicationApis;
+
+    @Autowired
+    private ApplicationRepository applications;
+
+    @Autowired
+    private UserRepository users;
 
     @BeforeEach
     void startClean() throws Exception {
         wireMockGraph().resetAll();
-        jdbc.update("delete from application_api");
-        jdbc.update("delete from application");
-        jdbc.update("delete from marketplace_user");
+        applicationApis.deleteAll();
+        applications.deleteAll();
+        users.deleteAll();
         signIn(OWNER_OID, "ada.lovelace@hmcts.net");
         signIn(OTHER_OID, "grace.hopper@hmcts.net");
     }

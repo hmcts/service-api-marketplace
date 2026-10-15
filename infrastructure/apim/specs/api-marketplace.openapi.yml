@@ -558,11 +558,11 @@ components:
         name:
           type: string
           description: >-
-            Letters, digits and spaces only, 2 to 50 characters, starting and
+            Letters, digits and spaces only, 8 to 50 characters, starting and
             ending on a letter or digit. Lower-cased with spaces turned to
             hyphens, it becomes the stem of the Entra and APIM names, which
             cannot be renamed afterwards.
-          pattern: '^[A-Za-z0-9][A-Za-z0-9 ]{0,48}[A-Za-z0-9]$'
+          pattern: '^[A-Za-z0-9][A-Za-z0-9 ]{6,48}[A-Za-z0-9]$'
           example: Case Viewer
         apis:
           type: array

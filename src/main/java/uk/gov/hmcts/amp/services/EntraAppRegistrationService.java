@@ -82,7 +82,7 @@ public class EntraAppRegistrationService {
 
             log.info("Registered Entra application {} for '{}' with roles {}", clientId, applicationName, roles);
             return AppRegistration.registered(objectId, clientId, secret.getSecretText(),
-                String.valueOf(secret.getKeyId()), roles);
+                String.valueOf(secret.getKeyId()), roles, secret.getEndDateTime());
         } catch (final RuntimeException registrationFailed) {
             removeOrphan(objectId, registrationFailed);
             throw registrationFailed;

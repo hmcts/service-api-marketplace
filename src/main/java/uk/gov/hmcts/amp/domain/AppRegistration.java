@@ -8,19 +8,22 @@ import java.util.List;
 /** Entra returns the secret once, on the call that creates it, so every other view of an application omits it. */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record AppRegistration(String objectId, String clientId, String displayName, OffsetDateTime created,
-                              List<String> roles, String clientSecret, String keyId) {
+                              List<String> roles, String clientSecret, String keyId,
+                              OffsetDateTime secretExpiresAt) {
 
     public static AppRegistration summary(final String objectId, final String clientId, final String displayName,
                                           final OffsetDateTime created) {
-        return new AppRegistration(objectId, clientId, displayName, created, null, null, null);
+        return new AppRegistration(objectId, clientId, displayName, created, null, null, null, null);
     }
 
     public static AppRegistration registered(final String objectId, final String clientId, final String clientSecret,
-                                             final String keyId, final List<String> roles) {
-        return new AppRegistration(objectId, clientId, null, null, roles, clientSecret, keyId);
+                                             final String keyId, final List<String> roles,
+                                             final OffsetDateTime secretExpiresAt) {
+        return new AppRegistration(objectId, clientId, null, null, roles, clientSecret, keyId, secretExpiresAt);
     }
 
     public AppRegistration withRoles(final List<String> granted) {
-        return new AppRegistration(objectId, clientId, displayName, created, granted, clientSecret, keyId);
+        return new AppRegistration(objectId, clientId, displayName, created, granted, clientSecret, keyId,
+            secretExpiresAt);
     }
 }

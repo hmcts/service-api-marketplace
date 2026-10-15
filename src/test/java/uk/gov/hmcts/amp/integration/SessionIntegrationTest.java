@@ -6,9 +6,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
+import uk.gov.hmcts.amp.entity.ApplicationApiEntity;
+import uk.gov.hmcts.amp.entity.ApplicationEntity;
+import uk.gov.hmcts.amp.entity.UserEntity;
+import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
+import uk.gov.hmcts.amp.repository.ApplicationRepository;
+import uk.gov.hmcts.amp.repository.UserRepository;
+
+import java.time.LocalDateTime;
 import org.springframework.test.web.servlet.ResultActions;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,13 +35,19 @@ class SessionIntegrationTest {
     private MockMvc mockMvc;
 
     @Autowired
-    private JdbcTemplate jdbc;
+    private ApplicationApiRepository applicationApis;
+
+    @Autowired
+    private ApplicationRepository applications;
+
+    @Autowired
+    private UserRepository users;
 
     @BeforeEach
     void startWithNoUsers() {
-        jdbc.update("delete from application_api");
-        jdbc.update("delete from application");
-        jdbc.update("delete from marketplace_user");
+        applicationApis.deleteAll();
+        applications.deleteAll();
+        users.deleteAll();
     }
 
     @Test
@@ -88,7 +101,9 @@ class SessionIntegrationTest {
     @Test
     void an_inactive_user_should_be_refused() throws Exception {
         signIn(OID, "{\"email\":\"joe@example.com\"}").andExpect(status().isOk());
-        jdbc.update("update marketplace_user set status = 'SUSPENDED'");
+        final UserEntity user = users.findByEntraObjectId(OID).orElseThrow();
+        user.setStatus("SUSPENDED");
+        users.saveAndFlush(user);
 
         signIn(OID, "{\"email\":\"joe@example.com\"}").andExpect(status().isForbidden());
     }
@@ -109,22 +124,17 @@ class SessionIntegrationTest {
 
     @Test
     void the_same_api_should_not_be_subscribed_twice_and_deleting_an_application_removes_its_apis() throws Exception {
-        final String body = signIn(OID, "{\"email\":\"joe@example.com\"}")
-            .andReturn().getResponse().getContentAsString();
-        final long appId = jdbc.queryForObject(
-            "insert into application (user_id, name, appname, client_id, object_id, secret_hint, secret_key_id,"
-                + " secret_expires_at, created_at) values (?, 'Case viewer', 'case-viewer', 'client-1',"
-                + " 'object-1', 'Uc6', 'key-1', now(), now()) returning id",
-            Long.class, idIn(body));
-        final String insertApi = "insert into application_api"
-            + " (application_id, short_code, product_id, subscription_name, key_hint, subscribed_at)"
-            + " values (?, 'slc', 'cp-crime-schedulingandlisting-courtschedule', ?, 'abc', now())";
-        jdbc.update(insertApi, appId, "amp-user001-case-viewer-slc");
+        signIn(OID, "{\"email\":\"joe@example.com\"}").andExpect(status().isOk());
+        final UserEntity owner = users.findByEntraObjectId(OID).orElseThrow();
+        final ApplicationEntity application = applications.saveAndFlush(application(owner));
+        applicationApis.saveAndFlush(api(application, "amp-user001-case-viewer-slc"));
 
-        assertThat(rejected(() -> jdbc.update(insertApi, appId, "amp-user001-case-viewer-slc-2"))).isTrue();
+        assertThat(rejected(() -> applicationApis.saveAndFlush(
+            api(application, "amp-user001-case-viewer-slc-2")))).isTrue();
 
-        jdbc.update("delete from application where id = ?", appId);
-        assertThat(jdbc.queryForObject("select count(*) from application_api", Integer.class)).isZero();
+        applications.delete(application);
+        applications.flush();
+        assertThat(applicationApis.count()).isZero();
     }
 
     private ResultActions signIn(final String oid, final String body) throws Exception {
@@ -133,7 +143,7 @@ class SessionIntegrationTest {
     }
 
     private int users() {
-        return jdbc.queryForObject("select count(*) from marketplace_user", Integer.class);
+        return (int) users.count();
     }
 
     private static long idIn(final String json) {
@@ -148,4 +158,30 @@ class SessionIntegrationTest {
             return true;
         }
     }
+
+    private ApplicationEntity application(final UserEntity owner) {
+        final ApplicationEntity application = new ApplicationEntity();
+        application.setUser(owner);
+        application.setName("Case viewer");
+        application.setAppname("case-viewer");
+        application.setClientId("client-1");
+        application.setObjectId("object-1");
+        application.setSecretHint("Uc6");
+        application.setSecretKeyId("key-1");
+        application.setSecretExpiresAt(LocalDateTime.now());
+        application.setCreatedAt(LocalDateTime.now());
+        return application;
+    }
+
+    private ApplicationApiEntity api(final ApplicationEntity application, final String subscriptionName) {
+        final ApplicationApiEntity api = new ApplicationApiEntity();
+        api.setApplication(application);
+        api.setShortCode("slc");
+        api.setProductId("cp-crime-schedulingandlisting-courtschedule");
+        api.setSubscriptionName(subscriptionName);
+        api.setKeyHint("abc");
+        api.setSubscribedAt(LocalDateTime.now());
+        return api;
+    }
+
 }

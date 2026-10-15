@@ -5,9 +5,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import uk.gov.hmcts.amp.entity.UserEntity;
+import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
+import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
 
 import java.time.LocalDateTime;
@@ -27,13 +28,16 @@ class UserRepositoryIntegrationTest {
     private UserRepository userRepository;
 
     @Autowired
-    private JdbcTemplate jdbc;
+    private ApplicationApiRepository applicationApis;
+
+    @Autowired
+    private ApplicationRepository applications;
 
     @BeforeEach
     void startWithNoUsers() {
-        jdbc.update("delete from application_api");
-        jdbc.update("delete from application");
-        jdbc.update("delete from marketplace_user");
+        applicationApis.deleteAll();
+        applications.deleteAll();
+        userRepository.deleteAll();
     }
 
     @Test

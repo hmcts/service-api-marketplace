@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import uk.gov.hmcts.amp.entity.ApplicationApiEntity;
 import uk.gov.hmcts.amp.entity.ApplicationEntity;
@@ -35,16 +34,14 @@ class ApplicationRepositoryIntegrationTest {
     @Autowired
     private UserRepository users;
 
-    @Autowired
-    private JdbcTemplate jdbc;
 
     private UserEntity owner;
 
     @BeforeEach
     void startClean() {
-        jdbc.update("delete from application_api");
-        jdbc.update("delete from application");
-        jdbc.update("delete from marketplace_user");
+        applicationApis.deleteAll();
+        applications.deleteAll();
+        users.deleteAll();
         owner = users.save(user("oid-owner", "ada.lovelace@hmcts.net"));
     }
 

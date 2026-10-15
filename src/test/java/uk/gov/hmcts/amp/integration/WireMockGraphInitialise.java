@@ -49,6 +49,16 @@ public class WireMockGraphInitialise implements ApplicationContextInitializer<Co
                        "createdDateTime":"2026-01-02T03:04:05Z"}]}""".formatted(OBJECT_ID, CLIENT_ID))));
     }
 
+    /** A second registration, because Entra issues a different id each time and client_id is unique. */
+    public static void stubRegistrationAs(final String objectId, final String clientId) {
+        WIREMOCK_GRAPH.stubFor(post(urlPathEqualTo("/applications")).willReturn(json(
+            "{\"id\":\"" + objectId + "\",\"appId\":\"" + clientId + "\"}")));
+        WIREMOCK_GRAPH.stubFor(post(urlPathEqualTo("/servicePrincipals")).willReturn(json("{\"id\":\"sp-2\"}")));
+        WIREMOCK_GRAPH.stubFor(post(urlPathEqualTo("/applications/" + objectId + "/addPassword"))
+            .willReturn(json("{\"keyId\":\"88888888-8888-8888-8888-888888888888\","
+                + "\"secretText\":\"another-secret\"}")));
+    }
+
     public static void stubRegistration() {
         WIREMOCK_GRAPH.stubFor(post(urlPathEqualTo("/applications")).willReturn(json(
             "{\"id\":\"" + OBJECT_ID + "\",\"appId\":\"" + CLIENT_ID + "\"}")));

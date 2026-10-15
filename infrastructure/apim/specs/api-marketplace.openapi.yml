@@ -3,10 +3,19 @@ openapi: 3.0.3
 info:
   title: API Marketplace
   description: >-
-    Public API for the HMCTS API Marketplace. Covers account registration and
-    sign-in for marketplace users, and the inbound request forms used to ask for
-    access to an existing API.
-  version: 0.0.0
+    Backend for the HMCTS API Marketplace. A signed-in person registers an
+    application and receives a Client ID, a Client Secret and one APIM
+    subscription key per API, which together get them through the gateway.
+
+    Identity is supplied by the web app: it signs the person in against Entra,
+    parses the token, and sends their Entra object id as requestingUserId on
+    every call after /session. The backend takes that at face value and holds
+    no session of its own.
+
+    /apim/subscription-keys manages APIM subscriptions directly, independently
+    of any application. The rest of the API registers applications and the
+    subscriptions that belong to them.
+  version: 1.0.0
   contact:
     email: no-reply@hmcts.com
   license:
@@ -19,20 +28,23 @@ servers:
 
 tags:
   - name: root
-    description: Service root
-  - name: authentication
-    description: Account registration and sign-in
-  - name: requests
-    description: Inbound marketplace request forms
+    description: Service root and health
+  - name: session
+    description: Recording the person Entra has signed in
+  - name: applications
+    description: Entra application registrations and their APIM subscriptions
+  - name: products
+    description: The APIs that can be subscribed to
+  - name: subscription-keys
+    description: APIM subscription keys, managed directly
 
 paths:
   /:
     get:
       summary: Service root
-      description: Returns a static welcome message. Used as a liveness sanity check.
+      description: A static welcome message, used as a liveness sanity check.
       operationId: getRoot
-      tags:
-        - root
+      tags: [root]
       responses:
         '200':
           description: OK
@@ -44,528 +56,643 @@ paths:
 
   /api/health:
     get:
-      summary: Health check
-      description: >-
-        Lightweight health check for the marketplace front end. This is separate
-        from the Spring Boot Actuator health endpoint, which remains the probe
-        used by Kubernetes.
+      summary: Health
       operationId: getHealth
-      tags:
-        - root
+      tags: [root]
       responses:
         '200':
-          description: Service is up
+          description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HealthResponse'
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
 
-  /api/register:
+  /session:
     post:
-      summary: Create a marketplace account
+      summary: Record the signed-in person
       description: >-
-        Registers a new marketplace user and returns a signed bearer token so the
-        caller is immediately signed in. The password is hashed with bcrypt before
-        storage and is never returned.
-      operationId: register
-      tags:
-        - authentication
+        Called once after Entra sign-in. The web app parses the id token and
+        posts the claims; this upserts the user on their Entra object id and
+        returns the row, including the long id and the userReference the Entra
+        and APIM names are built from.
+      operationId: createSession
+      tags: [session]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RegisterRequest'
-      responses:
-        '201':
-          description: Account created and caller signed in
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthenticationResponse'
-        '400':
-          description: Missing or invalid fields
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: Password must be at least 12 characters long.
-        '409':
-          description: >-
-            The account could not be created. Deliberately vague so the response
-            cannot be used to confirm whether an email address is registered.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: An account with these details could not be created.
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /api/login:
-    post:
-      summary: Sign in
-      description: >-
-        Verifies an email address and password and returns a signed bearer token.
-        Failures do not distinguish between an unknown email address and a wrong
-        password.
-      operationId: login
-      tags:
-        - authentication
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
+              $ref: '#/components/schemas/SessionRequest'
       responses:
         '200':
-          description: Signed in
+          description: The user, created or updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthenticationResponse'
+                $ref: '#/components/schemas/User'
         '400':
-          description: Email address or password not supplied
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: Email and password are required.
-        '401':
-          description: Incorrect credentials
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: Incorrect email or password.
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+          $ref: '#/components/responses/BadRequest'
 
-  /api/logout:
-    post:
-      summary: Sign out
-      description: >-
-        No-op retained for front-end compatibility. Tokens are bearer tokens held
-        by the client, so signing out means the client discards its own copy.
-        Tokens are not revoked server-side and remain valid until they expire.
-      operationId: logout
-      tags:
-        - authentication
-      responses:
-        '200':
-          description: Acknowledged
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LogoutResponse'
-
-  /api/me:
+  /applications:
     get:
-      summary: Get the signed-in user
-      description: Returns the account identified by the bearer token.
-      operationId: getCurrentUser
-      tags:
-        - authentication
-      security:
-        - bearerAuth: []
+      summary: List the caller's applications
+      description: >-
+        Rows owned by requestingUserId, joined to their APIs. Renders from
+        stored data alone, with no call to Entra or APIM. Never includes a
+        client secret.
+      operationId: listApplications
+      tags: [applications]
+      parameters:
+        - $ref: '#/components/parameters/RequestingUserId'
       responses:
         '200':
-          description: The signed-in user
+          description: The caller's applications, oldest first
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserResponse'
-        '401':
-          description: Token missing, invalid, or expired
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: Session expired. Please sign in again.
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+                type: array
+                items:
+                  $ref: '#/components/schemas/Application'
+        '404':
+          $ref: '#/components/responses/UnknownUser'
 
-  /api/requests/access:
     post:
-      summary: Request access to an existing API
+      summary: Register an application
       description: >-
-        Submits a request for access to an API already listed in the marketplace.
-        The request is stored and a reference is returned for the requester to
-        quote. Notification of the API owner is handled separately and its failure
-        does not fail this call.
-      operationId: createAccessRequest
-      tags:
-        - requests
+        Creates the Entra registration, its service principal and a secret,
+        then one APIM subscription per API, then the rows.
+
+        Roles are **not** granted here. A service principal seconds old is not
+        yet assignable, so granting is a separate call the caller retries - see
+        POST /applications/{clientId}/roles.
+
+        This is the only response that carries clientSecret. Entra returns it
+        once and has no call that reads it back.
+      operationId: createApplication
+      tags: [applications]
+      parameters:
+        - $ref: '#/components/parameters/RequestingUserId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AccessRequest'
+              $ref: '#/components/schemas/NewApplication'
       responses:
         '201':
-          description: Request stored
+          description: Created, with the secret and the full subscription keys
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccessRequestResponse'
+                $ref: '#/components/schemas/CreatedApplication'
         '400':
-          description: Missing or invalid fields
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/UnknownUser'
+        '409':
+          description: The caller already has an application with that name
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error: Enter a valid email address.
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+                $ref: '#/components/schemas/Error'
+        '502':
+          $ref: '#/components/responses/UpstreamUnreachable'
+        '503':
+          $ref: '#/components/responses/NotConfigured'
 
-  /v1/requests/onboarding:
-    post:
-      summary: Submit an API onboarding request
+  /applications/{clientId}:
+    parameters:
+      - $ref: '#/components/parameters/ClientId'
+      - $ref: '#/components/parameters/RequestingUserId'
+    get:
+      summary: Read one application
+      operationId: getApplication
+      tags: [applications]
+      responses:
+        '200':
+          description: The application, with the APIs it holds. Never a secret
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '404':
+          $ref: '#/components/responses/NotYours'
+    delete:
+      summary: Delete an application
       description: >-
-        Existing onboarding request endpoint, ported from
-        service-marketplace-onboarding. Overlaps with POST /api/requests/access —
-        see the repository README for the consolidation decision.
-      operationId: createOnboardingRequest
-      tags:
-        - requests
+        Removes the Entra registration, its service principal, the role
+        assignments, the APIM subscriptions and the rows. The credentials stop
+        working immediately.
+      operationId: deleteApplication
+      tags: [applications]
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          $ref: '#/components/responses/NotYours'
+        '502':
+          $ref: '#/components/responses/UpstreamUnreachable'
+
+  /applications/{clientId}/roles:
+    post:
+      summary: Grant one API role
+      description: >-
+        Assigns an app role on the marketplace API's service principal, so the
+        consumer's token starts carrying it. Nothing in APIM changes; its
+        validate-jwt policy already requires the role.
+
+        Tried once, and the failure returned. A principal that is not
+        assignable yet looks identical to one that never will be, so only the
+        caller can decide how long to wait. Entra can refuse for minutes after
+        the application is created.
+      operationId: grantRole
+      tags: [applications]
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+        - $ref: '#/components/parameters/RequestingUserId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/OnboardingRequest'
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  example: slc.read
       responses:
-        '201':
-          description: Request stored
+        '204':
+          description: Granted
         '400':
-          description: Missing or invalid fields
+          description: The API offers no such role; the message lists the ones it does
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No service principal yet for that Client ID. Retryable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: >-
+            Graph refused the assignment. The message names the missing
+            permission, AppRoleAssignment.ReadWrite.All. Not retryable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          $ref: '#/components/responses/UpstreamUnreachable'
+
+  /applications/{clientId}/keys/{api}:
+    get:
+      summary: Reveal one subscription key
+      description: >-
+        Reads the key from APIM on demand, which also records the read in an
+        access log. Only three characters are stored here, so this is the only
+        way to see a whole key after creation. Unlike the client secret, a
+        subscription key is always recoverable.
+      operationId: getSubscriptionKey
+      tags: [applications]
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+        - $ref: '#/components/parameters/RequestingUserId'
+        - name: api
+          in: path
+          required: true
+          description: The API short code
+          schema:
+            type: string
+            example: slc
+      responses:
+        '200':
+          description: The subscription key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shortCode:
+                    type: string
+                    example: slc
+                  subscriptionKey:
+                    type: string
+                    example: c5212ea63015c827b1a0f713fdbf42d6
+        '404':
+          $ref: '#/components/responses/NotYours'
+        '502':
+          $ref: '#/components/responses/UpstreamUnreachable'
+
+  /apim/products:
+    get:
+      summary: List the APIs that can be subscribed to
+      description: >-
+        What the UI offers on the create form. Hard-coding the list means a
+        product renamed in APIM silently produces a 400 on create.
+      operationId: listProducts
+      tags: [products]
+      responses:
+        '200':
+          description: The products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+        '502':
+          $ref: '#/components/responses/UpstreamUnreachable'
+
+  /apim/subscription-keys:
+    get:
+      summary: List every subscription on the APIM instance
+      description: >-
+        Names, scopes and state. Never key values: Azure does not return them
+        from a list, and asking per subscription would be a call each.
+      operationId: listSubscriptionKeys
+      tags: [subscription-keys]
+      responses:
+        '200':
+          description: The subscriptions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubscriptionKey'
+        '500':
+          $ref: '#/components/responses/ApimRefused'
+        '502':
+          $ref: '#/components/responses/UpstreamUnreachable'
+    post:
+      summary: Create a subscription key
+      description: >-
+        Scoped to one product. The name is checked first and a clash answers
+        409: Azure's own call is a PUT and would silently re-point an existing
+        subscription at a different product, reporting it as created.
+      operationId: createSubscriptionKey
+      tags: [subscription-keys]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, productId, displayName]
+              properties:
+                name:
+                  type: string
+                  description: >-
+                    Azure's rule: lower case letters, digits and hyphens, 2 to
+                    80 characters, not starting or ending with a hyphen
+                  pattern: '^[a-z0-9][a-z0-9-]{0,78}[a-z0-9]$'
+                  example: amp-user001-case-viewer-slc
+                productId:
+                  type: string
+                  example: cp-crime-schedulingandlisting-courtschedule
+                displayName:
+                  type: string
+                  example: Case Viewer
+      responses:
+        '201':
+          description: Created, with both key values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionKey'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: A subscription of that name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ApimRefused'
+        '502':
+          $ref: '#/components/responses/UpstreamUnreachable'
+
+  /apim/subscription-keys/{name}/values:
+    get:
+      summary: Read the key values for one subscription
+      description: >-
+        Separate from the list deliberately: reading a key is worth finding in
+        an access log, which it is not if every list quietly returns secrets.
+      operationId: getSubscriptionKeyValues
+      tags: [subscription-keys]
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionName'
+      responses:
+        '200':
+          description: The primary and secondary keys
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionKey'
+        '404':
+          description: >-
+            No subscription of that name, or the configured instance does not
+            exist. The message names the instance it searched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ApimRefused'
+        '502':
+          $ref: '#/components/responses/UpstreamUnreachable'
+
+  /apim/subscription-keys/{name}:
+    delete:
+      summary: Revoke a subscription
+      description: >-
+        Both keys stop working immediately. Deliberately not idempotent: Azure
+        answers a delete of something absent with success, which on a shared
+        instance leaves you unable to tell a key you revoked from one that was
+        never there.
+      operationId: deleteSubscriptionKey
+      tags: [subscription-keys]
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionName'
+      responses:
+        '204':
+          description: Revoked
+        '404':
+          description: No subscription of that name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ApimRefused'
+        '502':
+          $ref: '#/components/responses/UpstreamUnreachable'
 
 components:
-
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+  parameters:
+    RequestingUserId:
+      name: requestingUserId
+      in: header
+      required: true
       description: >-
-        Signed JWT issued by POST /api/register or POST /api/login, sent as
-        `Authorization: Bearer <token>`. Valid for 7 days.
+        The caller's Entra object id, taken from the token by the web app. The
+        backend takes this at face value; the protection today is the network.
+      schema:
+        type: string
+        example: 7c1d9f2e-4b58-4a31-9f0c-2e6d8a1b3c44
+
+    SubscriptionName:
+      name: name
+      in: path
+      required: true
+      description: APIM's own subscription name, as returned by create
+      schema:
+        type: string
+        example: amp-user001-case-viewer-slc
+
+    ClientId:
+      name: clientId
+      in: path
+      required: true
+      description: The Entra Client ID (appId), not the directory object id
+      schema:
+        type: string
+        example: 1bf041a2-a57a-4255-b90f-d218736cda1f
 
   responses:
-    TooManyRequests:
+    BadRequest:
+      description: A field is missing or does not meet its rule
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    UnknownUser:
+      description: No user for that requestingUserId. Sign in again
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotYours:
       description: >-
-        Rate limit exceeded. Applies to the unauthenticated endpoints, which
-        permit 20 requests per 15 minutes per client IP.
+        No such application for this caller. Deliberately 404 rather than 403,
+        which would confirm it exists and belongs to somebody
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: Too many attempts. Please try again later.
-    InternalServerError:
-      description: Unexpected server error
+            $ref: '#/components/schemas/Error'
+    ApimRefused:
+      description: >-
+        API Management answered and refused. The service identity has no role
+        on the instance; not a client error and not retryable
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: Something went wrong. Please try again.
+            $ref: '#/components/schemas/Error'
+    UpstreamUnreachable:
+      description: Entra or API Management could not be reached. Retryable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotConfigured:
+      description: >-
+        The onboarding credential is not configured in this environment. Should
+        never reach a real user
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
 
   schemas:
-
-    HealthResponse:
-      description: Service health
+    SessionRequest:
       type: object
-      required:
-        - status
+      required: [objectId, email]
       properties:
-        status:
+        objectId:
           type: string
-          description: Health status
-          enum:
-            - ok
-          example: ok
-
-    LogoutResponse:
-      description: Sign-out acknowledgement
-      type: object
-      required:
-        - ok
-      properties:
-        ok:
-          type: boolean
-          description: Always true
-          example: true
-
-    Role:
-      description: >-
-        Marketplace role. A consumer requests access to APIs; a producer
-        publishes them.
-      type: string
-      enum:
-        - consumer
-        - producer
-      example: consumer
-
-    RegisterRequest:
-      description: New marketplace account
-      type: object
-      required:
-        - firstName
-        - lastName
-        - email
-        - role
-        - password
-      properties:
-        firstName:
-          type: string
-          description: Given name
-          minLength: 1
-          example: Colin
-        lastName:
-          type: string
-          description: Family name
-          minLength: 1
-          example: Greenwood
+          description: The oid claim. The identity, and the upsert key
+          example: 7c1d9f2e-4b58-4a31-9f0c-2e6d8a1b3c44
         email:
           type: string
           format: email
-          description: >-
-            Email address, used as the sign-in identifier. Stored and compared in
-            lower case.
-          example: joe.bloggs@example.com
-        organisation:
+          example: ada.lovelace@hmcts.net
+        name:
           type: string
-          description: Organisation the user belongs to
-          example: HMCTS
-        role:
-          $ref: '#/components/schemas/Role'
-        password:
-          type: string
-          format: password
-          description: Password, at least 12 characters. Hashed with bcrypt before storage.
-          minLength: 12
-          writeOnly: true
-          example: correct-horse-battery-staple
-
-    LoginRequest:
-      description: Sign-in credentials
-      type: object
-      required:
-        - email
-        - password
-      properties:
-        email:
-          type: string
-          format: email
-          description: Email address the account was registered with
-          example: joe.bloggs@example.com
-        password:
-          type: string
-          format: password
-          description: Account password
-          writeOnly: true
-          example: correct-horse-battery-staple
+          description: The display name from the token
+          example: Ada Lovelace
 
     User:
-      description: A marketplace user, as exposed to clients. Never includes the password hash.
       type: object
-      required:
-        - id
-        - firstName
-        - lastName
-        - email
-        - role
       properties:
         id:
+          type: integer
+          format: int64
+          example: 1
+        userReference:
           type: string
-          format: uuid
-          description: Unique identifier for the user
-          example: 3f8a1c94-6b2e-4d51-9a77-0e1c5b8d4f23
-        firstName:
-          type: string
-          description: Given name
-          example: Colin
-        lastName:
-          type: string
-          description: Family name
-          example: Greenwood
+          description: Formatted from id. Appears in every Entra and APIM name
+          example: user001
         email:
           type: string
           format: email
-          description: Email address
-          example: joe.bloggs@example.com
-        role:
-          $ref: '#/components/schemas/Role'
+          example: ada.lovelace@hmcts.net
+        name:
+          type: string
+          example: Ada Lovelace
+        status:
+          type: string
+          example: ACTIVE
 
-    UserResponse:
-      description: Wrapper returned by GET /api/me
+    NewApplication:
       type: object
-      required:
-        - user
-      properties:
-        user:
-          $ref: '#/components/schemas/User'
-
-    AuthenticationResponse:
-      description: The signed-in user and the token identifying them
-      type: object
-      required:
-        - user
-        - token
-      properties:
-        user:
-          $ref: '#/components/schemas/User'
-        token:
-          type: string
-          description: >-
-            Signed JWT to send as `Authorization: Bearer <token>` on
-            authenticated calls. Valid for 7 days.
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIn0.abc123
-
-    AccessRequest:
-      description: Request for access to an API already listed in the marketplace
-      type: object
-      required:
-        - fullName
-        - organisation
-        - email
-        - apiName
-        - environment
-        - useCase
-      properties:
-        fullName:
-          type: string
-          description: Full name of the requester
-          example: Colin Greenwood
-        organisation:
-          type: string
-          description: Organisation the requester belongs to
-          example: HMCTS
-        email:
-          type: string
-          format: email
-          description: Contact email address
-          example: joe.bloggs@example.com
-        jobTitle:
-          type: string
-          description: Job title of the requester
-          example: Software Engineer
-        apiName:
-          type: string
-          description: Name of the API access is being requested for
-          example: RAG Service API
-        environment:
-          type: string
-          description: Target environment for access
-          example: sandbox
-        callVolume:
-          type: string
-          description: Expected call volume, free text
-          example: 1000/day
-        useCase:
-          type: string
-          description: How the API will be used
-          example: Automating hearing result document distribution
-
-    AccessRequestResponse:
-      description: Confirmation of a stored access request
-      type: object
-      required:
-        - reference
-      properties:
-        reference:
-          type: string
-          description: >-
-            Reference for the requester to quote, in the form AR-{year}-{6
-            alphanumeric characters}.
-          pattern: '^AR-[0-9]{4}-[A-Z0-9]{6}$'
-          example: AR-2026-K4M9XZ
-
-    OnboardingRequest:
-      description: Request to onboard to an API in the marketplace
-      type: object
-      required:
-        - name
-        - organisation
-        - email
-        - jobTitle
-        - apiRequested
-        - environment
-        - useCase
+      required: [name, apis]
       properties:
         name:
           type: string
-          description: Full name of the requester
-          example: Colin Greenwood
-        organisation:
-          type: string
-          description: Organisation the requester belongs to
-          example: HMCTS
-        email:
-          type: string
-          format: email
-          description: Contact email address
-          example: joe.bloggs@example.com
-        jobTitle:
-          type: string
-          description: Job title of the requester
-          example: Software Engineer
-        phone:
-          type: string
-          description: Contact phone number
-          example: "+447700900000"
-        apiRequested:
-          type: string
-          description: Name of the API being requested
-          example: RAG Service API
-        environment:
-          type: string
-          description: Target environment for access
-          example: sandbox
-        callVolume:
-          type: string
-          description: Expected call volume, free text
-          example: 1000/day
-        useCase:
-          type: string
-          description: How the API will be used
-          example: Automating hearing result document distribution
+          description: >-
+            Letters, digits and spaces only, 2 to 50 characters, starting and
+            ending on a letter or digit. Lower-cased with spaces turned to
+            hyphens, it becomes the stem of the Entra and APIM names, which
+            cannot be renamed afterwards.
+          pattern: '^[A-Za-z0-9][A-Za-z0-9 ]{0,48}[A-Za-z0-9]$'
+          example: Case Viewer
+        apis:
+          type: array
+          minItems: 1
+          items:
+            type: string
+          example: [slc]
 
-    ErrorResponse:
-      description: >-
-        Error payload. `error` carries a message suitable for display to the end
-        user, because the marketplace front end renders it directly.
+    Application:
       type: object
-      required:
-        - error
+      properties:
+        clientId:
+          type: string
+          example: 1bf041a2-a57a-4255-b90f-d218736cda1f
+        name:
+          type: string
+          example: Case Viewer
+        appname:
+          type: string
+          example: case-viewer
+        secretHint:
+          type: string
+          description: The first three characters, shown as "Uc6****"
+          example: Uc6
+        secretExpiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        apis:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApplicationApi'
+
+    ApplicationApi:
+      type: object
+      properties:
+        shortCode:
+          type: string
+          example: slc
+        productId:
+          type: string
+          description: Shown as Publisher ID
+          example: cp-crime-schedulingandlisting-courtschedule
+        subscriptionName:
+          type: string
+          example: amp-user001-case-viewer-slc
+        keyHint:
+          type: string
+          description: The first three characters of the subscription key
+          example: a1b
+        subscribedAt:
+          type: string
+          format: date-time
+
+    CreatedApplication:
+      allOf:
+        - $ref: '#/components/schemas/Application'
+        - type: object
+          properties:
+            clientSecret:
+              type: string
+              description: >-
+                Shown once and never again. Entra has no call that reads it
+                back, so a lost secret means regenerating.
+              example: Uc6Q~shown-once-never-again
+            subscriptionKeys:
+              type: array
+              items:
+                type: object
+                properties:
+                  shortCode:
+                    type: string
+                    example: slc
+                  subscriptionKey:
+                    type: string
+                    example: c5212ea63015c827b1a0f713fdbf42d6
+
+    Product:
+      type: object
+      properties:
+        productId:
+          type: string
+          example: cp-crime-schedulingandlisting-courtschedule
+        displayName:
+          type: string
+          example: Scheduling and Listing Court Schedule
+        description:
+          type: string
+        state:
+          type: string
+          example: published
+
+    SubscriptionKey:
+      type: object
+      properties:
+        name:
+          type: string
+          description: APIM's subscription name, and the id for the other calls
+          example: amp-user001-case-viewer-slc
+        displayName:
+          type: string
+          example: Case Viewer
+        scope:
+          type: string
+          description: Azure's full resource path, ending /products/{productId}
+        productId:
+          type: string
+          description: >-
+            Lifted out of scope. Absent where the subscription covers the whole
+            service rather than one product
+          example: cp-crime-schedulingandlisting-courtschedule
+        state:
+          type: string
+          example: active
+        primaryKey:
+          type: string
+          description: Present only on create and on the values call
+        secondaryKey:
+          type: string
+          description: For rotation without downtime
+
+    Error:
+      type: object
       properties:
         error:
           type: string
-          description: Human-readable error message, safe to display to the user
-          example: Something went wrong. Please try again.
         timestamp:
           type: string
           format: date-time
-          description: When the error occurred
         traceId:
           type: string
-          description: Correlation id for locating this failure in the service logs

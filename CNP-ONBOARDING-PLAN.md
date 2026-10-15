@@ -49,8 +49,9 @@ All derived names follow the pattern `{product}-{component}` = `apim-marketplace
 | **Internal ingress host** | `apim-marketplace-{env}.service.core-compute-{env}.internal` |
 | **Staging URL (AAT)** | `apim-marketplace-staging.aat.platform.hmcts.net` |
 | **Preview URL** | `apim-marketplace-pr-{N}.preview.platform.hmcts.net` |
-| **Java package** | `uk.gov.hmcts.cp` |
-| **Gradle group** | `uk.gov.hmcts.cp` |
+| **Java package** | `uk.gov.hmcts.amp` |
+| **Gradle group** | `uk.gov.hmcts.amp` |
+| **SonarCloud project key** | `uk.gov.hmcts.cp:service-api-marketplace` - deliberately still `cp`, see below |
 | **Spring app name** | `service-api-marketplace` |
 | **Jenkins AAD group** | `DTS API Marketplace` |
 | **Slack contact** | `#api-marketplace-tech` |

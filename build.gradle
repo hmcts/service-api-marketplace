@@ -13,8 +13,8 @@ plugins {
 }
 
 application {
-  mainClass = 'uk.gov.hmcts.cp.Application'
-  group = 'uk.gov.hmcts.cp'
+  mainClass = 'uk.gov.hmcts.amp.Application'
+  group = 'uk.gov.hmcts.amp'
   version = '0.0.1'
 }
 

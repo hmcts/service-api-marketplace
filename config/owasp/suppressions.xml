@@ -60,5 +60,45 @@
     <packageUrl regex="true">^pkg:maven/org\.apache\.tomcat\.embed/.*@.*$</packageUrl>
     <cve>CVE-2026-66299</cve>
   </suppress>
+  <!--Azure Identity CVEs fixed long before the version in use-->
+  <suppress>
+    <notes>CVE-2023-36415 was fixed in azure-identity 1.10.1; this build resolves 1.18.7</notes>
+    <packageUrl regex="true">^pkg:maven/com\.azure/azure\-identity@.*$</packageUrl>
+    <cve>CVE-2023-36415</cve>
+  </suppress>
+  <suppress>
+    <notes>CVE-2024-35255 was fixed in azure-identity 1.12.2 and msal4j 1.15.1; this build resolves
+      1.18.7 and 1.26.0</notes>
+    <packageUrl regex="true">^pkg:maven/(com\.azure/azure\-identity|com\.microsoft\.azure/msal4j.*)@.*$</packageUrl>
+    <cve>CVE-2024-35255</cve>
+  </suppress>
+  <!--Key Vault Keys is not on the classpath. The CVE carries the blanket
+      cpe:2.3:a:microsoft:azure_sdk_for_java CPE with versionEndExcluding 4.10.6, which matches
+      every Azure SDK jar whatever its own version, so this is scoped by CVE across the group
+      rather than to one artifact.-->
+  <suppress>
+    <notes>CVE-2026-33117 is in azure-security-keyvault-keys, which this service does not depend on</notes>
+    <packageUrl regex="true">^pkg:maven/com\.(azure|microsoft\.azure).*/.*@.*$</packageUrl>
+    <cve>CVE-2026-33117</cve>
+  </suppress>
+  <!--CVE-2026-41134 is in the Kiota code generator, a separate .NET/npm tool, fixed in its 1.31.1.
+      This classpath carries only the Kiota Java runtime libraries, whose own releases top out at
+      1.9.3 - there is no 1.9.x that the advisory's "< 1.31.1" range can ever be satisfied by. They
+      consume a generated client, they do not generate one, so the code-generation injection does
+      not apply. Scoped by CVE across the group because the CPE is a blanket microsoft:kiota.-->
+  <suppress>
+    <notes>CVE-2026-41134 affects the Kiota generator, not the Java runtime libraries in use</notes>
+    <packageUrl regex="true">^pkg:maven/com\.microsoft\.(kiota|graph)/.*@.*$</packageUrl>
+    <cve>CVE-2026-41134</cve>
+  </suppress>
+  <!--CVE-2026-54285 is in @opentelemetry/core, the npm package, fixed in 2.8.0. The Java
+      io.opentelemetry artifacts are a different ecosystem on a 1.x line, so no Java release can
+      satisfy "< 2.8.0" and a version bump would never clear it. Pulled in transitively by
+      microsoft-graph via Kiota; nothing here parses W3C baggage headers.-->
+  <suppress>
+    <notes>CVE-2026-54285 affects the npm @opentelemetry/core, not the Java opentelemetry artifacts</notes>
+    <packageUrl regex="true">^pkg:maven/io\.opentelemetry/.*@.*$</packageUrl>
+    <cve>CVE-2026-54285</cve>
+  </suppress>
   <!--End of false positives section -->
 </suppressions>

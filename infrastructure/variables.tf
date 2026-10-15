@@ -42,3 +42,26 @@ variable "pgsql_sku" {
 variable "pgsql_subnet_suffix" {
   default = null
 }
+
+variable "pgsql_public_access" {
+  default = false
+}
+
+variable "vault_name" {
+  default = ""
+}
+
+# The SPS platform's subscription holding sps-api-mgmt-{env}, which the marketplace calls to issue
+# subscription keys. Not aks_subscription_id: the instance belongs to another team and sits in a
+# different subscription in every environment.
+variable "apim_subscription_id" {
+  default = ""
+}
+
+variable "apim_resource_group" {
+  default = ""
+}
+
+variable "apim_service_name" {
+  default = ""
+}

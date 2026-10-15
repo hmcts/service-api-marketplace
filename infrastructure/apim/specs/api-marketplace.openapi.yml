@@ -351,7 +351,7 @@ components:
           description: >-
             Email address, used as the sign-in identifier. Stored and compared in
             lower case.
-          example: colin.greenwood@example.com
+          example: joe.bloggs@example.com
         organisation:
           type: string
           description: Organisation the user belongs to
@@ -377,7 +377,7 @@ components:
           type: string
           format: email
           description: Email address the account was registered with
-          example: colin.greenwood@example.com
+          example: joe.bloggs@example.com
         password:
           type: string
           format: password
@@ -412,7 +412,7 @@ components:
           type: string
           format: email
           description: Email address
-          example: colin.greenwood@example.com
+          example: joe.bloggs@example.com
         role:
           $ref: '#/components/schemas/Role'
 
@@ -464,7 +464,7 @@ components:
           type: string
           format: email
           description: Contact email address
-          example: colin.greenwood@example.com
+          example: joe.bloggs@example.com
         jobTitle:
           type: string
           description: Job title of the requester
@@ -524,7 +524,7 @@ components:
           type: string
           format: email
           description: Contact email address
-          example: colin.greenwood@example.com
+          example: joe.bloggs@example.com
         jobTitle:
           type: string
           description: Job title of the requester

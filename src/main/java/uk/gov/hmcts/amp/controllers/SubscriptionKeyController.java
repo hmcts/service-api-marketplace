@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,31 +25,37 @@ import java.util.List;
 @RequestMapping("/apim/subscription-keys")
 public class SubscriptionKeyController {
 
+    private static final String REQUESTING_USER_ID = "requestingUserId";
+
     private final ApimSubscriptionKeyService subscriptionKeys;
 
     @GetMapping
-    public List<SubscriptionKey> listKeys() {
+    public List<SubscriptionKey> listKeys(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId) {
         log.info("List APIM subscription keys");
-        return subscriptionKeys.list();
+        return subscriptionKeys.list(requestingUserId);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public SubscriptionKey createKey(@Valid @RequestBody final NewSubscriptionKey request) {
+    public SubscriptionKey createKey(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId,
+                                     @Valid @RequestBody final NewSubscriptionKey request) {
         log.info("Create APIM subscription key {}", request.name());
-        return subscriptionKeys.create(request.name(), request.productId(), request.displayName());
+        return subscriptionKeys.create(requestingUserId, request.name(), request.productId(),
+            request.displayName());
     }
 
     @GetMapping("/{name}/values")
-    public SubscriptionKey getKeyValues(@PathVariable final String name) {
+    public SubscriptionKey getKeyValues(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId,
+                                        @PathVariable final String name) {
         log.info("Read APIM subscription key values for {}", name);
-        return subscriptionKeys.keyValues(name);
+        return subscriptionKeys.keyValues(requestingUserId, name);
     }
 
     @DeleteMapping("/{name}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteKey(@PathVariable final String name) {
+    public void deleteKey(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId,
+                          @PathVariable final String name) {
         log.info("Delete APIM subscription key {}", name);
-        subscriptionKeys.delete(name);
+        subscriptionKeys.delete(requestingUserId, name);
     }
 }

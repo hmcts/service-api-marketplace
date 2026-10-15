@@ -13,8 +13,10 @@ info:
     no session of its own.
 
     /apim/subscription-keys manages APIM subscriptions directly, independently
-    of any application. The rest of the API registers applications and the
-    subscriptions that belong to them.
+    of any application. A subscription belongs to whoever created it: the name
+    has to start with that person's prefix, amp-user001- say, and the instance
+    is shared with SPS, so listing shows only their own and naming someone
+    else's reads as though it is not there.
   version: 1.0.0
   contact:
     email: no-reply@hmcts.com
@@ -312,12 +314,15 @@ paths:
 
   /apim/subscription-keys:
     get:
-      summary: List every subscription on the APIM instance
+      summary: List your subscriptions
       description: >-
         Names, scopes and state. Never key values: Azure does not return them
-        from a list, and asking per subscription would be a call each.
+        from a list, and asking per subscription would be a call each. Only
+        the caller's own, matched on the amp-user001- prefix in the name.
       operationId: listSubscriptionKeys
       tags: [subscription-keys]
+      parameters:
+        - $ref: '#/components/parameters/RequestingUserId'
       responses:
         '200':
           description: The subscriptions
@@ -327,6 +332,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/SubscriptionKey'
+        '404':
+          $ref: '#/components/responses/UnknownUser'
         '500':
           $ref: '#/components/responses/ApimRefused'
         '502':
@@ -334,11 +341,16 @@ paths:
     post:
       summary: Create a subscription key
       description: >-
-        Scoped to one product. The name is checked first and a clash answers
-        409: Azure's own call is a PUT and would silently re-point an existing
-        subscription at a different product, reporting it as created.
+        Scoped to one product. The name must start with the caller's prefix,
+        which is what makes the subscription theirs, and has to be unique
+        across an instance shared with SPS. The name is checked first and a
+        clash answers 409: Azure's own call is a PUT and would silently
+        re-point an existing subscription at a different product, reporting it
+        as created.
       operationId: createSubscriptionKey
       tags: [subscription-keys]
+      parameters:
+        - $ref: '#/components/parameters/RequestingUserId'
       requestBody:
         required: true
         content:
@@ -351,7 +363,8 @@ paths:
                   type: string
                   description: >-
                     Azure's rule: lower case letters, digits and hyphens, 2 to
-                    80 characters, not starting or ending with a hyphen
+                    80 characters, not starting or ending with a hyphen. Must
+                    begin with the caller's own prefix
                   pattern: '^[a-z0-9][a-z0-9-]{0,78}[a-z0-9]$'
                   example: amp-user001-case-viewer-slc
                 productId:
@@ -369,6 +382,8 @@ paths:
                 $ref: '#/components/schemas/SubscriptionKey'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/UnknownUser'
         '409':
           description: A subscription of that name already exists
           content:
@@ -390,6 +405,7 @@ paths:
       tags: [subscription-keys]
       parameters:
         - $ref: '#/components/parameters/SubscriptionName'
+        - $ref: '#/components/parameters/RequestingUserId'
       responses:
         '200':
           description: The primary and secondary keys
@@ -399,8 +415,9 @@ paths:
                 $ref: '#/components/schemas/SubscriptionKey'
         '404':
           description: >-
-            No subscription of that name, or the configured instance does not
-            exist. The message names the instance it searched
+            No subscription of that name, one belonging to someone else, or
+            the configured instance does not exist. The message names the
+            instance it searched
           content:
             application/json:
               schema:
@@ -422,11 +439,12 @@ paths:
       tags: [subscription-keys]
       parameters:
         - $ref: '#/components/parameters/SubscriptionName'
+        - $ref: '#/components/parameters/RequestingUserId'
       responses:
         '204':
           description: Revoked
         '404':
-          description: No subscription of that name
+          description: No subscription of that name, or it belongs to someone else
           content:
             application/json:
               schema:

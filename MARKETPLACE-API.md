@@ -52,7 +52,10 @@ does.
 
 ## APIM
 
-No identity header; these are not user-scoped.
+`requestingUserId` as well. A subscription belongs to whoever created it, and ownership is carried
+by the name rather than a row of ours: it has to start with the caller's prefix, `amp-user001-`.
+Listing shows only their own, and naming someone else's reads as 404 rather than 403 - the instance
+is shared with SPS, and a 403 would confirm the subscription exists.
 
 | Method | Path | Returns | |
 |---|---|---|---|

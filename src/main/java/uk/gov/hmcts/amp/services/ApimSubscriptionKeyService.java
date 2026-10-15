@@ -25,6 +25,7 @@ public class ApimSubscriptionKeyService {
     private static final String PRODUCTS = "/products/";
 
     private final ApiManagementManager apim;
+    private final UserService users;
 
     @Value("${apim.resource-group}")
     private String resourceGroup;
@@ -32,13 +33,21 @@ public class ApimSubscriptionKeyService {
     @Value("${apim.service-name}")
     private String serviceName;
 
-    public List<SubscriptionKey> list() {
+    public List<SubscriptionKey> list(final String requestingUserId) {
+        final String prefix = prefixFor(requestingUserId);
         return apim.subscriptions().list(resourceGroup, serviceName).stream()
             .map(ApimSubscriptionKeyService::asSubscriptionKey)
+            .filter(subscription -> subscription.name().startsWith(prefix))
             .toList();
     }
 
-    public SubscriptionKey create(final String name, final String productId, final String displayName) {
+    public SubscriptionKey create(final String requestingUserId, final String name, final String productId,
+                                  final String displayName) {
+        final String prefix = prefixFor(requestingUserId);
+        if (!name.startsWith(prefix)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "A subscription name must start with " + prefix + ".");
+        }
         // Azure's createOrUpdate is a PUT, so without this a second create silently re-points an
         // existing key at a different product and reports it as created.
         if (exists(name)) {
@@ -59,7 +68,8 @@ public class ApimSubscriptionKeyService {
         }
     }
 
-    public SubscriptionKey keyValues(final String name) {
+    public SubscriptionKey keyValues(final String requestingUserId, final String name) {
+        requireOwned(requestingUserId, name);
         try {
             SubscriptionKeysContract secrets = apim.subscriptions()
                 .listSecrets(resourceGroup, serviceName, name);
@@ -69,7 +79,8 @@ public class ApimSubscriptionKeyService {
         }
     }
 
-    public void delete(final String name) {
+    public void delete(final String requestingUserId, final String name) {
+        requireOwned(requestingUserId, name);
         // Azure answers a delete of something absent with success, which on a shared instance
         // leaves you unable to tell a revoked key from one that was never there.
         if (!exists(name)) {
@@ -81,6 +92,17 @@ public class ApimSubscriptionKeyService {
             log.info("Deleted APIM subscription {}", name);
         } catch (final ManagementException e) {
             throw translate(name, e);
+        }
+    }
+
+    private String prefixFor(final String requestingUserId) {
+        return UserService.namePrefix(users.requireSignedIn(requestingUserId));
+    }
+
+    /** 404 rather than 403, so a name outside the caller's own reads the same as one that does not exist. */
+    private void requireOwned(final String requestingUserId, final String name) {
+        if (!name.startsWith(prefixFor(requestingUserId))) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No subscription named " + name + ".");
         }
     }
 

@@ -29,7 +29,7 @@ name outside that prefix answers 404 rather than 403 - the instance is shared wi
 would confirm the subscription exists.
 
 > There is no way to discover a `productId`. `GET /apim/products` was removed, so the value has
-> to be supplied, for example `cp-crime-schedulingandlisting-courtschedule`.
+> to be supplied, for example `cp-crime-schedulingandlisting`.
 
 ## listKeys
 
@@ -138,11 +138,14 @@ application cannot be reused for this.
 AZURE_TENANT_ID=531ff96d-0ae9-462a-8d2d-bec7c0b42082 \
 AZURE_CLIENT_ID=<service principal app id> \
 AZURE_CLIENT_SECRET=<its secret> \
-APIM_SUBSCRIPTION_ID=bd2864ed-4f3e-45ed-9c6a-8d179674bab1 \
-APIM_RESOURCE_GROUP=rg-sps-platform-sbox \
-APIM_SERVICE_NAME=sps-api-mgmt-sbox \
 ./gradlew bootRun
 ```
+
+Only the credential: the four `APIM_*` already default to sbox. `AZURE_*` are read by
+`DefaultAzureCredential` itself rather than by anything in `application.yaml`, which is why the
+profile tenant has a name of its own - in AKS the `AZURE_*` are absent and the pod's workload
+identity is used instead. `./gradlew --stop` first because the daemon hands its own environment
+to the forked `bootRun` JVM: a variable exported after it started never arrives.
 
 `./gradlew --stop` first because the daemon hands its own environment to the forked `bootRun`
 JVM: a variable exported after the daemon started never arrives, and you get a false failure.
@@ -181,7 +184,7 @@ curl localhost:8080/apim/subscription-keys/amp-user001-colin-local-test-1/values
 # create new subscription key ... the name has to start with your own prefix
 curl -X POST localhost:8080/apim/subscription-keys \
   -H "requestingUserId: $OID" -H 'Content-Type: application/json' \
-  -d '{"name":"amp-user001-colin-local-test-1","productId":"cp-crime-schedulingandlisting-courtschedule","displayName":"Colins Local test"}' | jq
+  -d '{"name":"amp-user001-colin-local-test-1","productId":"cp-crime-schedulingandlisting","displayName":"Colins Local test"}' | jq
 ```
 
 ```bash
@@ -211,14 +214,19 @@ Bound in `application.yaml` under `apim:`, so the four the service needs are vis
 
 | Variable | Property | Default |
 |---|---|---|
-| `AZURE_TENANT_ID` | `apim.tenant-id` | all zeros |
-| `APIM_SUBSCRIPTION_ID` | `apim.subscription-id` | all zeros |
+| `APIM_TENANT_ID` | `apim.tenant-id` | `531ff96d-...` |
+| `APIM_SUBSCRIPTION_ID` | `apim.subscription-id` | `bd2864ed-...` |
 | `APIM_RESOURCE_GROUP` | `apim.resource-group` | `rg-sps-platform-sbox` |
 | `APIM_SERVICE_NAME` | `apim.service-name` | `sps-api-mgmt-sbox` |
 
-The two GUIDs default to zeros rather than to real values, so the application starts without
-them and the endpoints fail rather than the pod. `APIM_SUBSCRIPTION_ID` is the Azure
-subscription the APIM instance lives in, not an APIM subscription. Leaving it unset gets you
+All four default to sbox, so a local run needs only a credential. Every deployed environment
+overrides all four in its own chart values, and **the application refuses to start if
+`APIM_SUBSCRIPTION_ID` is explicitly blank or zeroed** - that used to be the default, which turned
+a deployment mistake into `InvalidSubscriptionId` from ARM, reported as a 502 that read like an
+outage.
+
+`APIM_SUBSCRIPTION_ID` is the Azure subscription the APIM instance lives in, not an APIM
+subscription key. Leaving it unset gets you
 `InvalidSubscriptionId` from ARM, reported as a 502.
 
 The credential is separate from those four. `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and

@@ -23,6 +23,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.API_CLIENT_ID;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.CLIENT_ID;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.OBJECT_ID;
+import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.ROLE;
+import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.assignedTo;
+import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubRoleAssignment;
+import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubServicePrincipals;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubApplicationDelete;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubApplicationList;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubRegistration;
@@ -129,6 +133,32 @@ class ApplicationIntegrationTest {
         wireMockGraph().verify(deleteRequestedFor(urlPathEqualTo("/applications/" + OBJECT_ID)));
         mockMvc.perform(get(PATH).header("requestingUserId", OWNER_OID))
             .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    void granting_a_role_should_answer_no_content() throws Exception {
+        create(OWNER_OID, "Case Viewer");
+        stubServicePrincipals();
+        stubRoleAssignment();
+
+        mockMvc.perform(post(PATH + "/" + CLIENT_ID + "/roles").header("requestingUserId", OWNER_OID)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"role\":\"" + ROLE + "\"}"))
+            .andExpect(status().isNoContent());
+
+        wireMockGraph().verify(postRequestedFor(urlPathEqualTo(assignedTo())));
+    }
+
+    @Test
+    void granting_a_role_on_someone_elses_application_should_not_reach_entra() throws Exception {
+        create(OWNER_OID, "Case Viewer");
+        stubServicePrincipals();
+        stubRoleAssignment();
+
+        mockMvc.perform(post(PATH + "/" + CLIENT_ID + "/roles").header("requestingUserId", OTHER_OID)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"role\":\"" + ROLE + "\"}"))
+            .andExpect(status().isNotFound());
+
+        wireMockGraph().verify(0, postRequestedFor(urlPathEqualTo(assignedTo())));
     }
 
     @Test

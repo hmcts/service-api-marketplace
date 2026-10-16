@@ -427,7 +427,11 @@ paths:
                   example: amp-user001-case-viewer-slc
                 productId:
                   type: string
-                  example: cp-crime-schedulingandlisting-courtschedule
+                  description: >-
+                    The APIM product id, which is not the marketplace short
+                    code: the product is cp-crime-schedulingandlisting where
+                    the short code is slc
+                  example: cp-crime-schedulingandlisting
                 displayName:
                   type: string
                   example: Case Viewer
@@ -683,7 +687,7 @@ components:
         productId:
           type: string
           description: Shown as Publisher ID
-          example: cp-crime-schedulingandlisting-courtschedule
+          example: cp-crime-schedulingandlisting
         subscriptionName:
           type: string
           example: amp-user001-case-viewer-slc
@@ -723,7 +727,7 @@ components:
       properties:
         productId:
           type: string
-          example: cp-crime-schedulingandlisting-courtschedule
+          example: cp-crime-schedulingandlisting
         displayName:
           type: string
           example: Scheduling and Listing Court Schedule
@@ -751,7 +755,7 @@ components:
           description: >-
             Lifted out of scope. Absent where the subscription covers the whole
             service rather than one product
-          example: cp-crime-schedulingandlisting-courtschedule
+          example: cp-crime-schedulingandlisting
         state:
           type: string
           example: active

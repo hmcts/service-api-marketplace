@@ -2,6 +2,14 @@
 java:
   image: ${IMAGE_NAME}
   ingressHost: apim-marketplace-staging.aat.platform.hmcts.net
+  # Required: the application refuses to start without APIM_SUBSCRIPTION_ID, and the other three
+  # stop it inheriting another environment's instance from the defaults in application.yaml.
+  # Not secret - the same values are in infrastructure/{env}.tfvars.
+  environment:
+    APIM_TENANT_ID: 531ff96d-0ae9-462a-8d2d-bec7c0b42082
+    APIM_SUBSCRIPTION_ID: 70bea6e3-384f-4cf4-b551-743a78d716cd
+    APIM_RESOURCE_GROUP: rg-sps-platform-aat
+    APIM_SERVICE_NAME: sps-api-mgmt-aat
   keyVaults:
     apim:
       secrets:

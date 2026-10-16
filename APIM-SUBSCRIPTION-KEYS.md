@@ -10,7 +10,6 @@ this.
 
 | Method | Operation | Path | Success |
 |---|---|---|---|
-| GET | listProducts | `/apim/products` | 200 |
 | GET | listKeys | `/apim/subscription-keys` | 200 |
 | POST | createKey | `/apim/subscription-keys` | 201 |
 | GET | getKeyValues | `/apim/subscription-keys/{name}/values` | 200 |
@@ -18,28 +17,26 @@ this.
 
 `{name}` is APIM's own subscription name, the one `createKey` returns - not the display name.
 
-## listProducts
+All four require a `requestingUserId` header, the caller's Entra object id, exactly as the rest
+of the API does. A missing header is 400 and an object id with no `marketplace_user` row is 404.
 
-The products a key can be created against. Without this there is no way to discover a
-`productId`, which `createKey` requires.
+## Who a subscription belongs to
 
-**Request** — none.
+Nothing about an APIM subscription is kept in our database, so ownership is carried by the name:
+it must start with the caller's prefix, `amp-user001-`, which `POST /session` returns as
+`userReference`. `listKeys` shows only the caller's own, and `getKeyValues` or `deleteKey` on a
+name outside that prefix answers 404 rather than 403 - the instance is shared with SPS, and a 403
+would confirm the subscription exists.
 
-**Response** — an array of:
-
-| Field | Type | Notes |
-|---|---|---|
-| `productId` | string | Pass this to `createKey` |
-| `displayName` | string | |
-| `description` | string | Absent where the product has none |
-| `state` | string | `published` or `notPublished` |
+> There is no way to discover a `productId`. `GET /apim/products` was removed, so the value has
+> to be supplied, for example `cp-crime-schedulingandlisting-courtschedule`.
 
 ## listKeys
 
-Every subscription on the instance. No key values: Azure does not return them from a list, and
+The caller's own subscriptions. No key values: Azure does not return them from a list, and
 asking per subscription would be one extra call each.
 
-**Request** — none.
+**Request** — the `requestingUserId` header.
 
 **Response** — an array of:
 
@@ -57,7 +54,7 @@ asking per subscription would be one extra call each.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `name` | string | yes | Azure's rule: lower case letters, digits and hyphens, 1-80 characters, not starting or ending with a hyphen |
+| `name` | string | yes | Azure's rule: lower case letters, digits and hyphens, 1-80 characters, not starting or ending with a hyphen. Must also start with the caller's `amp-userNNN-` prefix, or it is 400 |
 | `productId` | string | yes | The APIM product id, not a marketplace short code |
 | `displayName` | string | yes | Free text, shown in the portal |
 
@@ -130,23 +127,25 @@ endpoints against `sps-api-mgmt-sbox` for real:
 docker compose up -d db
 ```
 
-**2. Sign in.** `DefaultAzureCredential` falls back to the az CLI, so your own account is the
-identity - not the pod's. Being able to do something here does not mean the deployed service can.
+**2. Point the application at sbox and run it.** `DefaultAzureCredential` tries
+`EnvironmentCredential` before anything else, so these three variables are the identity and the
+az CLI is never consulted. The service principal needs a role on the instance - API Management
+Service Contributor is enough - and it lives in the HMCTS tenant, so the Entra onboarding
+application cannot be reused for this.
 
 ```bash
-az login
-az account set --subscription bd2864ed-4f3e-45ed-9c6a-8d179674bab1
-```
-
-**3. Point the application at sbox and run it.**
-
-```bash
+./gradlew --stop
 AZURE_TENANT_ID=531ff96d-0ae9-462a-8d2d-bec7c0b42082 \
+AZURE_CLIENT_ID=<service principal app id> \
+AZURE_CLIENT_SECRET=<its secret> \
 APIM_SUBSCRIPTION_ID=bd2864ed-4f3e-45ed-9c6a-8d179674bab1 \
 APIM_RESOURCE_GROUP=rg-sps-platform-sbox \
 APIM_SERVICE_NAME=sps-api-mgmt-sbox \
 ./gradlew bootRun
 ```
+
+`./gradlew --stop` first because the daemon hands its own environment to the forked `bootRun`
+JVM: a variable exported after the daemon started never arrives, and you get a false failure.
 
 The startup log confirms what it is pointed at:
 
@@ -160,30 +159,38 @@ fail against a subscription that does not exist.
 **4. Call the endpoints.**
 
 ```bash
-# list the products a key can be created against ... productId is what createKey needs
-curl localhost:8080/apim/products | jq '.[] | {productId, displayName, state}'
+# sign in first: the reply carries userReference, which is where your amp-userNNN- prefix comes from
+OID=11111111-2222-3333-4444-555555555555
+curl -s -X POST localhost:8080/session -H 'Content-Type: application/json' \
+  -d "{\"objectId\":\"$OID\",\"email\":\"you@hmcts.net\",\"name\":\"Your Name\"}" | jq -r .userReference
 ```
 
 ```bash
-# list all subscription keys
-curl localhost:8080/apim/subscription-keys | jq '.[] | {name, displayName, productId, state}'
+# list your subscription keys
+curl localhost:8080/apim/subscription-keys -H "requestingUserId: $OID" \
+  | jq '.[] | {name, displayName, productId, state}'
 ```
 
 ```bash
 # Get existing key values
-curl localhost:8080/apim/subscription-keys/6a6224805ddd171a701a022c/values | jq
+curl localhost:8080/apim/subscription-keys/amp-user001-colin-local-test-1/values \
+  -H "requestingUserId: $OID" | jq
 ```
 
 ```bash
-# create new subscription key ... maybe get productId from an existing key
-curl -X POST localhost:8080/apim/subscription-keys -H 'Content-Type: application/json' \
-  -d '{"name":"colin-local-test-1","productId":"cp-crime-schedulingandlisting","displayName":"Colins Local test"}' | jq
+# create new subscription key ... the name has to start with your own prefix
+curl -X POST localhost:8080/apim/subscription-keys \
+  -H "requestingUserId: $OID" -H 'Content-Type: application/json' \
+  -d '{"name":"amp-user001-colin-local-test-1","productId":"cp-crime-schedulingandlisting-courtschedule","displayName":"Colins Local test"}' | jq
 ```
 
 ```bash
 # Delete a subscription key ... be careful of course
-curl -X DELETE localhost:8080/apim/subscription-keys/colin-local-test-1
+curl -X DELETE localhost:8080/apim/subscription-keys/amp-user001-colin-local-test-1 \
+  -H "requestingUserId: $OID"
 ```
+
+`test-app-registration.sh` does the whole of this end to end if you would rather not do it by hand.
 
 **Clean up after yourself.** `sps-api-mgmt-sbox` is shared with the SPS team, and anything created
 here is a real subscription on their instance until it is deleted.
@@ -204,14 +211,19 @@ Bound in `application.yaml` under `apim:`, so the four the service needs are vis
 
 | Variable | Property | Default |
 |---|---|---|
-| `APIM_TENANT_ID` | `apim.tenant-id` | all zeros |
+| `AZURE_TENANT_ID` | `apim.tenant-id` | all zeros |
 | `APIM_SUBSCRIPTION_ID` | `apim.subscription-id` | all zeros |
 | `APIM_RESOURCE_GROUP` | `apim.resource-group` | `rg-sps-platform-sbox` |
 | `APIM_SERVICE_NAME` | `apim.service-name` | `sps-api-mgmt-sbox` |
 
 The two GUIDs default to zeros rather than to real values, so the application starts without
 them and the endpoints fail rather than the pod. `APIM_SUBSCRIPTION_ID` is the Azure
-subscription the APIM instance lives in, not an APIM subscription.
+subscription the APIM instance lives in, not an APIM subscription. Leaving it unset gets you
+`InvalidSubscriptionId` from ARM, reported as a 502.
+
+The credential is separate from those four. `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and
+`AZURE_CLIENT_SECRET` are read by `DefaultAzureCredential` itself rather than by anything in
+`application.yaml`; in AKS none of them are set and the pod's workload identity is used instead.
 
 Credentials come from `DefaultAzureCredential`: the signed-in `az` user locally, and the pod's
 workload identity when deployed. No client secret.

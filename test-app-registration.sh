@@ -2,20 +2,26 @@
 #
 # The whole credential journey against the real sandbox, in one run:
 #
-#   register  ->  grant a role  ->  get a token that carries it  ->  call slc through APIM
+#   sign in -> register -> grant a role -> subscribe -> get a token with the role -> call slc
 #
-# The application is deleted again at the end, however the run turns out. KEEP=1 leaves it behind.
+# The application and the subscription are both removed at the end, however the run turns out.
+# KEEP=1 leaves them behind.
 #
-# Needs the service running (./gradlew bootRun) and a subscription key for the slc product:
+# Needs the service running (./gradlew bootRun) with the onboarding secret exported, and the
+# credentials it uses to reach APIM:
 #
-#   export APIM_SUBSCRIPTION_KEY='<paste the slc product key - quoted>'
 #   ./test-app-registration.sh
 #
-# Optional: CASE_URN, ROLE, NAME, BASE_URL, GRANT_ATTEMPTS, TOKEN_ATTEMPTS, KEEP=1 to keep it.
+# Optional: CASE_URN, ROLE, NAME, PRODUCT_ID, BASE_URL, GRANT_ATTEMPTS, TOKEN_ATTEMPTS, KEEP=1,
+# REQUESTING_USER_ID to run as somebody else.
 set -euo pipefail
 
 BASE_URL=${BASE_URL:-http://localhost:8080}
 APPLICATIONS=$BASE_URL/applications-new
+SUBSCRIPTION_KEYS=$BASE_URL/apim/subscription-keys
+SESSION=$BASE_URL/session
+# The same object id every run, so the script keeps reusing one marketplace_user row.
+REQUESTING_USER_ID=${REQUESTING_USER_ID:-11111111-2222-3333-4444-555555555555}
 TENANT=${ENTRA_TENANT_ID:-d44f885c-4fac-47bf-afde-d7d861ec4d7b}
 API_CLIENT_ID=${ENTRA_API_CLIENT_ID:-30288840-e345-4543-99ee-f9253d789339}
 GATEWAY=${APIM_GATEWAY:-https://sps-api-mgmt.sandbox.api.hmcts.net}
@@ -24,16 +30,33 @@ ROLE=${ROLE:-app.read}
 # nobody can be traced to is one nobody will delete.
 NAME=${NAME:-api-marketplace-$(whoami)-$(date +%H%M%S)}
 CASE_URN=${CASE_URN:-28DI3451856}
+PRODUCT_ID=${PRODUCT_ID:-cp-crime-schedulingandlisting-courtschedule}
+SUBSCRIBED=0
 
 step () { printf '\n\033[1m%s\033[0m\n' "$*"; }
 die  () { printf '\n%s\n' "$*" >&2; exit 1; }
 
 command -v jq >/dev/null || die "jq is needed. brew install jq"
-[ -n "${APIM_SUBSCRIPTION_KEY:-}" ] || die "Set APIM_SUBSCRIPTION_KEY - the slc product's subscription key."
-curl -fsS -o /dev/null "$APPLICATIONS" 2>/dev/null \
-  || die "Nothing answering at $APPLICATIONS. Start it with ./gradlew bootRun (and the onboarding secret exported)."
+# /api/health rather than one of the endpoints below: those want a caller, and "nothing is
+# running" should not come back looking like a rejected request.
+curl -fsS -o /dev/null "$BASE_URL/api/health" 2>/dev/null \
+  || die "Nothing answering at $BASE_URL. Start it with ./gradlew bootRun (and the onboarding secret exported)."
 
-step "1. Register an application named $NAME (deleted again at the end unless KEEP=1)"
+step "1. Sign in as $REQUESTING_USER_ID"
+SESSION_STATUS=$(curl -s -o /tmp/test-app-registration-session -w '%{http_code}' -X POST "$SESSION" \
+  -H 'Content-Type: application/json' \
+  -d "{\"objectId\":\"$REQUESTING_USER_ID\",\"email\":\"$(whoami)@hmcts.net\",\"name\":\"Script Runner\"}")
+if [ "$SESSION_STATUS" != "200" ]; then
+  die "   Could not sign in (HTTP $SESSION_STATUS):
+   $(jq -r '.detail // .error // .' /tmp/test-app-registration-session 2>/dev/null || cat /tmp/test-app-registration-session)"
+fi
+USER_REFERENCE=$(jq -r .userReference /tmp/test-app-registration-session)
+# Everything this user owns in Entra and APIM is named from here, and the subscription endpoints
+# read ownership straight off the name rather than out of a table.
+SUBSCRIPTION=${SUBSCRIPTION:-amp-$USER_REFERENCE-$(printf '%s' "$NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')}
+echo "   $USER_REFERENCE, so subscriptions are named amp-$USER_REFERENCE-*"
+
+step "2. Register an application named $NAME (deleted again at the end unless KEEP=1)"
 REG_STATUS=$(curl -s -o /tmp/test-app-registration-reg -w '%{http_code}' -X POST "$APPLICATIONS" \
   -H 'Content-Type: application/json' -d "{\"name\":\"$NAME\"}")
 if [ "$REG_STATUS" != "201" ]; then
@@ -47,22 +70,33 @@ echo "   name     $NAME"
 jq -r '"   clientId \(.clientId)"' <<<"$REGISTRATION"
 
 cleanup () {
-  step "5. Delete the application"
+  step "7. Remove the subscription and the application"
   if [ "${KEEP:-0}" = "1" ]; then
-    printf '   KEEP=1, so %s (%s) is left in the directory. Remove it with:\n     curl -X DELETE %s/%s\n' \
-      "$NAME" "$CLIENT_ID" "$APPLICATIONS" "$CLIENT_ID"
-  else
-    curl -fsS -o /dev/null -X DELETE "$APPLICATIONS/$CLIENT_ID" 2>/dev/null \
-      && printf '   deleted %s (%s)\n' "$NAME" "$CLIENT_ID" \
-      || printf '   could not delete %s (%s) - remove it by hand\n' "$NAME" "$CLIENT_ID"
+    printf '   KEEP=1, so these are left behind. Remove them with:\n'
+    if [ "$SUBSCRIBED" = "1" ]; then
+      printf '     curl -X DELETE %s/%s -H "requestingUserId: %s"\n' \
+        "$SUBSCRIPTION_KEYS" "$SUBSCRIPTION" "$REQUESTING_USER_ID"
+    fi
+    printf '     curl -X DELETE %s/%s\n' "$APPLICATIONS" "$CLIENT_ID"
+    return 0
   fi
+  if [ "$SUBSCRIBED" = "1" ]; then
+    curl -fsS -o /dev/null -X DELETE "$SUBSCRIPTION_KEYS/$SUBSCRIPTION" \
+      -H "requestingUserId: $REQUESTING_USER_ID" 2>/dev/null \
+      && printf '   revoked subscription %s\n' "$SUBSCRIPTION" \
+      || printf '   could not revoke subscription %s - remove it by hand\n' "$SUBSCRIPTION"
+  fi
+  curl -fsS -o /dev/null -X DELETE "$APPLICATIONS/$CLIENT_ID" 2>/dev/null \
+    && printf '   deleted %s (%s)\n' "$NAME" "$CLIENT_ID" \
+    || printf '   could not delete %s (%s) - remove it by hand\n' "$NAME" "$CLIENT_ID"
+  return 0
 }
 trap cleanup EXIT
 
 # Separate from the registration, because a service principal seconds old is not assignable and
 # Entra says so as "Not a valid reference update" for minutes. Retried here rather than inside the
 # create call, so a lag that only needs waiting out cannot roll the whole registration back.
-step "2. Grant $ROLE"
+step "3. Grant $ROLE"
 GRANT_ATTEMPTS=${GRANT_ATTEMPTS:-8}
 for attempt in $(seq 1 "$GRANT_ATTEMPTS"); do
   GRANT_STATUS=$(curl -s -o /tmp/test-app-registration-grant -w '%{http_code}' -X POST \
@@ -75,9 +109,23 @@ for attempt in $(seq 1 "$GRANT_ATTEMPTS"); do
   sleep 15
 done
 
+# A subscription of its own rather than a key pasted in by hand: the gateway wants the key as
+# well as the token, and borrowing someone else's proves nothing about this application.
+step "4. Subscribe to $PRODUCT_ID"
+KEY_STATUS=$(curl -s -o /tmp/test-app-registration-key -w '%{http_code}' -X POST "$SUBSCRIPTION_KEYS" \
+  -H "requestingUserId: $REQUESTING_USER_ID" -H 'Content-Type: application/json' \
+  -d "{\"name\":\"$SUBSCRIPTION\",\"productId\":\"$PRODUCT_ID\",\"displayName\":\"$NAME\"}")
+if [ "$KEY_STATUS" != "201" ]; then
+  die "   Could not subscribe (HTTP $KEY_STATUS):
+   $(jq -r '.detail // .' /tmp/test-app-registration-key 2>/dev/null || cat /tmp/test-app-registration-key)"
+fi
+SUBSCRIBED=1
+APIM_SUBSCRIPTION_KEY=$(jq -r .primaryKey /tmp/test-app-registration-key)
+printf '   %s, primary key %s...\n' "$SUBSCRIPTION" "${APIM_SUBSCRIPTION_KEY:0:4}"
+
 claims () { jq -R 'split(".")[1] | @base64d | fromjson' <<<"$1"; }
 
-step "3. Get a token for $API_CLIENT_ID carrying $ROLE"
+step "5. Get a token for $API_CLIENT_ID carrying $ROLE"
 # Two separate waits, both Entra catching up with itself. A secret seconds old is rejected as
 # invalid_client until it has replicated. Worse, once the secret works the token can come back
 # without the role: the assignment is already in the directory - the GET shows it - but the token
@@ -108,7 +156,7 @@ for attempt in $(seq 1 "$TOKEN_ATTEMPTS"); do
 done
 claims "$TOKEN" | jq '{aud, roles, azp}' | sed 's/^/   /'
 
-step "4. Call slc through APIM"
+step "6. Call slc through APIM"
 echo "   GET $GATEWAY/amp/slc/case/$CASE_URN/courtschedule"
 # The API requires a correlation id of its own, on top of the token and the subscription key.
 : > /tmp/test-app-registration-body
@@ -123,7 +171,7 @@ STATUS=$(curl -sSL -o /tmp/test-app-registration-body -w '%{http_code}' \
 if [ -n "${CURL_RC:-}" ]; then
   die "   Could not reach $GATEWAY (curl exit $CURL_RC). Nothing was sent to APIM.
    The sandbox gateway is reachable from inside the HMCTS network - connect to the VPN and run
-   it again. Steps 1-3 are unaffected."
+   it again. Steps 1-5 are unaffected."
 fi
 echo "   HTTP $STATUS"
 if jq -e . /tmp/test-app-registration-body >/dev/null 2>&1; then

@@ -10,7 +10,12 @@ import com.github.tomakehurst.wiremock.stubbing.Scenario;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.delete;
@@ -37,9 +42,10 @@ public class WireMockApimInitialise implements ApplicationContextInitializer<Con
         return WIREMOCK_APIM;
     }
 
-    /** A canned 200 from a file in src/test/resources/__files. */
-    public static ResponseDefinitionBuilder json(final String fixture) {
-        return aResponse().withStatus(200).withHeader("Content-Type", "application/json").withBodyFile(fixture);
+    /** A captured 200 from src/test/resources/__files, named for the subscription under test. */
+    public static ResponseDefinitionBuilder json(final String fixture, final String name) {
+        return aResponse().withStatus(200).withHeader("Content-Type", "application/json")
+            .withBody(captured(fixture).replace("team-alpha", name));
     }
 
     // A scenario holds the state, so "gone after delete" follows from the delete, not from a stub.
@@ -52,16 +58,16 @@ public class WireMockApimInitialise implements ApplicationContextInitializer<Con
             .willReturn(aResponse().withStatus(404)));
 
         WIREMOCK_APIM.stubFor(put(urlPathEqualTo(url)).inScenario(scenario)
-            .willReturn(json("subscription-created.json"))
+            .willReturn(json("subscription-created.json", name))
             .willSetStateTo(EXISTS));
 
         WIREMOCK_APIM.stubFor(get(urlPathEqualTo(url)).inScenario(scenario)
             .whenScenarioStateIs(EXISTS)
-            .willReturn(json("subscription.json")));
+            .willReturn(json("subscription.json", name)));
 
         WIREMOCK_APIM.stubFor(post(urlPathEqualTo(url + "/listSecrets")).inScenario(scenario)
             .whenScenarioStateIs(EXISTS)
-            .willReturn(json("secrets.json")));
+            .willReturn(json("secrets.json", name)));
 
         WIREMOCK_APIM.stubFor(delete(urlPathEqualTo(url)).inScenario(scenario)
             .whenScenarioStateIs(EXISTS)
@@ -86,10 +92,24 @@ public class WireMockApimInitialise implements ApplicationContextInitializer<Con
             .willReturn(aResponse().withStatus(status)));
     }
 
-    /** Every subscription the instance holds, from a captured response. */
-    public static void stubSubscriptionList() {
-        WIREMOCK_APIM.stubFor(get(urlPathEqualTo(INSTANCE + "/subscriptions"))
-            .willReturn(json("subscription-list.json")));
+    /** Every subscription the instance holds, shaped like a captured response. */
+    public static void stubSubscriptionList(final String... names) {
+        String entries = Stream.of(names).map(name -> """
+            {"id":"%1$s/subscriptions/%2$s","name":"%2$s","type":"Microsoft.ApiManagement/service/subscriptions",
+             "properties":{"allowTracing":false,"createdDate":"2026-10-08T15:35:59.2877274Z",
+              "displayName":"%2$s","scope":"%1$s/products/example-product","state":"active"}}"""
+            .formatted(INSTANCE, name)).collect(Collectors.joining(","));
+        WIREMOCK_APIM.stubFor(get(urlPathEqualTo(INSTANCE + "/subscriptions")).willReturn(
+            aResponse().withStatus(200).withHeader("Content-Type", "application/json")
+                .withBody("{\"value\":[" + entries + "],\"count\":" + names.length + "}")));
+    }
+
+    private static String captured(final String fixture) {
+        try (InputStream file = WireMockApimInitialise.class.getResourceAsStream("/__files/" + fixture)) {
+            return new String(file.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (final IOException cannotRead) {
+            throw new IllegalStateException("Could not read " + fixture, cannotRead);
+        }
     }
 
     @Override

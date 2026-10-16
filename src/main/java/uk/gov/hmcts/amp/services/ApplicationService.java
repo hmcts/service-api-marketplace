@@ -11,7 +11,6 @@ import uk.gov.hmcts.amp.domain.ApplicationRequest;
 import uk.gov.hmcts.amp.entity.ApplicationEntity;
 import uk.gov.hmcts.amp.entity.UserEntity;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
-import uk.gov.hmcts.amp.repository.UserRepository;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -29,19 +28,19 @@ public class ApplicationService {
     private static final int HINT_LENGTH = 3;
 
     private final ApplicationRepository applications;
-    private final UserRepository users;
+    private final UserService users;
     private final EntraAppRegistrationService registrations;
     private final ClockService clockService;
 
     public List<ApplicationResponse> list(final String requestingUserId) {
-        final UserEntity user = requireUser(requestingUserId);
+        final UserEntity user = users.requireSignedIn(requestingUserId);
         return applications.findByUserIdOrderByCreatedAtAsc(user.getId()).stream()
             .map(ApplicationResponse::from)
             .toList();
     }
 
     public ApplicationResponse get(final String requestingUserId, final String clientId) {
-        return ApplicationResponse.from(requireOwned(requireUser(requestingUserId), clientId));
+        return ApplicationResponse.from(requireOwned(users.requireSignedIn(requestingUserId), clientId));
     }
 
     /**
@@ -49,15 +48,15 @@ public class ApplicationService {
      * because an application nobody owns is one nobody can find or delete.
      */
     public ApplicationResponse create(final String requestingUserId, final ApplicationRequest request) {
-        final UserEntity user = requireUser(requestingUserId);
+        final UserEntity user = users.requireSignedIn(requestingUserId);
         final String appname = request.appname();
         if (applications.existsByUserIdAndAppname(user.getId(), appname)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                 "You already have an application called " + request.name() + ".");
         }
 
-        final String displayName = "amp-" + reference(user) + "-" + appname;
-        final AppRegistration registered = registrations.register(displayName, request.roles());
+        final AppRegistration registered =
+            registrations.register(UserService.namePrefix(user) + appname, request.roles());
         try {
             return ApplicationResponse.from(save(user, request, appname, registered))
                 .withSecret(registered.clientSecret());
@@ -68,12 +67,12 @@ public class ApplicationService {
     }
 
     public void grantRole(final String requestingUserId, final String clientId, final String role) {
-        requireOwned(requireUser(requestingUserId), clientId);
+        requireOwned(users.requireSignedIn(requestingUserId), clientId);
         registrations.grantApiAccess(clientId, role);
     }
 
     public void delete(final String requestingUserId, final String clientId) {
-        final ApplicationEntity application = requireOwned(requireUser(requestingUserId), clientId);
+        final ApplicationEntity application = requireOwned(users.requireSignedIn(requestingUserId), clientId);
         registrations.delete(clientId);
         applications.delete(application);
         log.info("Deleted application {} for userId {}", clientId, application.getUser().getId());
@@ -108,24 +107,12 @@ public class ApplicationService {
         }
     }
 
-    private UserEntity requireUser(final String requestingUserId) {
-        if (requestingUserId == null || requestingUserId.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing requestingUserId.");
-        }
-        return users.findByEntraObjectId(requestingUserId.trim().toLowerCase(java.util.Locale.UK))
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sign in again."));
-    }
-
     /** 404 rather than 403: a 403 would confirm the application exists and belongs to somebody. */
     private ApplicationEntity requireOwned(final UserEntity user, final String clientId) {
         return applications.findByClientId(clientId)
             .filter(application -> application.getUser().getId().equals(user.getId()))
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                 "No application with client id " + clientId + "."));
-    }
-
-    private static String reference(final UserEntity user) {
-        return String.format("user%03d", user.getId());
     }
 
     private static String hint(final String secret) {

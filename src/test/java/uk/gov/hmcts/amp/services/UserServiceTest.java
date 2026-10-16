@@ -45,6 +45,48 @@ class UserServiceTest {
     private UserService userService;
 
     @Test
+    void missing_requesting_user_id_should_be_rejected_before_any_lookup() {
+        assertThatThrownBy(() -> userService.requireSignedIn(null))
+            .isInstanceOf(ResponseStatusException.class)
+            .hasMessageContaining("Missing requestingUserId");
+
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void blank_requesting_user_id_should_be_rejected_before_any_lookup() {
+        assertThatThrownBy(() -> userService.requireSignedIn("   "))
+            .isInstanceOf(ResponseStatusException.class)
+            .hasMessageContaining("Missing requestingUserId");
+    }
+
+    @Test
+    void requesting_user_id_should_be_looked_up_trimmed_and_lowercased() {
+        UserEntity found = new UserEntity();
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(found));
+
+        assertThat(userService.requireSignedIn("  " + OID.toUpperCase(java.util.Locale.UK) + "  "))
+            .isSameAs(found);
+    }
+
+    @Test
+    void requesting_user_with_no_row_should_be_told_to_sign_in_again() {
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.requireSignedIn(OID))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+    }
+
+    @Test
+    void the_name_prefix_should_pad_the_user_id_to_three_digits() {
+        UserEntity user = new UserEntity();
+        user.setId(7L);
+
+        assertThat(UserService.namePrefix(user)).isEqualTo("amp-user007-");
+    }
+
+    @Test
     void first_sign_in_should_create_an_active_user() {
         when(clockService.now()).thenReturn(NOW);
         when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.empty());

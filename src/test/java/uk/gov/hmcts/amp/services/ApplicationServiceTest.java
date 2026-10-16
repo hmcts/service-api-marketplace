@@ -12,7 +12,6 @@ import uk.gov.hmcts.amp.domain.ApplicationRequest;
 import uk.gov.hmcts.amp.entity.ApplicationEntity;
 import uk.gov.hmcts.amp.entity.UserEntity;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
-import uk.gov.hmcts.amp.repository.UserRepository;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -39,7 +38,7 @@ class ApplicationServiceTest {
     private ApplicationRepository applications;
 
     @Mock
-    private UserRepository users;
+    private UserService users;
 
     @Mock
     private EntraAppRegistrationService registrations;
@@ -51,31 +50,17 @@ class ApplicationServiceTest {
     private ApplicationService service;
 
     @Test
-    void missing_requesting_user_id_should_be_rejected_before_any_lookup() {
-        assertThatThrownBy(() -> service.list(null))
-            .isInstanceOf(ResponseStatusException.class)
-            .hasMessageContaining("Missing requestingUserId");
-    }
-
-    @Test
-    void blank_requesting_user_id_should_be_rejected_before_any_lookup() {
-        assertThatThrownBy(() -> service.list("   "))
-            .isInstanceOf(ResponseStatusException.class)
-            .hasMessageContaining("Missing requestingUserId");
-    }
-
-    @Test
-    void the_object_id_should_be_looked_up_trimmed_and_lowercased() {
-        when(users.findByEntraObjectId(OID)).thenReturn(Optional.of(signedIn()));
+    void listing_should_return_only_what_the_caller_owns() {
+        when(users.requireSignedIn(OID)).thenReturn(signedIn());
         when(applications.findByUserIdOrderByCreatedAtAsc(1L)).thenReturn(List.of());
 
-        assertThat(service.list("  " + OID.toUpperCase(java.util.Locale.UK) + "  ")).isEmpty();
+        assertThat(service.list(OID)).isEmpty();
     }
 
     @Test
     void reading_your_own_application_should_return_it_without_the_secret() {
         UserEntity user = signedIn();
-        when(users.findByEntraObjectId(OID)).thenReturn(Optional.of(user));
+        when(users.requireSignedIn(OID)).thenReturn(user);
         when(applications.findByClientId(CLIENT_ID)).thenReturn(Optional.of(owned(user)));
 
         assertThat(service.get(OID, CLIENT_ID).clientSecret()).isNull();
@@ -85,7 +70,7 @@ class ApplicationServiceTest {
     @Test
     void granting_a_role_should_check_ownership_before_calling_entra() {
         UserEntity user = signedIn();
-        when(users.findByEntraObjectId(OID)).thenReturn(Optional.of(user));
+        when(users.requireSignedIn(OID)).thenReturn(user);
         when(applications.findByClientId(CLIENT_ID)).thenReturn(Optional.of(owned(user)));
 
         service.grantRole(OID, CLIENT_ID, "app.read");
@@ -98,7 +83,7 @@ class ApplicationServiceTest {
         UserEntity caller = signedIn();
         UserEntity owner = new UserEntity();
         owner.setId(2L);
-        when(users.findByEntraObjectId(OID)).thenReturn(Optional.of(caller));
+        when(users.requireSignedIn(OID)).thenReturn(caller);
         when(applications.findByClientId(CLIENT_ID)).thenReturn(Optional.of(owned(owner)));
 
         assertThatThrownBy(() -> service.grantRole(OID, CLIENT_ID, "app.read"))
@@ -197,7 +182,7 @@ class ApplicationServiceTest {
     }
 
     private void givenCreateReaches(final AppRegistration registration) {
-        when(users.findByEntraObjectId(OID)).thenReturn(Optional.of(signedIn()));
+        when(users.requireSignedIn(OID)).thenReturn(signedIn());
         when(applications.existsByUserIdAndAppname(1L, "case-viewer")).thenReturn(false);
         when(clockService.now()).thenReturn(NOW);
         when(registrations.register(any(), any())).thenReturn(registration);

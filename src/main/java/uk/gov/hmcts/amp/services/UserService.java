@@ -28,6 +28,20 @@ public class UserService {
     private final UserRepository userRepository;
     private final ClockService clockService;
 
+    /** 404 rather than 401: the caller is signed in to Entra, it is this service that has no row for them. */
+    public UserEntity requireSignedIn(final String requestingUserId) {
+        if (requestingUserId == null || requestingUserId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing requestingUserId.");
+        }
+        return userRepository.findByEntraObjectId(requestingUserId.trim().toLowerCase(Locale.UK))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sign in again."));
+    }
+
+    /** Everything a user owns in Entra and APIM is named from here, so one person's things sort together. */
+    public static String namePrefix(final UserEntity user) {
+        return String.format("amp-user%03d-", user.getId());
+    }
+
     public UserResponse signIn(final SessionRequest request) {
         final String oid = requireObjectId(request.objectId());
         try {

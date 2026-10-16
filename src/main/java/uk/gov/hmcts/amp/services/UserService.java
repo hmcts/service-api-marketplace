@@ -3,6 +3,7 @@ package uk.gov.hmcts.amp.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -13,6 +14,7 @@ import uk.gov.hmcts.amp.repository.UserRepository;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -24,6 +26,7 @@ public class UserService {
 
     private static final Pattern OBJECT_ID =
         Pattern.compile("^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$");
+    private static final Pattern ROW_ID = Pattern.compile("^[0-9]{1,18}$");
 
     private final UserRepository userRepository;
     private final ClockService clockService;
@@ -40,6 +43,16 @@ public class UserService {
     /** Everything a user owns in Entra and APIM is named from here, so one person's things sort together. */
     public static String namePrefix(final UserEntity user) {
         return String.format("amp-user%03d-", user.getId());
+    }
+
+    public List<UserResponse> list(final String requestingUserId) {
+        requireSignedIn(requestingUserId);
+        return userRepository.findAll(Sort.by("id")).stream().map(UserResponse::from).toList();
+    }
+
+    public UserResponse get(final String requestingUserId, final String userId) {
+        requireSignedIn(requestingUserId);
+        return UserResponse.from(find(userId));
     }
 
     public UserResponse signIn(final SessionRequest request) {
@@ -82,6 +95,15 @@ public class UserService {
         final UserEntity saved = userRepository.saveAndFlush(user);
         log.info("Entra sign in {} userId {}", created ? "created" : "updated", saved.getId());
         return UserResponse.from(saved);
+    }
+
+    /** Either identifier, because debugging starts from whichever one you happen to be holding. */
+    private UserEntity find(final String userId) {
+        final String wanted = userId.trim();
+        return (ROW_ID.matcher(wanted).matches()
+            ? userRepository.findById(Long.valueOf(wanted))
+            : userRepository.findByEntraObjectId(wanted.toLowerCase(Locale.UK)))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No user " + wanted + "."));
     }
 
     private static UserEntity newUser(final String oid, final LocalDateTime now) {

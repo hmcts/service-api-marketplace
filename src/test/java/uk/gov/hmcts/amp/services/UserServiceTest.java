@@ -7,6 +7,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.domain.SessionRequest;
@@ -16,6 +17,7 @@ import uk.gov.hmcts.amp.repository.UserRepository;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,6 +45,53 @@ class UserServiceTest {
 
     @InjectMocks
     private UserService userService;
+
+    @Test
+    void listing_users_should_come_back_in_row_order() {
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(saved(1L, OID)));
+        when(userRepository.findAll(Sort.by("id"))).thenReturn(List.of(saved(1L, OID), saved(2L, OTHER_OID)));
+
+        assertThat(userService.list(OID)).extracting(UserResponse::userReference)
+            .containsExactly("user001", "user002");
+    }
+
+    @Test
+    void listing_users_should_need_a_caller_this_service_knows() {
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.list(OID))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+
+        verify(userRepository, never()).findAll(any(Sort.class));
+    }
+
+    @Test
+    void numeric_user_id_should_be_read_as_the_row_id() {
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(saved(1L, OID)));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(saved(2L, OTHER_OID)));
+
+        assertThat(userService.get(OID, "2").userReference()).isEqualTo("user002");
+    }
+
+    @Test
+    void anything_else_should_be_read_as_an_entra_object_id() {
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(saved(1L, OID)));
+        when(userRepository.findByEntraObjectId(OTHER_OID)).thenReturn(Optional.of(saved(2L, OTHER_OID)));
+
+        assertThat(userService.get(OID, "  " + OTHER_OID.toUpperCase(java.util.Locale.UK) + "  ").id())
+            .isEqualTo(2L);
+    }
+
+    @Test
+    void an_identifier_matching_nobody_should_be_not_found() {
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(saved(1L, OID)));
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.get(OID, "99"))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+    }
 
     @Test
     void missing_requesting_user_id_should_be_rejected_before_any_lookup() {
@@ -250,6 +299,10 @@ class UserServiceTest {
         user.setCreatedAt(CREATED);
         user.setLastLoginAt(CREATED);
         return user;
+    }
+
+    private static UserEntity saved(final long id, final String oid) {
+        return withId(existing(oid, "user" + id + "@hmcts.net"), id);
     }
 
     private static UserEntity withId(final UserEntity user, final long id) {

@@ -1,6 +1,6 @@
 # Marketplace API
 
-Fourteen operations across eleven paths. The machine-readable version is
+Sixteen operations across thirteen paths. The machine-readable version is
 [`infrastructure/apim/specs/api-marketplace.openapi.yml`](infrastructure/apim/specs/api-marketplace.openapi.yml);
 this is the same thing at a glance.
 
@@ -23,6 +23,21 @@ subscription key per API, which together get them through the gateway.
 The only write with no `requestingUserId`, because it is what establishes the user. The web app
 signs the person in against Entra, parses the token and posts the claims; this upserts on the Entra
 object id and returns the long id and `userReference`.
+
+## Users
+
+| Method | Path | Returns | |
+|---|---|---|---|
+| GET | `/users` | 200 400 404 | Everyone who has signed in, oldest first |
+| GET | `/users/{userId}` | 200 400 404 | Row id or Entra object id, whichever you have |
+
+Deliberately not user-scoped: a marketplace user can see the others. A user exists only by having
+signed in, and no environment but sbox allows a database connection, so without this there is no
+way to answer "is this person registered" - which is the first question whenever a call comes back
+*Sign in again*. No secrets: the same fields `/session` already returns.
+
+`{userId}` takes either identifier because debugging starts from whichever one you happen to be
+holding. All digits is the row id; anything else is an Entra object id.
 
 ## Applications
 

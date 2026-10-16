@@ -41,8 +41,13 @@ spring:
     ignore-migration-patterns: "*:missing"
 
 apim:
-  tenant-id: ${AZURE_TENANT_ID:00000000-0000-0000-0000-000000000000}
-  subscription-id: ${APIM_SUBSCRIPTION_ID:00000000-0000-0000-0000-000000000000}
+  # APIM_TENANT_ID and not AZURE_TENANT_ID: the AKS workload identity webhook injects
+  # AZURE_TENANT_ID for DefaultAzureCredential, and setting that in the chart would fight
+  # it. This one only picks the AzureProfile.
+  # Defaults are sbox, the same values as infrastructure/sandbox.tfvars, so a local run needs a
+  # credential and nothing else. Every deployed environment sets all four in its own chart values.
+  tenant-id: ${APIM_TENANT_ID:531ff96d-0ae9-462a-8d2d-bec7c0b42082}
+  subscription-id: ${APIM_SUBSCRIPTION_ID:bd2864ed-4f3e-45ed-9c6a-8d179674bab1}
   resource-group: ${APIM_RESOURCE_GROUP:rg-sps-platform-sbox}
   service-name: ${APIM_SERVICE_NAME:sps-api-mgmt-sbox}
 

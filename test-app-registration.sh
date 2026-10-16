@@ -4,6 +4,9 @@
 #
 #   sign in -> register -> grant a role -> subscribe -> get a token with the role -> call slc
 #
+# The user and the application are read back from the database on the way through: an application
+# Entra has but we hold no row for is one nobody can list or delete.
+#
 # The application and the subscription are both removed at the end, however the run turns out.
 # KEEP=1 leaves them behind.
 #
@@ -12,12 +15,13 @@
 #
 #   ./test-app-registration.sh
 #
-# Optional: CASE_URN, ROLE, NAME, PRODUCT_ID, BASE_URL, GRANT_ATTEMPTS, TOKEN_ATTEMPTS, KEEP=1,
+# Optional: CASE_URN, ROLE, NAME, PRODUCT_ID, SHORT_CODE, BASE_URL, GRANT_ATTEMPTS, TOKEN_ATTEMPTS, KEEP=1,
 # REQUESTING_USER_ID to run as somebody else.
 set -euo pipefail
 
 BASE_URL=${BASE_URL:-http://localhost:8080}
-APPLICATIONS=$BASE_URL/applications-new
+APPLICATIONS=$BASE_URL/applications
+USERS=$BASE_URL/users
 SUBSCRIPTION_KEYS=$BASE_URL/apim/subscription-keys
 SESSION=$BASE_URL/session
 # The same object id every run, so the script keeps reusing one marketplace_user row.
@@ -27,10 +31,14 @@ API_CLIENT_ID=${ENTRA_API_CLIENT_ID:-30288840-e345-4543-99ee-f9253d789339}
 GATEWAY=${APIM_GATEWAY:-https://sps-api-mgmt.sandbox.api.hmcts.net}
 ROLE=${ROLE:-app.read}
 # Named after whoever ran it: killing the script skips the trap, so orphans happen, and an orphan
-# nobody can be traced to is one nobody will delete.
-NAME=${NAME:-api-marketplace-$(whoami)-$(date +%H%M%S)}
+# nobody can be traced to is one nobody will delete. Letters, digits and spaces only - that is
+# what /applications accepts, and it derives the hyphenated appname itself.
+NAME=${NAME:-Test App $(whoami | tr -cd '[:alnum:]') $(date +%H%M%S)}
 CASE_URN=${CASE_URN:-28DI3451856}
-PRODUCT_ID=${PRODUCT_ID:-cp-crime-schedulingandlisting-courtschedule}
+# The APIM product id, not a marketplace short code: sps-api-mgmt-sbox carries
+# cp-crime-schedulingandlisting, and -courtschedule belongs to the short code.
+PRODUCT_ID=${PRODUCT_ID:-cp-crime-schedulingandlisting}
+SHORT_CODE=${SHORT_CODE:-slc}
 SUBSCRIBED=0
 
 step () { printf '\n\033[1m%s\033[0m\n' "$*"; }
@@ -51,14 +59,22 @@ if [ "$SESSION_STATUS" != "200" ]; then
    $(jq -r '.detail // .error // .' /tmp/test-app-registration-session 2>/dev/null || cat /tmp/test-app-registration-session)"
 fi
 USER_REFERENCE=$(jq -r .userReference /tmp/test-app-registration-session)
-# Everything this user owns in Entra and APIM is named from here, and the subscription endpoints
-# read ownership straight off the name rather than out of a table.
-SUBSCRIPTION=${SUBSCRIPTION:-amp-$USER_REFERENCE-$(printf '%s' "$NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')}
-echo "   $USER_REFERENCE, so subscriptions are named amp-$USER_REFERENCE-*"
+USER_ID=$(jq -r .id /tmp/test-app-registration-session)
+echo "   $USER_REFERENCE (id $USER_ID), so everything is named amp-$USER_REFERENCE-*"
 
-step "2. Register an application named $NAME (deleted again at the end unless KEEP=1)"
+step "2. Read the user back"
+USER_STATUS=$(curl -s -o /tmp/test-app-registration-user -w '%{http_code}' "$USERS/$USER_ID" \
+  -H "requestingUserId: $REQUESTING_USER_ID")
+if [ "$USER_STATUS" != "200" ]; then
+  die "   Could not read the user (HTTP $USER_STATUS):
+   $(jq -r '.error // .detail // .' /tmp/test-app-registration-user 2>/dev/null || cat /tmp/test-app-registration-user)"
+fi
+jq -r '"   \(.email), \(.status), last signed in \(.lastLoginAt)"' /tmp/test-app-registration-user
+
+step "3. Register an application named $NAME (deleted again at the end unless KEEP=1)"
 REG_STATUS=$(curl -s -o /tmp/test-app-registration-reg -w '%{http_code}' -X POST "$APPLICATIONS" \
-  -H 'Content-Type: application/json' -d "{\"name\":\"$NAME\"}")
+  -H "requestingUserId: $REQUESTING_USER_ID" -H 'Content-Type: application/json' \
+  -d "{\"name\":\"$NAME\"}")
 if [ "$REG_STATUS" != "201" ]; then
   die "Registration failed (HTTP $REG_STATUS):
    $(jq -r '.detail // .' /tmp/test-app-registration-reg 2>/dev/null || cat /tmp/test-app-registration-reg)"
@@ -66,18 +82,21 @@ fi
 REGISTRATION=$(cat /tmp/test-app-registration-reg)
 CLIENT_ID=$(jq -r .clientId <<<"$REGISTRATION")
 CLIENT_SECRET=$(jq -r .clientSecret <<<"$REGISTRATION")
-echo "   name     $NAME"
-jq -r '"   clientId \(.clientId)"' <<<"$REGISTRATION"
+APPNAME=$(jq -r .appname <<<"$REGISTRATION")
+# The server derives the appname, so take it from the reply rather than deriving it again here.
+SUBSCRIPTION=${SUBSCRIPTION:-amp-$USER_REFERENCE-$APPNAME-$SHORT_CODE}
+jq -r '"   clientId \(.clientId), appname \(.appname), secret \(.secretHint)..."' <<<"$REGISTRATION"
 
 cleanup () {
-  step "7. Remove the subscription and the application"
+  step "9. Remove the subscription and the application"
   if [ "${KEEP:-0}" = "1" ]; then
     printf '   KEEP=1, so these are left behind. Remove them with:\n'
     if [ "$SUBSCRIBED" = "1" ]; then
       printf '     curl -X DELETE %s/%s -H "requestingUserId: %s"\n' \
         "$SUBSCRIPTION_KEYS" "$SUBSCRIPTION" "$REQUESTING_USER_ID"
     fi
-    printf '     curl -X DELETE %s/%s\n' "$APPLICATIONS" "$CLIENT_ID"
+    printf '     curl -X DELETE %s/%s -H "requestingUserId: %s"\n' \
+      "$APPLICATIONS" "$CLIENT_ID" "$REQUESTING_USER_ID"
     return 0
   fi
   if [ "$SUBSCRIBED" = "1" ]; then
@@ -86,7 +105,8 @@ cleanup () {
       && printf '   revoked subscription %s\n' "$SUBSCRIPTION" \
       || printf '   could not revoke subscription %s - remove it by hand\n' "$SUBSCRIPTION"
   fi
-  curl -fsS -o /dev/null -X DELETE "$APPLICATIONS/$CLIENT_ID" 2>/dev/null \
+  curl -fsS -o /dev/null -X DELETE "$APPLICATIONS/$CLIENT_ID" \
+    -H "requestingUserId: $REQUESTING_USER_ID" 2>/dev/null \
     && printf '   deleted %s (%s)\n' "$NAME" "$CLIENT_ID" \
     || printf '   could not delete %s (%s) - remove it by hand\n' "$NAME" "$CLIENT_ID"
   return 0
@@ -96,12 +116,27 @@ trap cleanup EXIT
 # Separate from the registration, because a service principal seconds old is not assignable and
 # Entra says so as "Not a valid reference update" for minutes. Retried here rather than inside the
 # create call, so a lag that only needs waiting out cannot roll the whole registration back.
-step "3. Grant $ROLE"
+step "4. Read the application back"
+APP_STATUS=$(curl -s -o /tmp/test-app-registration-app -w '%{http_code}' "$APPLICATIONS/$CLIENT_ID" \
+  -H "requestingUserId: $REQUESTING_USER_ID")
+if [ "$APP_STATUS" != "200" ]; then
+  die "   Entra has the application but we hold no row for it (HTTP $APP_STATUS):
+   $(jq -r '.error // .detail // .' /tmp/test-app-registration-app 2>/dev/null || cat /tmp/test-app-registration-app)"
+fi
+jq -r '"   id \(.id), \(.name), created \(.createdAt), secret expires \(.secretExpiresAt)"' \
+  /tmp/test-app-registration-app
+# The secret is returned by create and never again, so a read that carries one is a bug.
+if [ "$(jq -r '.clientSecret // "absent"' /tmp/test-app-registration-app)" != "absent" ]; then
+  die "   The read-back carried a clientSecret. It is only ever returned by create."
+fi
+
+step "5. Grant $ROLE"
 GRANT_ATTEMPTS=${GRANT_ATTEMPTS:-8}
 for attempt in $(seq 1 "$GRANT_ATTEMPTS"); do
   GRANT_STATUS=$(curl -s -o /tmp/test-app-registration-grant -w '%{http_code}' -X POST \
     "$APPLICATIONS/$CLIENT_ID/roles" \
-    -H 'Content-Type: application/json' -d "{\"role\":\"$ROLE\"}")
+    -H "requestingUserId: $REQUESTING_USER_ID" -H 'Content-Type: application/json' \
+    -d "{\"role\":\"$ROLE\"}")
   [ "$GRANT_STATUS" = "204" ] && { echo "   granted on attempt $attempt"; break; }
   [ "$attempt" = "$GRANT_ATTEMPTS" ] && die "   Could not grant $ROLE after $GRANT_ATTEMPTS attempts (HTTP $GRANT_STATUS):
    $(jq -r '.detail // .' /tmp/test-app-registration-grant 2>/dev/null || cat /tmp/test-app-registration-grant)"
@@ -111,7 +146,7 @@ done
 
 # A subscription of its own rather than a key pasted in by hand: the gateway wants the key as
 # well as the token, and borrowing someone else's proves nothing about this application.
-step "4. Subscribe to $PRODUCT_ID"
+step "6. Subscribe to $PRODUCT_ID"
 KEY_STATUS=$(curl -s -o /tmp/test-app-registration-key -w '%{http_code}' -X POST "$SUBSCRIPTION_KEYS" \
   -H "requestingUserId: $REQUESTING_USER_ID" -H 'Content-Type: application/json' \
   -d "{\"name\":\"$SUBSCRIPTION\",\"productId\":\"$PRODUCT_ID\",\"displayName\":\"$NAME\"}")
@@ -125,7 +160,7 @@ printf '   %s, primary key %s...\n' "$SUBSCRIPTION" "${APIM_SUBSCRIPTION_KEY:0:4
 
 claims () { jq -R 'split(".")[1] | @base64d | fromjson' <<<"$1"; }
 
-step "5. Get a token for $API_CLIENT_ID carrying $ROLE"
+step "7. Get a token for $API_CLIENT_ID carrying $ROLE"
 # Two separate waits, both Entra catching up with itself. A secret seconds old is rejected as
 # invalid_client until it has replicated. Worse, once the secret works the token can come back
 # without the role: the assignment is already in the directory - the GET shows it - but the token
@@ -156,7 +191,7 @@ for attempt in $(seq 1 "$TOKEN_ATTEMPTS"); do
 done
 claims "$TOKEN" | jq '{aud, roles, azp}' | sed 's/^/   /'
 
-step "6. Call slc through APIM"
+step "8. Call slc through APIM"
 echo "   GET $GATEWAY/amp/slc/case/$CASE_URN/courtschedule"
 # The API requires a correlation id of its own, on top of the token and the subscription key.
 : > /tmp/test-app-registration-body
@@ -171,7 +206,7 @@ STATUS=$(curl -sSL -o /tmp/test-app-registration-body -w '%{http_code}' \
 if [ -n "${CURL_RC:-}" ]; then
   die "   Could not reach $GATEWAY (curl exit $CURL_RC). Nothing was sent to APIM.
    The sandbox gateway is reachable from inside the HMCTS network - connect to the VPN and run
-   it again. Steps 1-5 are unaffected."
+   it again. Steps 1-7 are unaffected."
 fi
 echo "   HTTP $STATUS"
 if jq -e . /tmp/test-app-registration-body >/dev/null 2>&1; then

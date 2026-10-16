@@ -177,7 +177,7 @@ class SessionIntegrationTest {
         final ApplicationApiEntity api = new ApplicationApiEntity();
         api.setApplication(application);
         api.setShortCode("slc");
-        api.setProductId("cp-crime-schedulingandlisting-courtschedule");
+        api.setProductId("cp-crime-schedulingandlisting");
         api.setSubscriptionName(subscriptionName);
         api.setKeyHint("abc");
         api.setSubscribedAt(LocalDateTime.now());

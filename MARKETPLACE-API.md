@@ -106,7 +106,8 @@ means try again.
 
 ## Not built yet
 
-- `/applications` and `/session` are the design. Today the same work is reachable at
-  `/applications-new` and `PUT /users/entra/{entraObjectId}`, which go when these land.
 - `/apim/products` was removed with the legacy endpoints and needs restoring; without it there is no
   way to discover a `productId`, which creating a subscription key requires.
+- `/applications/{clientId}/keys/{api}` is specified and not built, and nothing writes
+  `application_api`, so there is no record of which APIs an application has subscribed to. The
+  naming convention is the only link today.

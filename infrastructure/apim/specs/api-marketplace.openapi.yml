@@ -33,6 +33,8 @@ tags:
     description: Service root and health
   - name: session
     description: Recording the person Entra has signed in
+  - name: users
+    description: Who has signed in, for support and debugging
   - name: applications
     description: Entra application registrations and their APIM subscriptions
   - name: products
@@ -98,6 +100,62 @@ paths:
                 $ref: '#/components/schemas/User'
         '400':
           $ref: '#/components/responses/BadRequest'
+
+  /users:
+    get:
+      summary: List everyone who has signed in
+      description: >-
+        Not user-scoped: a marketplace user can see the others. There is no
+        other way to find out who is registered, because a user is only ever
+        created by signing in and no environment but sbox allows a database
+        connection. Carries no secret of any kind.
+      operationId: listUsers
+      tags: [users]
+      parameters:
+        - $ref: '#/components/parameters/RequestingUserId'
+      responses:
+        '200':
+          description: Every user, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/UnknownUser'
+
+  /users/{userId}:
+    get:
+      summary: Read one user
+      description: >-
+        For support and debugging, so it takes either identifier: all digits
+        is the row id, anything else is an Entra object id. That is the one
+        you will be holding when a call has come back "Sign in again".
+      operationId: getUser
+      tags: [users]
+      parameters:
+        - $ref: '#/components/parameters/RequestingUserId'
+        - name: userId
+          in: path
+          required: true
+          description: The row id or the Entra object id
+          schema:
+            type: string
+          example: 7c1d9f2e-4b58-4a31-9f0c-2e6d8a1b3c44
+      responses:
+        '200':
+          description: The user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: No user with that row id or Entra object id, or the caller is not known
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /applications:
     get:

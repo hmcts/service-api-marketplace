@@ -1,7 +1,5 @@
 package uk.gov.hmcts.amp.domain;
 
-import jakarta.validation.constraints.AssertTrue;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -23,21 +21,11 @@ public record ProductionAccessRequest(
     @Pattern(regexp = "low|medium|high", message = "Call volume must be low, medium or high.")
     String callVolume,
 
-    @Pattern(regexp = "yes|no", message = "Answer yes or no for the DPIA.")
-    String dpia,
+    @NotBlank(message = "Describe the data request, how you plan to use it and why you need it.")
+    @Size(max = 1000, message = "Data request must be 1000 characters or fewer.")
+    String dataRequest,
 
-    @Pattern(regexp = "in-place|in-progress|not-needed",
-        message = "DSA must be in-place, in-progress or not-needed.")
-    String dsa,
-
-    @NotBlank(message = "Enter a security contact email address.")
-    @Email(message = "Enter a valid security contact email address.")
-    String securityContact,
-
-    @NotBlank(message = "Describe your use case.")
-    @Size(max = 1000, message = "Use case must be 1000 characters or fewer.")
-    String useCase,
-
-    @AssertTrue(message = "You must confirm the declaration.")
-    boolean declarationConfirmed) {
+    @NotBlank(message = "Describe the proposed outputs from this data use.")
+    @Size(max = 1000, message = "Proposed outputs must be 1000 characters or fewer.")
+    String proposedOutputs) {
 }

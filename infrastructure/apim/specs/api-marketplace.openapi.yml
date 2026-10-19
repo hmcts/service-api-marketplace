@@ -377,8 +377,7 @@ paths:
         Records what was asked for. Nothing is issued here: client ids,
         secrets, subscription keys and publisher ids are still created by hand
         offline, and the Data Access Panel decides.
-        declarationConfirmed is checked server side rather than trusted from
-        the form, because it is the legal gate on production access.
+        The Data Access Panel decides.
       operationId: createProductionRequest
       tags: [production-requests]
       parameters:
@@ -780,8 +779,7 @@ components:
 
     NewProductionRequest:
       type: object
-      required: [clientId, organisation, goLiveDate, callVolume, dpia, dsa, securityContact,
-                 useCase, declarationConfirmed]
+      required: [clientId, organisation, goLiveDate, callVolume, dataRequest, proposedOutputs]
       properties:
         clientId:
           type: string
@@ -798,24 +796,14 @@ components:
         callVolume:
           type: string
           enum: [low, medium, high]
-        dpia:
-          type: string
-          enum: [yes, no]
-          description: Whether a Data Protection Impact Assessment has been done
-        dsa:
-          type: string
-          enum: [in-place, in-progress, not-needed]
-          description: The state of the Data Sharing Agreement
-        securityContact:
-          type: string
-          format: email
-          description: Prefilled with the caller's own address, but editable
-        useCase:
+        dataRequest:
           type: string
           maxLength: 1000
-        declarationConfirmed:
-          type: boolean
-          description: Must be true. The declaration that the application was tested in sandbox
+          description: The data being asked for, how it will be used and why it is needed
+        proposedOutputs:
+          type: string
+          maxLength: 1000
+          description: What comes out of using the data
 
     ProductionRequest:
       type: object

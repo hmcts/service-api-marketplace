@@ -49,13 +49,7 @@ public class ProductionRequestEntity {
 
     private String callVolume;
 
-    private String dpia;
+    private String dataRequest;
 
-    private String dsa;
-
-    private String securityContact;
-
-    private String useCase;
-
-    private boolean declarationConfirmed;
+    private String proposedOutputs;
 }

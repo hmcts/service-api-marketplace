@@ -86,7 +86,7 @@ class ApplicationRepositoryIntegrationTest {
 
         ApplicationApiEntity found = applicationApis.findByApplicationId(app.getId()).getFirst();
         assertThat(found.getShortCode()).isEqualTo("slc");
-        assertThat(found.getProductId()).isEqualTo("cp-crime-schedulingandlisting");
+        assertThat(found.getProductId()).isEqualTo("cp-crime-schedulingandlisting-courtschedule");
         assertThat(found.getSubscriptionName()).isEqualTo("amp-user001-case-viewer-slc");
         assertThat(found.getKeyHint()).isEqualTo("a1b");
     }
@@ -155,7 +155,7 @@ class ApplicationRepositoryIntegrationTest {
         ApplicationApiEntity entity = new ApplicationApiEntity();
         entity.setApplication(application);
         entity.setShortCode(shortCode);
-        entity.setProductId("cp-crime-schedulingandlisting");
+        entity.setProductId("cp-crime-schedulingandlisting-courtschedule");
         entity.setSubscriptionName(subscriptionName);
         entity.setKeyHint("a1b");
         entity.setSubscribedAt(NOW);

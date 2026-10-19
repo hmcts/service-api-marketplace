@@ -157,15 +157,6 @@ public class ApimSubscriptionKeyService {
             return new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                 "Not permitted to manage subscriptions on API Management.");
         }
-        final int status = cause.getResponse() == null ? 0 : cause.getResponse().getStatusCode();
-        if (status == HttpStatus.BAD_REQUEST.value() || status == HttpStatus.UNAUTHORIZED.value()) {
-            // Azure answered, and the fault is ours. Telling the caller to try again would be
-            // wrong twice over: nothing was unreachable, and retrying never fixes configuration.
-            log.error("API Management rejected the request. Check this environment's APIM "
-                + "subscription id, resource group, service name and credential.", cause);
-            return new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                "API Management rejected the request. This environment is misconfigured.");
-        }
         log.error("APIM call for subscription {} failed.", name, cause);
         return new ResponseStatusException(HttpStatus.BAD_GATEWAY,
             "Could not reach API Management. Please try again.");

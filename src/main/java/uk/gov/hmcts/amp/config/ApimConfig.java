@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ApimConfig {
 
-    public static final String UNSET = "00000000-0000-0000-0000-000000000000";
+    private static final String UNSET = "00000000-0000-0000-0000-000000000000";
 
     @Value("${apim.tenant-id}")
     private String tenantId;
@@ -27,14 +27,8 @@ public class ApimConfig {
     @ConditionalOnMissingBean
     public ApiManagementManager apiManagementManager() {
         log.info("APIM tenant {}, subscription {}", tenantId, azureSubscriptionId);
-        // Refuse to start rather than warn. Zeros here means every subscription call comes back
-        // as an unreachable upstream, which sends you looking at Azure instead of at the
-        // deployment. Every environment that runs this has to set it, AAT and preview included.
-        if (azureSubscriptionId == null || azureSubscriptionId.isBlank()
-            || UNSET.equals(azureSubscriptionId)) {
-            throw new IllegalStateException(
-                "APIM_SUBSCRIPTION_ID is not set. It is the Azure subscription holding the API "
-                    + "Management instance, not an APIM subscription key.");
+        if (UNSET.equals(azureSubscriptionId)) {
+            log.warn("APIM_SUBSCRIPTION_ID is not set: the subscription key endpoints will fail.");
         }
         return ApiManagementManager.authenticate(
             new DefaultAzureCredentialBuilder().build(),

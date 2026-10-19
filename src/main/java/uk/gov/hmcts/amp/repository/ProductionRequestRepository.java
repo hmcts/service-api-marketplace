@@ -11,6 +11,7 @@ import java.util.Optional;
 public interface ProductionRequestRepository extends JpaRepository<ProductionRequestEntity, Long> {
 
     List<ProductionRequestEntity> findByUserIdOrderBySubmittedAtDesc(Long userId);
+
     Optional<ProductionRequestEntity> findByUserIdAndReference(Long userId, String reference);
 
     boolean existsByReference(String reference);

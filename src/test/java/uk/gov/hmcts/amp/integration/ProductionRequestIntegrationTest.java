@@ -160,6 +160,56 @@ class ProductionRequestIntegrationTest {
         assertThat(first).isNotEqualTo(second);
     }
 
+    @Test
+    void reading_one_request_should_return_the_answers_the_list_leaves_out() throws Exception {
+        createApplication(OWNER_OID);
+        String reference = reference(post(PATH).header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
+
+        mockMvc.perform(get(PATH + "/" + reference).header("requestingUserId", OWNER_OID))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.reference").value(reference))
+            .andExpect(jsonPath("$.status").value("SUBMITTED"))
+            .andExpect(jsonPath("$.applicationName").value("Case Viewer"))
+            .andExpect(jsonPath("$.clientId").value(CLIENT_ID))
+            .andExpect(jsonPath("$.organisation").value("Example Legal Ltd"))
+            .andExpect(jsonPath("$.goLiveDate").value("2027-03-27"))
+            .andExpect(jsonPath("$.callVolume").value("low"))
+            .andExpect(jsonPath("$.dpia").value("yes"))
+            .andExpect(jsonPath("$.dsa").value("in-place"))
+            .andExpect(jsonPath("$.securityContact").value("security@example.com"))
+            .andExpect(jsonPath("$.useCase").value("Checking hearing schedules."))
+            .andExpect(jsonPath("$.declarationConfirmed").value(true));
+    }
+
+    @Test
+    void the_list_should_not_carry_the_answers_only_the_detail_does() throws Exception {
+        createApplication(OWNER_OID);
+        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID))).andExpect(status().isCreated());
+
+        mockMvc.perform(get(PATH).header("requestingUserId", OWNER_OID))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].useCase").doesNotExist())
+            .andExpect(jsonPath("$[0].organisation").doesNotExist());
+    }
+
+    @Test
+    void reading_another_users_request_should_be_not_found() throws Exception {
+        createApplication(OWNER_OID);
+        String reference = reference(post(PATH).header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
+
+        mockMvc.perform(get(PATH + "/" + reference).header("requestingUserId", OTHER_OID))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void reading_a_reference_that_does_not_exist_should_be_not_found() throws Exception {
+        mockMvc.perform(get(PATH + "/PCR-NOSUCH99").header("requestingUserId", OWNER_OID))
+            .andExpect(status().isNotFound());
+    }
+
     private String reference(final org.springframework.test.web.servlet.RequestBuilder request) throws Exception {
         return JsonPath.read(mockMvc.perform(request).andExpect(status().isCreated())
             .andReturn().getResponse().getContentAsString(), "$.reference");

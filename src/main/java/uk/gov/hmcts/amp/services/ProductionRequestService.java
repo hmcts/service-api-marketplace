@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import uk.gov.hmcts.amp.domain.ProductionAccessDetail;
 import uk.gov.hmcts.amp.domain.ProductionAccessRequest;
 import uk.gov.hmcts.amp.domain.ProductionAccessResponse;
 import uk.gov.hmcts.amp.entity.ApplicationEntity;
@@ -43,6 +44,14 @@ public class ProductionRequestService {
         return requests.findByUserIdOrderBySubmittedAtDesc(user.getId()).stream()
             .map(ProductionAccessResponse::from)
             .toList();
+    }
+
+    public ProductionAccessDetail get(final String requestingUserId, final String reference) {
+        final UserEntity user = users.requireSignedIn(requestingUserId);
+        return requests.findByUserIdAndReference(user.getId(), reference)
+            .map(ProductionAccessDetail::from)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                "No request with reference " + reference + "."));
     }
 
     public ProductionAccessResponse create(final String requestingUserId,

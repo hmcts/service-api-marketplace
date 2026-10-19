@@ -7,7 +7,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.web.server.ResponseStatusException;
-import uk.gov.hmcts.amp.domain.ProductionAccessEmail;
+import uk.gov.hmcts.amp.domain.ProductionAccessRequestEmail;
 import uk.gov.hmcts.amp.services.NotifyService;
 
 import java.util.List;
@@ -24,9 +24,8 @@ import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.stubRefused;
 import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.wireMockNotify;
 
 /** The real Notify client against WireMock, so what goes on the wire is what Notify would get. */
-@SpringBootTest(properties = {
-    "notify.api-key=amptest-00000000-0000-0000-0000-000000000000-11111111-1111-1111-1111-111111111111",
-    "notify.production-access-template-id=" + TEMPLATE_ID})
+@SpringBootTest(properties =
+    "notify.api-key=amptest-00000000-0000-0000-0000-000000000000-11111111-1111-1111-1111-111111111111")
 @ContextConfiguration(initializers = {TestContainersInitialise.class, WireMockNotifyInitialise.class})
 class NotifyIntegrationTest {
 
@@ -42,7 +41,7 @@ class NotifyIntegrationTest {
     void the_request_body_should_carry_the_template_the_address_and_the_personalisation() throws Exception {
         stubAccepted();
 
-        notify.productionAccessRequested(request());
+        notify.send(request());
 
         wireMockNotify().verify(postRequestedFor(urlPathEqualTo(SEND_EMAIL))
             .withRequestBody(equalToJson("""
@@ -55,15 +54,15 @@ class NotifyIntegrationTest {
     void notify_refusing_should_be_a_bad_gateway_that_names_nothing_of_notifys() {
         stubRefused(400, "email_address Not a valid email address");
 
-        assertThatThrownBy(() -> notify.productionAccessRequested(request()))
+        assertThatThrownBy(() -> notify.send(request()))
             .isInstanceOfSatisfying(ResponseStatusException.class, e -> {
                 assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
                 assertThat(e.getReason()).doesNotContain("email_address");
             });
     }
 
-    private ProductionAccessEmail request() {
-        return new ProductionAccessEmail("ada.lovelace@hmcts.net", "Ada Lovelace", "Case Viewer",
+    private ProductionAccessRequestEmail request() {
+        return new ProductionAccessRequestEmail("ada.lovelace@hmcts.net", "Ada Lovelace", "Case Viewer",
             List.of("Court Schedule", "Hearing Results"), "case-viewer");
     }
 }

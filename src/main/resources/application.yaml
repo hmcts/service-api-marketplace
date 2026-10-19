@@ -50,7 +50,6 @@ notify:
   # Added to the apim-sbox vault by hand and mounted by cnp-flux-config. Blank elsewhere, which
   # disables sending rather than stopping the pod - AAT has no key yet.
   api-key: ${NOTIFY_API_KEY:}
-  production-access-template-id: ${NOTIFY_PRODUCTION_ACCESS_TEMPLATE_ID:9a21b7c6-d108-4d63-81bd-0bd52a2f511a}
   base-url: ${NOTIFY_BASE_URL:https://api.notifications.service.gov.uk}
 
 entra:

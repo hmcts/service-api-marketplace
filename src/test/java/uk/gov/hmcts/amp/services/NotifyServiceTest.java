@@ -8,7 +8,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.config.NotifyProperties;
-import uk.gov.hmcts.amp.domain.ProductionAccessEmail;
+import uk.gov.hmcts.amp.domain.ProductionAccessRequestEmail;
 import uk.gov.service.notify.NotificationClientApi;
 import uk.gov.service.notify.NotificationClientException;
 import uk.gov.service.notify.SendEmailResponse;
@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class NotifyServiceTest {
 
-    private static final String TEMPLATE = "9a21b7c6-d108-4d63-81bd-0bd52a2f511a";
+    private static final String TEMPLATE = ProductionAccessRequestEmail.TEMPLATE_ID;
     private static final String KEY = "amp-00000000-0000-0000-0000-000000000000-"
         + "11111111-1111-1111-1111-111111111111";
 
@@ -42,7 +42,7 @@ class NotifyServiceTest {
         when(accepted.getNotificationId()).thenReturn(UUID.randomUUID());
         when(client.sendEmail(any(), any(), any(), any())).thenReturn(accepted);
 
-        service.productionAccessRequested(request());
+        service.send(request());
 
         // api_list stays a List so Notify renders it as bullets; a joined String would not match.
         verify(client).sendEmail(TEMPLATE, "ada.lovelace@hmcts.net",
@@ -56,7 +56,7 @@ class NotifyServiceTest {
     void no_api_key_should_be_unavailable_rather_than_a_silent_no_op() throws Exception {
         NotifyService service = serviceWith("", client);
 
-        assertThatThrownBy(() -> service.productionAccessRequested(request()))
+        assertThatThrownBy(() -> service.send(request()))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE))
             .hasMessageContaining("NOTIFY_API_KEY");
@@ -70,15 +70,15 @@ class NotifyServiceTest {
         when(client.sendEmail(any(), any(), any(), any()))
             .thenThrow(new NotificationClientException("team-only key: 400 BadRequestError"));
 
-        assertThatThrownBy(() -> service.productionAccessRequested(request()))
+        assertThatThrownBy(() -> service.send(request()))
             .isInstanceOfSatisfying(ResponseStatusException.class, e -> {
                 assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
                 assertThat(e.getReason()).doesNotContain("BadRequestError");
             });
     }
 
-    private ProductionAccessEmail request() {
-        return new ProductionAccessEmail("ada.lovelace@hmcts.net", "Ada Lovelace", "Case Viewer",
+    private ProductionAccessRequestEmail request() {
+        return new ProductionAccessRequestEmail("ada.lovelace@hmcts.net", "Ada Lovelace", "Case Viewer",
             List.of("Court Schedule", "Hearing Results"), "case-viewer");
     }
 
@@ -86,6 +86,6 @@ class NotifyServiceTest {
         @SuppressWarnings("unchecked")
         ObjectProvider<NotificationClientApi> provider = mock(ObjectProvider.class);
         org.mockito.Mockito.lenient().when(provider.getIfAvailable()).thenReturn(notify);
-        return new NotifyService(new NotifyProperties(apiKey, TEMPLATE, "https://notify.example"), provider);
+        return new NotifyService(new NotifyProperties(apiKey, "https://notify.example"), provider);
     }
 }

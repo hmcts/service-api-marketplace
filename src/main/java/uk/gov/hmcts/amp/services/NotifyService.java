@@ -7,17 +7,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.config.NotifyProperties;
-import uk.gov.hmcts.amp.domain.ProductionAccessEmail;
+import uk.gov.hmcts.amp.domain.NotifyEmail;
 import uk.gov.service.notify.NotificationClientApi;
 import uk.gov.service.notify.NotificationClientException;
 import uk.gov.service.notify.SendEmailResponse;
 
-import java.util.Map;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
-/**
- * Email through GOV.UK Notify. Bodies and subjects are edited in Notify by whoever owns the
- * wording, so this carries template ids and personalisation and never any content.
- */
+/** Email through GOV.UK Notify. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -26,33 +24,46 @@ public class NotifyService {
     private final NotifyProperties config;
     private final ObjectProvider<NotificationClientApi> client;
 
-    public void productionAccessRequested(final ProductionAccessEmail email) {
-        final Map<String, Object> personalisation = Map.of(
-            "consumer_name", email.consumerName(),
-            "application_name", email.applicationName(),
-            "api_list", email.apis());
-        send(config.productionAccessTemplateId(), email.emailAddress(), personalisation, email.reference());
-    }
-
-    private void send(final String templateId, final String emailAddress,
-                      final Map<String, Object> personalisation, final String reference) {
+    public void send(final NotifyEmail email) {
         final NotificationClientApi notify = requireConfigured();
         try {
-            final SendEmailResponse sent = notify.sendEmail(templateId, emailAddress, personalisation, reference);
-            log.info("Notify accepted template {} as notification {}", templateId, sent.getNotificationId());
+            final SendEmailResponse sent = notify.sendEmail(
+                email.getTemplateId(), email.getEmailAddress(),
+                email.getPersonalisation(), email.getReference()
+            );
+            log.info(
+                "Notify accepted template {} to {} as notification {}",
+                email.getTemplateId(), masked(email.getEmailAddress()), sent.getNotificationId()
+            );
         } catch (final NotificationClientException refused) {
-            // Deliberately thrown rather than swallowed: whether a failed email should fail the
-            // caller's operation is the caller's decision, not one to make silently here.
-            log.error("Notify refused template {} for reference {}", templateId, reference, refused);
+            log.error(
+                "Notify refused template {} for reference {}",
+                email.getTemplateId(), email.getReference(), refused
+            );
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Could not send the email.");
         }
+    }
+
+    /** Initials and the domain, so a log says where it went without carrying the address itself. */
+    private static String masked(final String emailAddress) {
+        final int at = emailAddress == null ? -1 : emailAddress.indexOf('@');
+        if (at < 1) {
+            return "***";
+        }
+        final String initials = Arrays.stream(emailAddress.substring(0, at).split("\\."))
+            .filter(part -> !part.isBlank())
+            .map(part -> part.substring(0, 1))
+            .collect(Collectors.joining("."));
+        return initials.isEmpty() ? "***" : initials + emailAddress.substring(at);
     }
 
     private NotificationClientApi requireConfigured() {
         final NotificationClientApi notify = config.configured() ? client.getIfAvailable() : null;
         if (notify == null) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                "NOTIFY_API_KEY is not configured in this environment.");
+            throw new ResponseStatusException(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "NOTIFY_API_KEY is not configured in this environment."
+            );
         }
         return notify;
     }

@@ -2,6 +2,7 @@ package uk.gov.hmcts.amp.integration;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import org.springframework.context.ApplicationContextInitializer;
+import uk.gov.hmcts.amp.domain.ProductionAccessRequestEmail;
 import org.springframework.context.ConfigurableApplicationContext;
 import uk.gov.service.notify.NotificationClient;
 import uk.gov.service.notify.NotificationClientApi;
@@ -15,7 +16,7 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
 public class WireMockNotifyInitialise implements ApplicationContextInitializer<ConfigurableApplicationContext> {
 
     public static final String SEND_EMAIL = "/v2/notifications/email";
-    public static final String TEMPLATE_ID = "9a21b7c6-d108-4d63-81bd-0bd52a2f511a";
+    public static final String TEMPLATE_ID = ProductionAccessRequestEmail.TEMPLATE_ID;
 
     // Notify parses the service id and secret out of the key by position, so it has to be shaped
     // like a real one even though nothing ever checks it here.

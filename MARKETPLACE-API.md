@@ -1,6 +1,6 @@
 # Marketplace API
 
-Sixteen operations across thirteen paths. The machine-readable version is
+Eighteen operations across fourteen paths. The machine-readable version is
 [`infrastructure/apim/specs/api-marketplace.openapi.yml`](infrastructure/apim/specs/api-marketplace.openapi.yml);
 this is the same thing at a glance.
 
@@ -64,6 +64,24 @@ subscription key is the opposite: always recoverable from APIM, which is what th
 does.
 
 **404, not 403, for someone else's application.** A 403 confirms it exists and belongs to somebody.
+
+## Production requests
+
+| Method | Path | Returns | |
+|---|---|---|---|
+| POST | `/production-requests` | 201 400 404 | Records the request |
+| GET | `/production-requests` | 200 400 404 | The caller's own, newest first |
+
+**Nothing is issued here.** Client ids, secrets, subscription keys and publisher ids are still
+created by hand offline; the Data Access Panel decides. This records what was asked for.
+
+**`declarationConfirmed` is checked server side.** It is the legal gate on production access, so
+the record has to show the declaration was made and the server has to be what enforced it, not
+the form.
+
+**400, not 404, for a client id that is not yours.** Unknown and someone else's answer the same
+way, so the response never says whose an application is. The reference is minted here and keeps
+the `PCR-` prefix.
 
 ## APIM
 

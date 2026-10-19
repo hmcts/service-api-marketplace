@@ -76,11 +76,8 @@ public class ProductionRequestService {
         entity.setOrganisation(request.organisation().trim());
         entity.setGoLiveDate(request.goLiveDate());
         entity.setCallVolume(request.callVolume());
-        entity.setDpia(request.dpia());
-        entity.setDsa(request.dsa());
-        entity.setSecurityContact(request.securityContact().trim());
-        entity.setUseCase(request.useCase().trim());
-        entity.setDeclarationConfirmed(request.declarationConfirmed());
+        entity.setDataRequest(request.dataRequest().trim());
+        entity.setProposedOutputs(request.proposedOutputs().trim());
         return entity;
     }
 

@@ -75,10 +75,6 @@ does.
 **Nothing is issued here.** Client ids, secrets, subscription keys and publisher ids are still
 created by hand offline; the Data Access Panel decides. This records what was asked for.
 
-**`declarationConfirmed` is checked server side.** It is the legal gate on production access, so
-the record has to show the declaration was made and the server has to be what enforced it, not
-the form.
-
 **400, not 404, for a client id that is not yours.** Unknown and someone else's answer the same
 way, so the response never says whose an application is. The reference is minted here and keeps
 the `PCR-` prefix.

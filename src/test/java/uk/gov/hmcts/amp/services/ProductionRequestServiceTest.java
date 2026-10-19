@@ -72,10 +72,10 @@ class ProductionRequestServiceTest {
 
         assertThat(detail.reference()).isEqualTo("PCR-ABCD2345");
         assertThat(detail.organisation()).isEqualTo("Example Legal Ltd");
-        assertThat(detail.useCase()).isEqualTo("Checking hearing schedules.");
+        assertThat(detail.dataRequest()).isEqualTo("Hearing outcomes for listed cases.");
+        assertThat(detail.proposedOutputs()).isEqualTo("A weekly outcomes report.");
         assertThat(detail.applicationName()).isEqualTo("Case Viewer");
         assertThat(detail.clientId()).isEqualTo(CLIENT_ID);
-        assertThat(detail.declarationConfirmed()).isTrue();
     }
 
     @Test
@@ -116,11 +116,8 @@ class ProductionRequestServiceTest {
         request.setOrganisation("Example Legal Ltd");
         request.setGoLiveDate(LocalDate.of(2027, 3, 27));
         request.setCallVolume("low");
-        request.setDpia("yes");
-        request.setDsa("in-place");
-        request.setSecurityContact("security@example.com");
-        request.setUseCase("Checking hearing schedules.");
-        request.setDeclarationConfirmed(true);
+        request.setDataRequest("Hearing outcomes for listed cases.");
+        request.setProposedOutputs("A weekly outcomes report.");
         return request;
     }
 
@@ -144,6 +141,6 @@ class ProductionRequestServiceTest {
 
     private ProductionAccessRequest form() {
         return new ProductionAccessRequest(CLIENT_ID, "Example Legal Ltd", LocalDate.of(2027, 3, 27),
-            "low", "yes", "in-place", "security@example.com", "Checking hearing schedules.", true);
+            "low", "Hearing outcomes for listed cases.", "A weekly outcomes report.");
     }
 }

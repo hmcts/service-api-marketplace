@@ -118,11 +118,24 @@ class ProductionRequestIntegrationTest {
     }
 
     @Test
-    void an_unconfirmed_declaration_should_be_rejected_by_the_server() throws Exception {
+    void missing_data_request_should_be_rejected_by_the_server() throws Exception {
         createApplication(OWNER_OID);
 
         mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
-                .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID).replace("true", "false")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(form(CLIENT_ID).replace("Hearing outcomes for listed cases.", "")))
+            .andExpect(status().isBadRequest());
+
+        assertThat(productionRequests.count()).isZero();
+    }
+
+    @Test
+    void missing_proposed_outputs_should_be_rejected_by_the_server() throws Exception {
+        createApplication(OWNER_OID);
+
+        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(form(CLIENT_ID).replace("A weekly outcomes report.", "")))
             .andExpect(status().isBadRequest());
 
         assertThat(productionRequests.count()).isZero();
@@ -175,11 +188,8 @@ class ProductionRequestIntegrationTest {
             .andExpect(jsonPath("$.organisation").value("Example Legal Ltd"))
             .andExpect(jsonPath("$.goLiveDate").value("2027-03-27"))
             .andExpect(jsonPath("$.callVolume").value("low"))
-            .andExpect(jsonPath("$.dpia").value("yes"))
-            .andExpect(jsonPath("$.dsa").value("in-place"))
-            .andExpect(jsonPath("$.securityContact").value("security@example.com"))
-            .andExpect(jsonPath("$.useCase").value("Checking hearing schedules."))
-            .andExpect(jsonPath("$.declarationConfirmed").value(true));
+            .andExpect(jsonPath("$.dataRequest").value("Hearing outcomes for listed cases."))
+            .andExpect(jsonPath("$.proposedOutputs").value("A weekly outcomes report."));
     }
 
     @Test
@@ -218,9 +228,8 @@ class ProductionRequestIntegrationTest {
     private String form(final String clientId) {
         return """
             {"clientId":"%s","organisation":"Example Legal Ltd","goLiveDate":"2027-03-27",
-             "callVolume":"low","dpia":"yes","dsa":"in-place",
-             "securityContact":"security@example.com","useCase":"Checking hearing schedules.",
-             "declarationConfirmed":true}""".formatted(clientId);
+             "callVolume":"low","dataRequest":"Hearing outcomes for listed cases.",
+             "proposedOutputs":"A weekly outcomes report."}""".formatted(clientId);
     }
 
     private void signIn(final String oid, final String email) throws Exception {

@@ -15,15 +15,14 @@ import java.time.LocalDateTime;
  */
 public record ProductionAccessDetail(String reference, String status, LocalDateTime submittedAt,
                                      String applicationName, String clientId, String organisation,
-                                     LocalDate goLiveDate, String callVolume, String dpia, String dsa,
-                                     String securityContact, String useCase, boolean declarationConfirmed) {
+                                     LocalDate goLiveDate, String callVolume,
+                                     String dataRequest, String proposedOutputs) {
 
     public static ProductionAccessDetail from(final ProductionRequestEntity request) {
         return new ProductionAccessDetail(request.getReference(), request.getStatus(),
             request.getSubmittedAt(), request.getApplicationName(),
             request.getApplication() == null ? null : request.getApplication().getClientId(),
             request.getOrganisation(), request.getGoLiveDate(), request.getCallVolume(),
-            request.getDpia(), request.getDsa(), request.getSecurityContact(), request.getUseCase(),
-            request.isDeclarationConfirmed());
+            request.getDataRequest(), request.getProposedOutputs());
     }
 }

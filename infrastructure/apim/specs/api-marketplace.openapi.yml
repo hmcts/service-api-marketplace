@@ -37,6 +37,8 @@ tags:
     description: Who has signed in, for support and debugging
   - name: applications
     description: Entra application registrations and their APIM subscriptions
+  - name: production-requests
+    description: Requests for production credentials, reviewed offline
   - name: products
     description: The APIs that can be subscribed to
   - name: subscription-keys
@@ -349,6 +351,64 @@ paths:
           $ref: '#/components/responses/NotYours'
         '502':
           $ref: '#/components/responses/UpstreamUnreachable'
+
+  /production-requests:
+    get:
+      summary: List the caller's production credentials requests
+      description: Theirs only, newest first.
+      operationId: listProductionRequests
+      tags: [production-requests]
+      parameters:
+        - $ref: '#/components/parameters/RequestingUserId'
+      responses:
+        '200':
+          description: The caller's requests, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProductionRequest'
+        '404':
+          $ref: '#/components/responses/UnknownUser'
+    post:
+      summary: Request production credentials for an application
+      description: >-
+        Records what was asked for. Nothing is issued here: client ids,
+        secrets, subscription keys and publisher ids are still created by hand
+        offline, and the Data Access Panel decides.
+        declarationConfirmed is checked server side rather than trusted from
+        the form, because it is the legal gate on production access.
+      operationId: createProductionRequest
+      tags: [production-requests]
+      parameters:
+        - $ref: '#/components/parameters/RequestingUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewProductionRequest'
+      responses:
+        '201':
+          description: Recorded, with the reference the caller quotes from here on
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionRequest'
+        '400':
+          description: >-
+            A field is missing or does not meet its rule, the declaration was
+            not confirmed, or the client id is not an application of the
+            caller's. Deliberately 400 rather than 404 for an unknown and
+            someone else's alike, so the answer does not say whose an
+            application is
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/UnknownUser'
 
   /apim/products:
     get:
@@ -717,6 +777,59 @@ components:
                   subscriptionKey:
                     type: string
                     example: c5212ea63015c827b1a0f713fdbf42d6
+
+    NewProductionRequest:
+      type: object
+      required: [clientId, organisation, goLiveDate, callVolume, dpia, dsa, securityContact,
+                 useCase, declarationConfirmed]
+      properties:
+        clientId:
+          type: string
+          description: Which sandbox application is going live. Production covers the same APIs
+          example: 1bf041a2-a57a-4255-b90f-d218736cda1f
+        organisation:
+          type: string
+          maxLength: 255
+          example: Example Legal Ltd
+        goLiveDate:
+          type: string
+          format: date
+          example: '2027-03-27'
+        callVolume:
+          type: string
+          enum: [low, medium, high]
+        dpia:
+          type: string
+          enum: [yes, no]
+          description: Whether a Data Protection Impact Assessment has been done
+        dsa:
+          type: string
+          enum: [in-place, in-progress, not-needed]
+          description: The state of the Data Sharing Agreement
+        securityContact:
+          type: string
+          format: email
+          description: Prefilled with the caller's own address, but editable
+        useCase:
+          type: string
+          maxLength: 1000
+        declarationConfirmed:
+          type: boolean
+          description: Must be true. The declaration that the application was tested in sandbox
+
+    ProductionRequest:
+      type: object
+      properties:
+        reference:
+          type: string
+          description: Minted here, never supplied by the caller
+          example: PCR-7K2MQX4B
+        status:
+          type: string
+          example: SUBMITTED
+        submittedAt:
+          type: string
+          format: date-time
 
     Product:
       type: object

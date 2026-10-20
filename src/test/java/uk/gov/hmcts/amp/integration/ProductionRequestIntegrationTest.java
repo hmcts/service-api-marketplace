@@ -14,6 +14,9 @@ import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.ProductionRequestRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -24,6 +27,10 @@ import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.CLIENT_ID;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubRegistration;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubRegistrationAs;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.wireMockGraph;
+import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.SEND_EMAIL;
+import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.stubAccepted;
+import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.stubRefused;
+import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.wireMockNotify;
 
 /** /production-requests end to end, with Entra standing in. */
 @SpringBootTest(properties = {
@@ -31,9 +38,11 @@ import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.wireMockGraph
     "entra.onboarding-client-secret=a-test-secret",
     "entra.api-client-id=" + API_CLIENT_ID,
     "entra.max-attempts=2",
-    "entra.retry-delay-millis=1"})
+    "entra.retry-delay-millis=1",
+    "notify.api-key=amptest-00000000-0000-0000-0000-000000000000-11111111-1111-1111-1111-111111111111"})
 @AutoConfigureMockMvc
-@ContextConfiguration(initializers = {TestContainersInitialise.class, WireMockGraphInitialise.class})
+@ContextConfiguration(initializers = {TestContainersInitialise.class, WireMockGraphInitialise.class,
+    WireMockNotifyInitialise.class})
 class ProductionRequestIntegrationTest {
 
     private static final String PATH = "/production-requests";
@@ -58,6 +67,8 @@ class ProductionRequestIntegrationTest {
     @BeforeEach
     void startClean() throws Exception {
         wireMockGraph().resetAll();
+        wireMockNotify().resetAll();
+        stubAccepted();
         productionRequests.deleteAll();
         applicationApis.deleteAll();
         applications.deleteAll();
@@ -78,6 +89,32 @@ class ProductionRequestIntegrationTest {
             .andReturn().getResponse().getContentAsString();
 
         assertThat(JsonPath.<String>read(body, "$.reference")).startsWith("PCR-");
+        assertThat(productionRequests.count()).isEqualTo(1);
+    }
+
+    @Test
+    void submitting_should_email_the_requester_with_the_reference_it_minted() throws Exception {
+        createApplication(OWNER_OID);
+
+        String reference = reference(post(PATH).header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
+
+        wireMockNotify().verify(postRequestedFor(urlPathEqualTo(SEND_EMAIL))
+            .withRequestBody(equalToJson("""
+                {"email_address":"ada.lovelace@hmcts.net","reference":"%s",
+                 "personalisation":{"consumer_name":"Ada Lovelace","application_name":"Case Viewer"}}"""
+                .formatted(reference), true, true)));
+    }
+
+    @Test
+    void notify_failing_should_still_leave_the_request_recorded() throws Exception {
+        createApplication(OWNER_OID);
+        stubRefused(400, "email_address Not a valid email address");
+
+        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+                .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)))
+            .andExpect(status().isCreated());
+
         assertThat(productionRequests.count()).isEqualTo(1);
     }
 

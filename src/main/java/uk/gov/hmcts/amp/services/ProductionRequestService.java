@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.domain.ProductionAccessDetail;
 import uk.gov.hmcts.amp.domain.ProductionAccessRequest;
+import uk.gov.hmcts.amp.domain.ProductionAccessRequestEmail;
 import uk.gov.hmcts.amp.domain.ProductionAccessResponse;
 import uk.gov.hmcts.amp.entity.ApplicationEntity;
 import uk.gov.hmcts.amp.entity.ProductionRequestEntity;
@@ -37,6 +38,7 @@ public class ProductionRequestService {
     private final ProductionRequestRepository requests;
     private final ApplicationRepository applications;
     private final UserService users;
+    private final NotifyService notify;
     private final ClockService clockService;
 
     public List<ProductionAccessResponse> list(final String requestingUserId) {
@@ -61,7 +63,28 @@ public class ProductionRequestService {
         final ProductionRequestEntity saved = requests.saveAndFlush(record(user, application, request));
         log.info("Production request {} for application {} by userId {}",
             saved.getReference(), application.getClientId(), user.getId());
+
+        sendEmailToRequestor(user, saved);
         return ProductionAccessResponse.from(saved);
+    }
+
+    /**
+     * Sent after the row is written and its failure swallowed: the request is recorded either way,
+     * and failing the call would invite a retry that submits it twice. Synchronous for now - a
+     * queue is what makes a failed send recoverable rather than only logged.
+     */
+    private void sendEmailToRequestor(final UserEntity user, final ProductionRequestEntity saved) {
+        try {
+            notify.send(new ProductionAccessRequestEmail(user.getEmail(), displayName(user),
+                saved.getApplicationName(), List.of(), saved.getReference()));
+        } catch (final RuntimeException notSent) {
+            log.error("Production request {} was recorded but its email was not sent",
+                saved.getReference(), notSent);
+        }
+    }
+
+    private static String displayName(final UserEntity user) {
+        return (user.getFirstName() + " " + user.getLastName()).trim();
     }
 
     private ProductionRequestEntity record(final UserEntity user, final ApplicationEntity application,

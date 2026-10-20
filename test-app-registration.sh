@@ -18,7 +18,7 @@
 set -euo pipefail
 
 BASE_URL=${BASE_URL:-http://localhost:8080}
-APPLICATIONS=$BASE_URL/applications-new
+APPLICATIONS=$BASE_URL/applications
 SUBSCRIPTION_KEYS=$BASE_URL/apim/subscription-keys
 SESSION=$BASE_URL/session
 # The same object id every run, so the script keeps reusing one marketplace_user row.
@@ -29,9 +29,9 @@ GATEWAY=${APIM_GATEWAY:-https://sps-api-mgmt.sandbox.api.hmcts.net}
 ROLE=${ROLE:-app.read}
 # Named after whoever ran it: killing the script skips the trap, so orphans happen, and an orphan
 # nobody can be traced to is one nobody will delete.
-NAME=${NAME:-api-marketplace-$(whoami)-$(date +%H%M%S)}
+NAME=${NAME:-Test App $(whoami | tr -cd '[:alnum:]') $(date +%H%M%S)}
 CASE_URN=${CASE_URN:-28DI3451856}
-PRODUCT_ID=${PRODUCT_ID:-cp-crime-schedulingandlisting-courtschedule}
+PRODUCT_ID=${PRODUCT_ID:-cp-crime-schedulingandlisting}
 SUBSCRIBED=0
 
 step () { printf '\n\033[1m%s\033[0m\n' "$*"; }
@@ -54,12 +54,12 @@ fi
 USER_REFERENCE=$(jq -r .userReference /tmp/test-app-registration-session)
 # Everything this user owns in Entra and APIM is named from here, and the subscription endpoints
 # read ownership straight off the name rather than out of a table.
-SUBSCRIPTION=${SUBSCRIPTION:-amp-$USER_REFERENCE-$(printf '%s' "$NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')}
 echo "   $USER_REFERENCE, so subscriptions are named amp-$USER_REFERENCE-*"
 
 step "2. Register an application named $NAME (deleted again at the end unless KEEP=1)"
 REG_STATUS=$(curl -s -o /tmp/test-app-registration-reg -w '%{http_code}' -X POST "$APPLICATIONS" \
-  -H 'Content-Type: application/json' -d "{\"name\":\"$NAME\"}")
+  -H "requestingUserId: $REQUESTING_USER_ID" -H 'Content-Type: application/json' \
+  -d "{\"name\":\"$NAME\"}")
 if [ "$REG_STATUS" != "201" ]; then
   die "Registration failed (HTTP $REG_STATUS):
    $(jq -r '.detail // .' /tmp/test-app-registration-reg 2>/dev/null || cat /tmp/test-app-registration-reg)"
@@ -67,8 +67,9 @@ fi
 REGISTRATION=$(cat /tmp/test-app-registration-reg)
 CLIENT_ID=$(jq -r .clientId <<<"$REGISTRATION")
 CLIENT_SECRET=$(jq -r .clientSecret <<<"$REGISTRATION")
-echo "   name     $NAME"
-jq -r '"   clientId \(.clientId)"' <<<"$REGISTRATION"
+APPNAME=$(jq -r .appname <<<"$REGISTRATION")
+SUBSCRIPTION=${SUBSCRIPTION:-amp-$USER_REFERENCE-$APPNAME}
+jq -r '"   clientId \(.clientId), appname \(.appname), secret \(.secretHint)..."' <<<"$REGISTRATION"
 
 cleanup () {
   step "8. Remove the subscription and the application"
@@ -87,7 +88,8 @@ cleanup () {
       && printf '   revoked subscription %s\n' "$SUBSCRIPTION" \
       || printf '   could not revoke subscription %s - remove it by hand\n' "$SUBSCRIPTION"
   fi
-  curl -fsS -o /dev/null -X DELETE "$APPLICATIONS/$CLIENT_ID" 2>/dev/null \
+  curl -fsS -o /dev/null -X DELETE "$APPLICATIONS/$CLIENT_ID" \
+    -H "requestingUserId: $REQUESTING_USER_ID" 2>/dev/null \
     && printf '   deleted %s (%s)\n' "$NAME" "$CLIENT_ID" \
     || printf '   could not delete %s (%s) - remove it by hand\n' "$NAME" "$CLIENT_ID"
   return 0
@@ -129,7 +131,8 @@ GRANT_ATTEMPTS=${GRANT_ATTEMPTS:-8}
 for attempt in $(seq 1 "$GRANT_ATTEMPTS"); do
   GRANT_STATUS=$(curl -s -o /tmp/test-app-registration-grant -w '%{http_code}' -X POST \
     "$APPLICATIONS/$CLIENT_ID/roles" \
-    -H 'Content-Type: application/json' -d "{\"role\":\"$ROLE\"}")
+    -H "requestingUserId: $REQUESTING_USER_ID" -H 'Content-Type: application/json' \
+    -d "{\"role\":\"$ROLE\"}")
   [ "$GRANT_STATUS" = "204" ] && { echo "   granted on attempt $attempt"; break; }
   [ "$attempt" = "$GRANT_ATTEMPTS" ] && die "   Could not grant $ROLE after $GRANT_ATTEMPTS attempts (HTTP $GRANT_STATUS):
    $(jq -r '.detail // .' /tmp/test-app-registration-grant 2>/dev/null || cat /tmp/test-app-registration-grant)"

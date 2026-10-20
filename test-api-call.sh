@@ -24,6 +24,7 @@ GATEWAY=${APIM_GATEWAY:-https://sps-api-mgmt.sandbox.api.hmcts.net}
 ROLE=${ROLE:-app.read}
 CASE_URN=${CASE_URN:-28DI3451856}
 TOKEN_ATTEMPTS=${TOKEN_ATTEMPTS:-10}
+HINT=""
 
 step () { printf '\n\033[1m%s\033[0m\n' "$*"; }
 die  () { printf '\n%s\n' "$*" >&2; exit 1; }
@@ -66,15 +67,21 @@ for attempt in $(seq 1 "$TOKEN_ATTEMPTS"); do
 
   if [ -z "$TOKEN" ]; then
     WAITING_FOR="no token: $(jq -r '.error // "no response"' <<<"$TOKEN_RESPONSE")"
+    HINT=""
   elif claims "$TOKEN" | jq -e --arg r "$ROLE" '.roles // [] | index($r)' >/dev/null; then
     [ "$attempt" -gt 1 ] && echo "   (took $attempt attempts)"
     break
   else
-    WAITING_FOR="token has no $ROLE - the directory has the assignment, the token service does not"
+    WAITING_FOR="token has no $ROLE - either it was never granted, or Entra has not caught up"
+    HINT="
+   A role granted minutes ago takes a while to reach the token service, but one granted long ago
+   will never appear if the grant never happened. Check with:
+     curl -i -X POST $BASE_URL/applications/$CLIENT_ID/roles -H \"requestingUserId: <your oid>\" \\
+       -H 'Content-Type: application/json' -d '{\"role\":\"$ROLE\"}'"
     TOKEN=""
   fi
 
-  [ "$attempt" = "$TOKEN_ATTEMPTS" ] && die "   Gave up after $TOKEN_ATTEMPTS attempts: $WAITING_FOR"
+  [ "$attempt" = "$TOKEN_ATTEMPTS" ] && die "   Gave up after $TOKEN_ATTEMPTS attempts: $WAITING_FOR$HINT"
   echo "   attempt $attempt: $WAITING_FOR"
   sleep 2
 done

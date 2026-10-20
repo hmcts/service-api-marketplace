@@ -29,8 +29,8 @@ class ApplicationControllerTest {
     @InjectMocks
     private ApplicationController controller;
 
-    private final ApplicationResponse response = new ApplicationResponse(1L, CLIENT_ID, "Case Viewer", "case-viewer",
-        "the", LocalDateTime.of(2028, 10, 15, 12, 0), LocalDateTime.of(2026, 10, 15, 12, 0), null);
+    private final ApplicationResponse response = new ApplicationResponse(1L, CLIENT_ID, "a-tenant", "Case Viewer",
+        "case-viewer", "the", LocalDateTime.of(2028, 10, 15, 12, 0), LocalDateTime.of(2026, 10, 15, 12, 0), null);
 
     @Test
     void listing_should_return_what_the_service_found_for_that_user() {

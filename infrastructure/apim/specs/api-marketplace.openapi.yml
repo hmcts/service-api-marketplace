@@ -12,11 +12,11 @@ info:
     every call after /session. The backend takes that at face value and holds
     no session of its own.
 
-    /apim/subscription-keys manages APIM subscriptions directly, independently
-    of any application. A subscription belongs to whoever created it: the name
-    has to start with that person's prefix, amp-user001- say, and the instance
-    is shared with SPS, so listing shows only their own and naming someone
-    else's reads as though it is not there.
+    /apim/subscription-keys is where subscriptions are created, read and
+    revoked. A subscription belongs to whoever created it: the name carries
+    that person's prefix, amp-user001- say, and the instance is shared with
+    SPS, so listing shows only their own and naming someone else's reads as
+    though it is not there.
   version: 1.0.0
   contact:
     email: no-reply@hmcts.com
@@ -42,7 +42,7 @@ tags:
   - name: products
     description: The API catalogue, keyed by short code
   - name: subscription-keys
-    description: APIM subscription keys, managed directly
+    description: APIM subscriptions, created against an application and revoked
 
 paths:
   /:
@@ -460,14 +460,20 @@ paths:
         '502':
           $ref: '#/components/responses/UpstreamUnreachable'
     post:
-      summary: Create a subscription key
+      summary: Subscribe an application to one API
       description: >-
-        Scoped to one product. The name must start with the caller's prefix,
-        which is what makes the subscription theirs, and has to be unique
-        across an instance shared with SPS. The name is checked first and a
-        clash answers 409: Azure's own call is a PUT and would silently
-        re-point an existing subscription at a different product, reporting it
-        as created.
+        One API per call, so a UI looping over several can show progress and
+        report the ones that failed. The short code resolves to a product
+        through the catalogue, the subscription is named
+        amp-userNNN-<appname>-<shortCode>, and the row recording it against
+        the application is written here. The key is in this response and
+        nowhere else; reading it back is a call to APIM.
+
+        The name is derived rather than supplied, so it always carries the
+        caller's own prefix and is unique on an instance shared with SPS. A
+        second subscribe to the same API answers 409: Azure's own call is a
+        PUT and would silently re-point the existing subscription, reporting
+        it as created.
       operationId: createSubscriptionKey
       tags: [subscription-keys]
       parameters:
@@ -478,35 +484,31 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name, productId, displayName]
+              required: [clientId, shortCode]
               properties:
-                name:
+                clientId:
                   type: string
-                  description: >-
-                    Azure's rule: lower case letters, digits and hyphens, 2 to
-                    80 characters, not starting or ending with a hyphen. Must
-                    begin with the caller's own prefix
-                  pattern: '^[a-z0-9][a-z0-9-]{0,78}[a-z0-9]$'
-                  example: amp-user001-case-viewer-slc
-                productId:
+                  example: 2f3b8c1a-5d47-4e92-8b6f-1c0a7e49d3b2
+                shortCode:
                   type: string
-                  example: cp-crime-schedulingandlisting-courtschedule
-                displayName:
-                  type: string
-                  example: Case Viewer
+                  example: slc
       responses:
         '201':
-          description: Created, with both key values
+          description: Subscribed, with the key
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SubscriptionKey'
+                $ref: '#/components/schemas/ApiSubscription'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: No API with that short code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          $ref: '#/components/responses/UnknownUser'
+          $ref: '#/components/responses/NotYours'
         '409':
-          description: A subscription of that name already exists
+          description: Already subscribed to that API
           content:
             application/json:
               schema:
@@ -552,10 +554,11 @@ paths:
     delete:
       summary: Revoke a subscription
       description: >-
-        Both keys stop working immediately. Deliberately not idempotent: Azure
-        answers a delete of something absent with success, which on a shared
-        instance leaves you unable to tell a key you revoked from one that was
-        never there.
+        Both keys stop working immediately, and the row recording the API
+        against the application goes with them. Deliberately not idempotent:
+        Azure answers a delete of something absent with success, which on a
+        shared instance leaves you unable to tell a key you revoked from one
+        that was never there.
       operationId: deleteSubscriptionKey
       tags: [subscription-keys]
       parameters:
@@ -746,7 +749,7 @@ components:
         productId:
           type: string
           description: Shown as Publisher ID
-          example: cp-crime-schedulingandlisting-courtschedule
+          example: cp-crime-schedulingandlisting
         subscriptionName:
           type: string
           example: amp-user001-case-viewer-slc
@@ -857,6 +860,25 @@ components:
             only app.read and slc.read today, so nothing grants these yet
           example: slc.read
 
+    ApiSubscription:
+      type: object
+      properties:
+        shortCode:
+          type: string
+          example: slc
+        title:
+          type: string
+          example: Scheduling and Listing Court Schedule
+        productId:
+          type: string
+          example: cp-crime-schedulingandlisting
+        subscriptionName:
+          type: string
+          example: amp-user001-case-viewer-slc
+        subscriptionKey:
+          type: string
+          description: Returned here and nowhere else; read it back from APIM
+
     SubscriptionKey:
       type: object
       properties:
@@ -875,13 +897,13 @@ components:
           description: >-
             Lifted out of scope. Absent where the subscription covers the whole
             service rather than one product
-          example: cp-crime-schedulingandlisting-courtschedule
+          example: cp-crime-schedulingandlisting
         state:
           type: string
           example: active
         primaryKey:
           type: string
-          description: Present only on create and on the values call
+          description: Present only on the values call
         secondaryKey:
           type: string
           description: For rotation without downtime

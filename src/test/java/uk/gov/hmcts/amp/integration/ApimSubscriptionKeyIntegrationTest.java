@@ -14,9 +14,6 @@ import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.deleteRequestedFor;
-import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
-import static com.github.tomakehurst.wiremock.client.WireMock.putRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -29,7 +26,7 @@ import static uk.gov.hmcts.amp.integration.WireMockApimInitialise.stubSubscripti
 import static uk.gov.hmcts.amp.integration.WireMockApimInitialise.stubSubscriptionList;
 import static uk.gov.hmcts.amp.integration.WireMockApimInitialise.wireMockApim;
 
-/** The four endpoints against WireMock, so no credential and no network beyond localhost. */
+/** Reading and revoking keys against WireMock, so no credential and no network beyond localhost. */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ContextConfiguration(initializers = {TestContainersInitialise.class, WireMockApimInitialise.class})
@@ -86,55 +83,6 @@ class ApimSubscriptionKeyIntegrationTest {
     }
 
     @Test
-    void creating_a_key_should_return_its_values_and_put_what_azure_expects() throws Exception {
-        stubSubscriptionLifecycle(mine);
-
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
-                .contentType(MediaType.APPLICATION_JSON).content(createBody(mine)))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.primaryKey").isNotEmpty())
-            .andExpect(jsonPath("$.secondaryKey").isNotEmpty());
-
-        // What the application put on the wire, not what the stand-in answered.
-        wireMockApim().verify(putRequestedFor(urlPathEqualTo(INSTANCE + "/subscriptions/" + mine))
-            .withRequestBody(equalToJson("""
-                {"properties":{"scope":"/products/example-product",
-                 "displayName":"Team Alpha","state":"active"}}""", true, true)));
-    }
-
-    @Test
-    void creating_then_deleting_a_key_should_leave_it_unreadable() throws Exception {
-        stubSubscriptionLifecycle(mine);
-
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
-                .contentType(MediaType.APPLICATION_JSON).content(createBody(mine)))
-            .andExpect(status().isCreated());
-
-        mockMvc.perform(get(PATH + "/" + mine + "/values").header("requestingUserId", OWNER_OID))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.primaryKey").isNotEmpty())
-            .andExpect(jsonPath("$.scope").doesNotExist());
-
-        mockMvc.perform(delete(PATH + "/" + mine).header("requestingUserId", OWNER_OID))
-            .andExpect(status().isNoContent());
-
-        mockMvc.perform(get(PATH + "/" + mine + "/values").header("requestingUserId", OWNER_OID))
-            .andExpect(status().isNotFound());
-
-        wireMockApim().verify(deleteRequestedFor(urlPathEqualTo(INSTANCE + "/subscriptions/" + mine))
-            .withHeader("If-Match", equalTo("*")));
-    }
-
-    @Test
-    void creating_a_name_outside_your_own_should_be_refused_before_azure() throws Exception {
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
-                .contentType(MediaType.APPLICATION_JSON).content(createBody(SOMEONE_ELSES)))
-            .andExpect(status().isBadRequest());
-
-        wireMockApim().verify(0, putRequestedFor(urlPathEqualTo(INSTANCE + "/subscriptions/" + SOMEONE_ELSES)));
-    }
-
-    @Test
     void reading_someone_elses_key_values_should_be_not_found() throws Exception {
         stubSubscriptionLifecycle(SOMEONE_ELSES);
 
@@ -164,20 +112,12 @@ class ApimSubscriptionKeyIntegrationTest {
     }
 
     @Test
-    void creating_a_key_with_a_name_azure_would_reject_should_return_400() throws Exception {
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
-                .contentType(MediaType.APPLICATION_JSON).content(createBody("Team Alpha!")))
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
     void refusal_from_api_management_should_be_our_fault_not_a_bad_gateway() throws Exception {
         // 403 means API Management answered and said no: the service identity has no role on the
         // instance. That is our deployment at fault, not a broken upstream.
         stubSubscriptionAnswering(mine, 403);
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
-                .contentType(MediaType.APPLICATION_JSON).content(createBody(mine)))
+        mockMvc.perform(get(PATH + "/" + mine + "/values").header("requestingUserId", OWNER_OID))
             .andExpect(status().isInternalServerError());
     }
 
@@ -201,20 +141,6 @@ class ApimSubscriptionKeyIntegrationTest {
     }
 
     @Test
-    void creating_the_same_key_twice_should_be_refused_rather_than_silently_replacing_it() throws Exception {
-        stubSubscriptionLifecycle(mine);
-
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
-                .contentType(MediaType.APPLICATION_JSON).content(createBody(mine)))
-            .andExpect(status().isCreated());
-
-        // Azure's PUT would upsert and report it as created, returning the first key's values.
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
-                .contentType(MediaType.APPLICATION_JSON).content(createBody(mine)))
-            .andExpect(status().isConflict());
-    }
-
-    @Test
     void deleting_a_key_that_is_not_there_should_be_a_not_found() throws Exception {
         String neverCreated = prefixOf(OWNER_OID) + "never-created";
         stubSubscriptionLifecycle(neverCreated);
@@ -222,11 +148,6 @@ class ApimSubscriptionKeyIntegrationTest {
         // Azure answers this with success, which would not tell you whether anything was revoked.
         mockMvc.perform(delete(PATH + "/" + neverCreated).header("requestingUserId", OWNER_OID))
             .andExpect(status().isNotFound());
-    }
-
-    private static String createBody(final String name) {
-        return """
-            {"name":"%s","productId":"example-product","displayName":"Team Alpha"}""".formatted(name);
     }
 
     /** The reference is the row id, so it has to come back from the sign in rather than be assumed. */

@@ -6,11 +6,17 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.domain.AppRegistration;
+import uk.gov.hmcts.amp.domain.ApiSubscriptionResponse;
 import uk.gov.hmcts.amp.domain.ApplicationResponse;
+import uk.gov.hmcts.amp.domain.SubscriptionKey;
 import uk.gov.hmcts.amp.domain.ApplicationRequest;
+import uk.gov.hmcts.amp.entity.ApplicationApiEntity;
 import uk.gov.hmcts.amp.entity.ApplicationEntity;
+import uk.gov.hmcts.amp.entity.MarketplaceApiEntity;
 import uk.gov.hmcts.amp.entity.UserEntity;
+import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
+import uk.gov.hmcts.amp.repository.MarketplaceApiRepository;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -30,6 +36,9 @@ public class ApplicationService {
     private final ApplicationRepository applications;
     private final UserService users;
     private final EntraAppRegistrationService registrations;
+    private final ApplicationApiRepository applicationApis;
+    private final MarketplaceApiRepository apis;
+    private final ApimSubscriptionKeyService subscriptionKeys;
     private final ClockService clockService;
 
     public List<ApplicationResponse> list(final String requestingUserId) {
@@ -64,6 +73,30 @@ public class ApplicationService {
             removeOrphan(registered, couldNotSave);
             throw couldNotSave;
         }
+    }
+
+    public ApiSubscriptionResponse subscribe(final String requestingUserId, final String clientId,
+                                             final String shortCode) {
+        final UserEntity user = users.requireSignedIn(requestingUserId);
+        final ApplicationEntity application = requireOwned(user, clientId);
+        final MarketplaceApiEntity api = requireKnownApi(shortCode);
+        requireNotAlreadySubscribed(application, api);
+
+        final String name = UserService.namePrefix(user) + application.getAppname()
+            + "-" + api.getShortCode();
+        final SubscriptionKey created = subscriptionKeys.create(requestingUserId, name,
+            api.getProductId(), application.getName());
+
+        record(application, api, name, created.primaryKey());
+        log.info("Subscribed application {} to {} as {}", clientId, api.getShortCode(), name);
+        return new ApiSubscriptionResponse(api.getShortCode(), api.getTitle(), api.getProductId(),
+            name, created.primaryKey());
+    }
+
+    /** The subscription is gone from APIM, so the row claiming the application has it must go too. */
+    public void forgetApi(final String subscriptionName) {
+        applicationApis.findBySubscriptionName(subscriptionName)
+            .ifPresent(applicationApis::delete);
     }
 
     public void grantRole(final String requestingUserId, final String clientId, final String role) {
@@ -113,6 +146,32 @@ public class ApplicationService {
             .filter(application -> application.getUser().getId().equals(user.getId()))
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                 "No application with client id " + clientId + "."));
+    }
+
+    private void record(final ApplicationEntity application, final MarketplaceApiEntity api,
+                        final String subscriptionName, final String key) {
+        final ApplicationApiEntity row = new ApplicationApiEntity();
+        row.setApplication(application);
+        row.setShortCode(api.getShortCode());
+        row.setProductId(api.getProductId());
+        row.setSubscriptionName(subscriptionName);
+        row.setKeyHint(hint(key));
+        row.setSubscribedAt(LocalDateTime.ofInstant(clockService.now(), ZoneOffset.UTC));
+        applicationApis.saveAndFlush(row);
+    }
+
+    private MarketplaceApiEntity requireKnownApi(final String shortCode) {
+        return apis.findById(shortCode)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "No API with short code " + shortCode + "."));
+    }
+
+    private void requireNotAlreadySubscribed(final ApplicationEntity application,
+                                             final MarketplaceApiEntity api) {
+        if (applicationApis.existsByApplicationIdAndShortCode(application.getId(), api.getShortCode())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                application.getName() + " is already subscribed to " + api.getShortCode() + ".");
+        }
     }
 
     private static String hint(final String secret) {

@@ -13,9 +13,11 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import uk.gov.hmcts.amp.domain.NewSubscriptionKey;
+import uk.gov.hmcts.amp.domain.ApiSubscriptionRequest;
+import uk.gov.hmcts.amp.domain.ApiSubscriptionResponse;
 import uk.gov.hmcts.amp.domain.SubscriptionKey;
 import uk.gov.hmcts.amp.services.ApimSubscriptionKeyService;
+import uk.gov.hmcts.amp.services.ApplicationService;
 
 import java.util.List;
 
@@ -28,6 +30,7 @@ public class SubscriptionKeyController {
     private static final String REQUESTING_USER_ID = "requestingUserId";
 
     private final ApimSubscriptionKeyService subscriptionKeys;
+    private final ApplicationService applications;
 
     @GetMapping
     public List<SubscriptionKey> listKeys(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId) {
@@ -37,11 +40,10 @@ public class SubscriptionKeyController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public SubscriptionKey createKey(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId,
-                                     @Valid @RequestBody final NewSubscriptionKey request) {
-        log.info("Create APIM subscription key {}", request.name());
-        return subscriptionKeys.create(requestingUserId, request.name(), request.productId(),
-            request.displayName());
+    public ApiSubscriptionResponse createKey(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId,
+                                             @Valid @RequestBody final ApiSubscriptionRequest request) {
+        log.info("Subscribe application {} to {}", request.clientId(), request.shortCode());
+        return applications.subscribe(requestingUserId, request.clientId(), request.shortCode());
     }
 
     @GetMapping("/{name}/values")
@@ -57,5 +59,6 @@ public class SubscriptionKeyController {
                           @PathVariable final String name) {
         log.info("Delete APIM subscription key {}", name);
         subscriptionKeys.delete(requestingUserId, name);
+        applications.forgetApi(name);
     }
 }

@@ -9,19 +9,27 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.domain.ProductionAccessDetail;
 import uk.gov.hmcts.amp.domain.ProductionAccessRequest;
+import uk.gov.hmcts.amp.domain.ProductionAccessRequestEmail;
+import uk.gov.hmcts.amp.entity.ApplicationApiEntity;
 import uk.gov.hmcts.amp.entity.ApplicationEntity;
+import uk.gov.hmcts.amp.entity.MarketplaceApiEntity;
 import uk.gov.hmcts.amp.entity.ProductionRequestEntity;
 import uk.gov.hmcts.amp.entity.UserEntity;
+import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
+import uk.gov.hmcts.amp.repository.MarketplaceApiRepository;
 import uk.gov.hmcts.amp.repository.ProductionRequestRepository;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,6 +48,15 @@ class ProductionRequestServiceTest {
 
     @Mock
     private UserService users;
+
+    @Mock
+    private ApplicationApiRepository applicationApis;
+
+    @Mock
+    private MarketplaceApiRepository apis;
+
+    @Mock
+    private NotifyService notify;
 
     @Mock
     private ClockService clockService;
@@ -103,6 +120,55 @@ class ProductionRequestServiceTest {
 
         assertThat(detail.clientId()).isNull();
         assertThat(detail.applicationName()).isEqualTo("Case Viewer");
+    }
+
+    @Test
+    void the_email_should_list_the_apis_the_application_is_subscribed_to() {
+        UserEntity user = signedIn();
+        givenRequestWillBeRecorded(user);
+        when(apis.findAll()).thenReturn(List.of(api("slc", "Scheduling and Listing Court Schedule"),
+            api("rcc", "Refdata Court Hearing Courthouses")));
+        when(applicationApis.findByApplicationId(10L))
+            .thenReturn(List.of(subscription("slc"), subscription("rcc")));
+
+        service.create(OID, form());
+
+        verify(notify).send(argThat(email -> ((ProductionAccessRequestEmail) email).getApis()
+            .equals(List.of("Refdata Court Hearing Courthouses",
+                "Scheduling and Listing Court Schedule"))));
+    }
+
+    @Test
+    void subscription_to_an_api_we_cannot_name_should_still_appear() {
+        UserEntity user = signedIn();
+        givenRequestWillBeRecorded(user);
+        when(apis.findAll()).thenReturn(List.of());
+        when(applicationApis.findByApplicationId(10L)).thenReturn(List.of(subscription("slc")));
+
+        service.create(OID, form());
+
+        verify(notify).send(argThat(email ->
+            ((ProductionAccessRequestEmail) email).getApis().equals(List.of("slc"))));
+    }
+
+    private void givenRequestWillBeRecorded(final UserEntity user) {
+        when(users.requireSignedIn(OID)).thenReturn(user);
+        when(applications.findByClientId(CLIENT_ID)).thenReturn(Optional.of(owned(user)));
+        when(clockService.now()).thenReturn(Instant.parse("2026-10-20T11:00:00Z"));
+        when(requests.saveAndFlush(any())).thenAnswer(saved -> saved.getArgument(0));
+    }
+
+    private static MarketplaceApiEntity api(final String shortCode, final String title) {
+        MarketplaceApiEntity entity = new MarketplaceApiEntity();
+        entity.setShortCode(shortCode);
+        entity.setTitle(title);
+        return entity;
+    }
+
+    private static ApplicationApiEntity subscription(final String shortCode) {
+        ApplicationApiEntity entity = new ApplicationApiEntity();
+        entity.setShortCode(shortCode);
+        return entity;
     }
 
     private ProductionRequestEntity stored(final UserEntity user) {

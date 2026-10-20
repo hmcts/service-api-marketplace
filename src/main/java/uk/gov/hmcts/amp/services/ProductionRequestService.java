@@ -10,15 +10,20 @@ import uk.gov.hmcts.amp.domain.ProductionAccessRequest;
 import uk.gov.hmcts.amp.domain.ProductionAccessRequestEmail;
 import uk.gov.hmcts.amp.domain.ProductionAccessResponse;
 import uk.gov.hmcts.amp.entity.ApplicationEntity;
+import uk.gov.hmcts.amp.entity.MarketplaceApiEntity;
 import uk.gov.hmcts.amp.entity.ProductionRequestEntity;
 import uk.gov.hmcts.amp.entity.UserEntity;
+import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
+import uk.gov.hmcts.amp.repository.MarketplaceApiRepository;
 import uk.gov.hmcts.amp.repository.ProductionRequestRepository;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Requests for production credentials. Nothing here issues anything: client ids, secrets and
@@ -37,6 +42,8 @@ public class ProductionRequestService {
 
     private final ProductionRequestRepository requests;
     private final ApplicationRepository applications;
+    private final ApplicationApiRepository applicationApis;
+    private final MarketplaceApiRepository apis;
     private final UserService users;
     private final NotifyService notify;
     private final ClockService clockService;
@@ -64,7 +71,7 @@ public class ProductionRequestService {
         log.info("Production request {} for application {} by userId {}",
             saved.getReference(), application.getClientId(), user.getId());
 
-        sendEmailToRequestor(user, saved);
+        sendEmailToRequestor(user, saved, subscribedApis(application));
         return ProductionAccessResponse.from(saved);
     }
 
@@ -73,14 +80,25 @@ public class ProductionRequestService {
      * and failing the call would invite a retry that submits it twice. Synchronous for now - a
      * queue is what makes a failed send recoverable rather than only logged.
      */
-    private void sendEmailToRequestor(final UserEntity user, final ProductionRequestEntity saved) {
+    private void sendEmailToRequestor(final UserEntity user, final ProductionRequestEntity saved,
+                                      final List<String> subscribed) {
         try {
             notify.send(new ProductionAccessRequestEmail(user.getEmail(), displayName(user),
-                saved.getApplicationName(), List.of(), saved.getReference()));
+                saved.getApplicationName(), subscribed, saved.getReference()));
         } catch (final RuntimeException notSent) {
             log.error("Production request {} was recorded but its email was not sent",
                 saved.getReference(), notSent);
         }
+    }
+
+    private List<String> subscribedApis(final ApplicationEntity application) {
+        final Map<String, String> titles = apis.findAll().stream()
+            .collect(Collectors.toMap(MarketplaceApiEntity::getShortCode, MarketplaceApiEntity::getTitle));
+        return applicationApis.findByApplicationId(application.getId()).stream()
+            .map(subscribed -> titles.getOrDefault(subscribed.getShortCode(), subscribed.getShortCode()))
+            .distinct()
+            .sorted()
+            .toList();
     }
 
     private static String displayName(final UserEntity user) {

@@ -79,23 +79,47 @@ created by hand offline; the Data Access Panel decides. This records what was as
 way, so the response never says whose an application is. The reference is minted here and keeps
 the `PCR-` prefix.
 
-## APIM
-
-`requestingUserId` as well. A subscription belongs to whoever created it, and ownership is carried
-by the name rather than a row of ours: it has to start with the caller's prefix, `amp-user001-`.
-Listing shows only their own, and naming someone else's reads as 404 rather than 403 - the instance
-is shared with SPS, and a 403 would confirm the subscription exists.
+## The API catalogue
 
 | Method | Path | Returns | |
 |---|---|---|---|
-| GET | `/apim/products` | 200 502 | What the create form offers |
-| GET | `/apim/subscription-keys` | 200 500 502 | Never key values |
-| POST | `/apim/subscription-keys` | 201 400 409 500 502 | |
-| GET | `/apim/subscription-keys/{name}/values` | 200 404 500 502 | |
-| DELETE | `/apim/subscription-keys/{name}` | 204 404 500 502 | |
+| GET | `/products` | 200 | One entry per API, by short code |
 
-**Create answers 409 on a clash.** Azure's own call is a PUT: it would silently re-point an existing
-subscription at a different product and report it as created.
+**No `requestingUserId`** — reference data with nothing of anyone's in it, and the web needs it to
+render a picker.
+
+**The short code is the key.** It is the APIM path segment after `amp/`, the bracketed suffix on
+every APIM display name, and the last segment of a subscription name. `title`, `catalogueName`,
+`productId`, `tryItNowProductId`, `gatewayPath` and `role` all hang off it.
+
+**`productId` is held, not derived.** Stripping `api-` from the catalogue name gives the right
+product for only half the catalogue - `slc`, `hrds` and `rcc` all disagree with it, and a wrong
+product id is an APIM *Product not found* that surfaces as a 502 about an unreachable upstream.
+
+Seeded with `slc` and `rcc`; the rest go in as each is confirmed against the instance.
+
+## APIM
+
+`requestingUserId` as well. A subscription belongs to whoever created it, and ownership is carried
+by the name rather than a row of ours: it starts with the caller's prefix, `amp-user001-`. Listing
+shows only their own, and naming someone else's reads as 404 rather than 403 - the instance is
+shared with SPS, and a 403 would confirm the subscription exists.
+
+Creating takes a `clientId` and a short code, one API per call so a UI looping over several can
+show progress and report the ones that failed. The name is derived as
+`amp-userNNN-<appname>-<shortCode>` rather than supplied, which is what keeps it inside the
+caller's prefix, and the product comes from the catalogue. Revoking is the same endpoint in
+reverse: the subscription goes from APIM and the row claiming the application has it goes too.
+
+| Method | Path | Returns | |
+|---|---|---|---|
+| GET | `/apim/subscription-keys` | 200 500 502 | Never key values |
+| POST | `/apim/subscription-keys` | 201 400 404 409 500 502 | Subscribes one application to one API |
+| GET | `/apim/subscription-keys/{name}/values` | 200 404 500 502 | |
+| DELETE | `/apim/subscription-keys/{name}` | 204 404 500 502 | Takes the `application_api` row with it |
+
+**Subscribing twice answers 409.** Azure's own call is a PUT: it would silently re-point an
+existing subscription at a different product and report it as created.
 
 **Delete is deliberately not idempotent.** Azure answers a delete of something absent with success,
 which on an instance shared with the SPS team leaves you unable to tell a key you revoked from one
@@ -122,5 +146,5 @@ means try again.
 
 - `/applications` and `/session` are the design. Today the same work is reachable at
   `/applications-new` and `PUT /users/entra/{entraObjectId}`, which go when these land.
-- `/apim/products` was removed with the legacy endpoints and needs restoring; without it there is no
-  way to discover a `productId`, which creating a subscription key requires.
+- Nothing writes `application_api`, so there is no record of which APIs an application has
+  subscribed to. The subscription name is the only link today.

@@ -16,18 +16,18 @@ class NotifyConfigTest {
 
     @Test
     void an_api_key_should_give_a_client_pointed_at_the_configured_notify() {
-        assertThat(config.notificationClient(new NotifyProperties(KEY, "https://notify.example")))
+        assertThat(config.notificationClient(new NotifyProperties(KEY, "https://notify.example", null)))
             .isInstanceOf(NotificationClient.class);
     }
 
     @Test
     void no_key_should_give_no_client_rather_than_stopping_the_application() {
-        assertThat(config.notificationClient(new NotifyProperties("", "https://notify.example")))
+        assertThat(config.notificationClient(new NotifyProperties("", "https://notify.example", null)))
             .isNull();
     }
 
     @Test
     void null_key_should_be_treated_the_same_as_a_blank_one() {
-        assertThat(new NotifyProperties(null, "https://notify.example").configured()).isFalse();
+        assertThat(new NotifyProperties(null, "https://notify.example", null).configured()).isFalse();
     }
 }

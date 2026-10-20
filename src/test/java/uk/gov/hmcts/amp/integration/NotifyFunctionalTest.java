@@ -4,9 +4,12 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import uk.gov.hmcts.amp.domain.ProductionAccessRequestEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionAccessRequestEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionAccessReviewEmail;
 import uk.gov.hmcts.amp.services.NotifyService;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -48,6 +51,24 @@ class NotifyFunctionalTest {
             TEST_EMAIL, "Functional Test",
             "Case Viewer",
             List.of("Scheduling and Listing Court Schedule", "Refdata Court Hearing Courthouses"),
+            "PCR-FUNCTEST"
+        );
+        notifyService.send(template);
+    }
+
+    @Test
+    void notify_should_accept_the_review_template_and_its_personalisation() {
+        ProductionAccessReviewEmail template = new ProductionAccessReviewEmail(
+            TEST_EMAIL,
+            "Case Viewer",
+            LocalDateTime.of(2026, 10, 20, 14, 30),
+            "Functional Test",
+            "Example Legal Ltd",
+            LocalDate.of(2027, 3, 27),
+            "Fewer than 1,000 calls a day",
+            List.of("Scheduling and Listing Court Schedule", "Refdata Court Hearing Courthouses"),
+            "Hearing outcomes for listed cases, to populate a case tracker.",
+            "A weekly outcomes report shared with the instructing solicitor.",
             "PCR-FUNCTEST"
         );
         notifyService.send(template);

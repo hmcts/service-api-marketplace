@@ -1,7 +1,8 @@
-package uk.gov.hmcts.amp.domain;
+package uk.gov.hmcts.amp.notify.templates;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import uk.gov.hmcts.amp.domain.NotifyEmail;
 
 import java.util.List;
 import java.util.Map;

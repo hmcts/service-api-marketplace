@@ -7,7 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.domain.ProductionAccessDetail;
 import uk.gov.hmcts.amp.domain.ProductionAccessRequest;
-import uk.gov.hmcts.amp.domain.ProductionAccessRequestEmail;
+import uk.gov.hmcts.amp.config.NotifyProperties;
+import uk.gov.hmcts.amp.mappers.NotifyMapper;
 import uk.gov.hmcts.amp.domain.ProductionAccessResponse;
 import uk.gov.hmcts.amp.entity.ApplicationEntity;
 import uk.gov.hmcts.amp.entity.MarketplaceApiEntity;
@@ -46,6 +47,8 @@ public class ProductionRequestService {
     private final MarketplaceApiRepository apis;
     private final UserService users;
     private final NotifyService notify;
+    private final NotifyProperties notifyProperties;
+    private final NotifyMapper notifyMapper;
     private final ClockService clockService;
 
     public List<ProductionAccessResponse> list(final String requestingUserId) {
@@ -71,7 +74,9 @@ public class ProductionRequestService {
         log.info("Production request {} for application {} by userId {}",
             saved.getReference(), application.getClientId(), user.getId());
 
-        sendEmailToRequestor(user, saved, subscribedApis(application));
+        final List<String> subscribed = subscribedApis(application);
+        sendEmailToRequestor(user, saved, subscribed);
+        sendEmailToReviewers(user, saved, subscribed);
         return ProductionAccessResponse.from(saved);
     }
 
@@ -83,8 +88,7 @@ public class ProductionRequestService {
     private void sendEmailToRequestor(final UserEntity user, final ProductionRequestEntity saved,
                                       final List<String> subscribed) {
         try {
-            notify.send(new ProductionAccessRequestEmail(user.getEmail(), displayName(user),
-                saved.getApplicationName(), subscribed, saved.getReference()));
+            notify.send(notifyMapper.toRequesterEmail(saved, user, subscribed));
         } catch (final RuntimeException notSent) {
             log.error("Production request {} was recorded but its email was not sent",
                 saved.getReference(), notSent);
@@ -101,8 +105,24 @@ public class ProductionRequestService {
             .toList();
     }
 
-    private static String displayName(final UserEntity user) {
-        return (user.getFirstName() + " " + user.getLastName()).trim();
+    /**
+     * The panel, the asset owner and the marketplace team share one inbox and discuss the request
+     * on the thread, so this is one email rather than three. The requester is not copied.
+     */
+    private void sendEmailToReviewers(final UserEntity user, final ProductionRequestEntity saved,
+                                      final List<String> subscribed) {
+        if (!notifyProperties.hasReviewInbox()) {
+            log.info("Production request {} was recorded; no review inbox is configured",
+                saved.getReference());
+            return;
+        }
+        try {
+            notify.send(notifyMapper.toReviewEmail(saved, user, subscribed,
+                notifyProperties.reviewInbox()));
+        } catch (final RuntimeException notSent) {
+            log.error("Production request {} was recorded but the review email was not sent",
+                saved.getReference(), notSent);
+        }
     }
 
     private ProductionRequestEntity record(final UserEntity user, final ApplicationEntity application,

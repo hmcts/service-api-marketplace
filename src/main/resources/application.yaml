@@ -51,9 +51,9 @@ notify:
   # disables sending rather than stopping the pod - AAT has no key yet.
   api-key: ${NOTIFY_API_KEY:}
   base-url: ${NOTIFY_BASE_URL:https://api.notifications.service.gov.uk}
-  # Where the Data Access Panel, the IAO and the Marketplace team read requests. Blank skips that
-  # email rather than failing the request, the same as a missing key.
-  review-inbox: ${NOTIFY_REVIEW_INBOX:}
+  # Who reviews a production request. Notify has no CC, so each address is its own send and its
+  # own thread. Empty skips that email rather than failing the request, the same as a missing key.
+  review-inboxes: ${NOTIFY_REVIEW_INBOXES:APIMarketplace@hmcts.net}
 
 entra:
   max-attempts: ${ENTRA_MAX_ATTEMPTS:20}

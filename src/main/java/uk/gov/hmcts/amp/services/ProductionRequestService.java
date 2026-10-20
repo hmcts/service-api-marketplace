@@ -106,23 +106,27 @@ public class ProductionRequestService {
     }
 
     /**
-     * The panel, the asset owner and the marketplace team share one inbox and discuss the request
-     * on the thread, so this is one email rather than three. The requester is not copied.
+     * The panel, the asset owner and the marketplace team each get their own copy: Notify has no
+     * CC, so one send per reviewer is the only way to reach all three. The requester is not
+     * copied. One address failing must not cost the others their email, so each is sent on its
+     * own and reported on its own.
      */
     private void sendEmailToReviewers(final UserEntity user, final ProductionRequestEntity saved,
                                       final List<String> subscribed) {
-        if (!notifyProperties.hasReviewInbox()) {
-            log.info("Production request {} was recorded; no review inbox is configured",
+        final List<String> reviewers = notifyProperties.reviewers();
+        if (reviewers.isEmpty()) {
+            log.info("Production request {} was recorded; no reviewers are configured",
                 saved.getReference());
             return;
         }
-        try {
-            notify.send(notifyMapper.toReviewEmail(saved, user, subscribed,
-                notifyProperties.reviewInbox()));
-        } catch (final RuntimeException notSent) {
-            log.error("Production request {} was recorded but the review email was not sent",
-                saved.getReference(), notSent);
-        }
+        reviewers.forEach(reviewer -> {
+            try {
+                notify.send(notifyMapper.toReviewEmail(saved, user, subscribed, reviewer));
+            } catch (final RuntimeException notSent) {
+                log.error("Production request {} was recorded but a review email was not sent",
+                    saved.getReference(), notSent);
+            }
+        });
     }
 
     private ProductionRequestEntity record(final UserEntity user, final ApplicationEntity application,

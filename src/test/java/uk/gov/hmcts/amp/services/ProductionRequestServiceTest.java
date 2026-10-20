@@ -43,7 +43,8 @@ class ProductionRequestServiceTest {
 
     private static final String OID = "aaaaaaaa-1111-2222-3333-444444444444";
     private static final String CLIENT_ID = "22222222-2222-2222-2222-222222222222";
-    private static final String REVIEW_INBOX = "api-marketplace-panel@hmcts.net";
+    private static final List<String> REVIEWERS =
+        List.of("panel@justice.gov.uk", "owner@justice.gov.uk", "team@hmcts.net");
 
     @Mock
     private ProductionRequestRepository requests;
@@ -168,15 +169,16 @@ class ProductionRequestServiceTest {
         service.create(OID, form());
 
         verify(notifyMapper).toRequesterEmail(any(), any(), any());
-        verify(notifyMapper).toReviewEmail(any(), any(), any(), eq(REVIEW_INBOX));
-        verify(notify, times(2)).send(any());
+        REVIEWERS.forEach(reviewer ->
+            verify(notifyMapper).toReviewEmail(any(), any(), any(), eq(reviewer)));
+        verify(notify, times(REVIEWERS.size() + 1)).send(any());
     }
 
     @Test
-    void no_review_inbox_should_leave_the_requester_emailed_and_nobody_else() {
+    void no_reviewers_configured_should_leave_the_requester_emailed_and_nobody_else() {
         UserEntity user = signedIn();
         givenRequestWillBeRecorded(user);
-        when(notifyProperties.hasReviewInbox()).thenReturn(false);
+        when(notifyProperties.reviewers()).thenReturn(List.of());
 
         service.create(OID, form());
 
@@ -194,13 +196,13 @@ class ProductionRequestServiceTest {
         assertThat(service.create(OID, form()).reference()).startsWith("PCR-");
 
         verify(requests).saveAndFlush(any());
-        verify(notify, times(2)).send(any());
+        // Notify has no CC, so one reviewer's address failing must not cost the others theirs.
+        verify(notify, times(REVIEWERS.size() + 1)).send(any());
     }
 
     private void givenRequestWillBeRecorded(final UserEntity user) {
-        lenient().when(notifyProperties.hasReviewInbox()).thenReturn(true);
         // Field mapping is NotifyMapperTest's job; what matters here is which template is asked for.
-        lenient().when(notifyProperties.reviewInbox()).thenReturn(REVIEW_INBOX);
+        lenient().when(notifyProperties.reviewers()).thenReturn(REVIEWERS);
         when(users.requireSignedIn(OID)).thenReturn(user);
         when(applications.findByClientId(CLIENT_ID)).thenReturn(Optional.of(owned(user)));
         when(clockService.now()).thenReturn(Instant.parse("2026-10-20T11:00:00Z"));

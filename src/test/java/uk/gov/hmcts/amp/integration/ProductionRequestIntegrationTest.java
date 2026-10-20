@@ -45,7 +45,7 @@ import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.wireMockNoti
     "entra.max-attempts=2",
     "entra.retry-delay-millis=1",
     "notify.api-key=amptest-00000000-0000-0000-0000-000000000000-11111111-1111-1111-1111-111111111111",
-    "notify.review-inbox=" + REVIEW_INBOX})
+    "notify.review-inboxes=" + REVIEW_INBOX})
 @AutoConfigureMockMvc
 @ContextConfiguration(initializers = {TestContainersInitialise.class, WireMockGraphInitialise.class,
     WireMockNotifyInitialise.class})

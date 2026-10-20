@@ -79,6 +79,25 @@ created by hand offline; the Data Access Panel decides. This records what was as
 way, so the response never says whose an application is. The reference is minted here and keeps
 the `PCR-` prefix.
 
+## The API catalogue
+
+| Method | Path | Returns | |
+|---|---|---|---|
+| GET | `/products` | 200 | One entry per API, by short code |
+
+**No `requestingUserId`** — reference data with nothing of anyone's in it, and the web needs it to
+render a picker.
+
+**The short code is the key.** It is the APIM path segment after `amp/`, the bracketed suffix on
+every APIM display name, and the last segment of a subscription name. `title`, `catalogueName`,
+`productId`, `tryItNowProductId`, `gatewayPath` and `role` all hang off it.
+
+**`productId` is held, not derived.** Stripping `api-` from the catalogue name gives the right
+product for only half the catalogue - `slc`, `hrds` and `rcc` all disagree with it, and a wrong
+product id is an APIM *Product not found* that surfaces as a 502 about an unreachable upstream.
+
+Seeded with `slc` and `rcc`; the rest go in as each is confirmed against the instance.
+
 ## APIM
 
 `requestingUserId` as well. A subscription belongs to whoever created it, and ownership is carried
@@ -88,7 +107,6 @@ is shared with SPS, and a 403 would confirm the subscription exists.
 
 | Method | Path | Returns | |
 |---|---|---|---|
-| GET | `/apim/products` | 200 502 | What the create form offers |
 | GET | `/apim/subscription-keys` | 200 500 502 | Never key values |
 | POST | `/apim/subscription-keys` | 201 400 409 500 502 | |
 | GET | `/apim/subscription-keys/{name}/values` | 200 404 500 502 | |
@@ -122,5 +140,5 @@ means try again.
 
 - `/applications` and `/session` are the design. Today the same work is reachable at
   `/applications-new` and `PUT /users/entra/{entraObjectId}`, which go when these land.
-- `/apim/products` was removed with the legacy endpoints and needs restoring; without it there is no
-  way to discover a `productId`, which creating a subscription key requires.
+- Nothing writes `application_api`, so there is no record of which APIs an application has
+  subscribed to. The subscription name is the only link today.

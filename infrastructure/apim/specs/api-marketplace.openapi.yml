@@ -40,7 +40,7 @@ tags:
   - name: production-requests
     description: Requests for production credentials, reviewed offline
   - name: products
-    description: The APIs that can be subscribed to
+    description: The API catalogue, keyed by short code
   - name: subscription-keys
     description: APIM subscription keys, managed directly
 
@@ -409,25 +409,29 @@ paths:
         '404':
           $ref: '#/components/responses/UnknownUser'
 
-  /apim/products:
+  /products:
     get:
-      summary: List the APIs that can be subscribed to
+      summary: The API catalogue
       description: >-
-        What the UI offers on the create form. Hard-coding the list means a
-        product renamed in APIM silently produces a 400 on create.
+        One entry per API, keyed by its short code - the only identifier that
+        is short, stable and already everywhere: the APIM path segment after
+        amp/, the bracketed suffix on every APIM display name, and the last
+        segment of a subscription name. Everything else is looked up from it
+        rather than derived, because deriving the product id by stripping
+        "api-" off the catalogue name is right for only half the catalogue.
+
+        Reference data with nothing of anyone's in it, so no requestingUserId.
       operationId: listProducts
       tags: [products]
       responses:
         '200':
-          description: The products
+          description: The catalogue, by short code
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Product'
-        '502':
-          $ref: '#/components/responses/UpstreamUnreachable'
+                  $ref: '#/components/schemas/ApiProduct'
 
   /apim/subscription-keys:
     get:
@@ -819,20 +823,39 @@ components:
           type: string
           format: date-time
 
-    Product:
+    ApiProduct:
       type: object
       properties:
-        productId:
+        shortCode:
           type: string
-          example: cp-crime-schedulingandlisting-courtschedule
-        displayName:
+          description: The key. Everything else here hangs off it
+          example: slc
+        title:
           type: string
           example: Scheduling and Listing Court Schedule
-        description:
+        catalogueName:
           type: string
-        state:
+          description: The repo, and what the published catalogue feed lists
+          example: api-cp-crime-schedulingandlisting-courtschedule
+        productId:
           type: string
-          example: published
+          description: >-
+            The APIM product a subscription is scoped to. Held rather than
+            derived - this is not the catalogue name with "api-" removed
+          example: cp-crime-schedulingandlisting
+        tryItNowProductId:
+          type: string
+          description: Absent where the API has no sandbox
+          example: try-it-now-cp-crime-schedulingandlisting
+        gatewayPath:
+          type: string
+          example: amp/slc
+        role:
+          type: string
+          description: >-
+            The per-API Entra role. Proposed - hmcts-api-marketplace defines
+            only app.read and slc.read today, so nothing grants these yet
+          example: slc.read
 
     SubscriptionKey:
       type: object

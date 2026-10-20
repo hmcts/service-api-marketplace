@@ -12,7 +12,8 @@
 #
 #   ./test-app-registration.sh
 #
-# Optional: CASE_URN, ROLE, NAME, PRODUCT_ID, BASE_URL, GRANT_ATTEMPTS, TOKEN_ATTEMPTS, KEEP=1,
+# Optional: CASE_URN, ROLE, NAME, PRODUCT_ID, BASE_URL, GRANT_ATTEMPTS, TOKEN_ATTEMPTS,
+# GATEWAY_ATTEMPTS, KEEP=1,
 # REQUESTING_USER_ID to run as somebody else.
 set -euo pipefail
 
@@ -70,7 +71,7 @@ echo "   name     $NAME"
 jq -r '"   clientId \(.clientId)"' <<<"$REGISTRATION"
 
 cleanup () {
-  step "7. Remove the subscription and the application"
+  step "8. Remove the subscription and the application"
   if [ "${KEEP:-0}" = "1" ]; then
     printf '   KEEP=1, so these are left behind. Remove them with:\n'
     if [ "$SUBSCRIBED" = "1" ]; then
@@ -93,10 +94,37 @@ cleanup () {
 }
 trap cleanup EXIT
 
+step "3. Subscribe to $PRODUCT_ID"
+KEY_STATUS=$(curl -s -o /tmp/test-app-registration-key -w '%{http_code}' -X POST "$SUBSCRIPTION_KEYS" \
+  -H "requestingUserId: $REQUESTING_USER_ID" -H 'Content-Type: application/json' \
+  -d "{\"name\":\"$SUBSCRIPTION\",\"productId\":\"$PRODUCT_ID\",\"displayName\":\"$NAME\"}")
+if [ "$KEY_STATUS" != "201" ]; then
+  die "   Could not subscribe (HTTP $KEY_STATUS):
+   $(jq -r '.detail // .' /tmp/test-app-registration-key 2>/dev/null || cat /tmp/test-app-registration-key)"
+fi
+SUBSCRIBED=1
+APIM_SUBSCRIPTION_KEY=$(jq -r .primaryKey /tmp/test-app-registration-key)
+printf '   %s, primary key %s...\n' "$SUBSCRIPTION" "${APIM_SUBSCRIPTION_KEY:0:4}"
+
+step "4. Read the subscription back"
+READ_STATUS=$(curl -s -o /tmp/test-app-registration-readback -w '%{http_code}' \
+  "$SUBSCRIPTION_KEYS/$SUBSCRIPTION/values" -H "requestingUserId: $REQUESTING_USER_ID")
+if [ "$READ_STATUS" != "200" ]; then
+  die "   APIM took the subscription but will not read it back (HTTP $READ_STATUS):
+   $(jq -r '.error // .detail // .' /tmp/test-app-registration-readback 2>/dev/null \
+     || cat /tmp/test-app-registration-readback)"
+fi
+if [ "$(jq -r .primaryKey /tmp/test-app-registration-readback)" != "$APIM_SUBSCRIPTION_KEY" ]; then
+  die "   The key read back is not the one create returned."
+fi
+# Only proves API Management has it. The gateway keeps its own cache and may still refuse the key
+# for a while, which is why step 7 retries rather than failing on the first 401.
+echo "   API Management has it and the key matches"
+
 # Separate from the registration, because a service principal seconds old is not assignable and
 # Entra says so as "Not a valid reference update" for minutes. Retried here rather than inside the
 # create call, so a lag that only needs waiting out cannot roll the whole registration back.
-step "3. Grant $ROLE"
+step "5. Grant $ROLE"
 GRANT_ATTEMPTS=${GRANT_ATTEMPTS:-8}
 for attempt in $(seq 1 "$GRANT_ATTEMPTS"); do
   GRANT_STATUS=$(curl -s -o /tmp/test-app-registration-grant -w '%{http_code}' -X POST \
@@ -111,21 +139,9 @@ done
 
 # A subscription of its own rather than a key pasted in by hand: the gateway wants the key as
 # well as the token, and borrowing someone else's proves nothing about this application.
-step "4. Subscribe to $PRODUCT_ID"
-KEY_STATUS=$(curl -s -o /tmp/test-app-registration-key -w '%{http_code}' -X POST "$SUBSCRIPTION_KEYS" \
-  -H "requestingUserId: $REQUESTING_USER_ID" -H 'Content-Type: application/json' \
-  -d "{\"name\":\"$SUBSCRIPTION\",\"productId\":\"$PRODUCT_ID\",\"displayName\":\"$NAME\"}")
-if [ "$KEY_STATUS" != "201" ]; then
-  die "   Could not subscribe (HTTP $KEY_STATUS):
-   $(jq -r '.detail // .' /tmp/test-app-registration-key 2>/dev/null || cat /tmp/test-app-registration-key)"
-fi
-SUBSCRIBED=1
-APIM_SUBSCRIPTION_KEY=$(jq -r .primaryKey /tmp/test-app-registration-key)
-printf '   %s, primary key %s...\n' "$SUBSCRIPTION" "${APIM_SUBSCRIPTION_KEY:0:4}"
-
 claims () { jq -R 'split(".")[1] | @base64d | fromjson' <<<"$1"; }
 
-step "5. Get a token for $API_CLIENT_ID carrying $ROLE"
+step "6. Get a token for $API_CLIENT_ID carrying $ROLE"
 # Two separate waits, both Entra catching up with itself. A secret seconds old is rejected as
 # invalid_client until it has replicated. Worse, once the secret works the token can come back
 # without the role: the assignment is already in the directory - the GET shows it - but the token
@@ -156,23 +172,34 @@ for attempt in $(seq 1 "$TOKEN_ATTEMPTS"); do
 done
 claims "$TOKEN" | jq '{aud, roles, azp}' | sed 's/^/   /'
 
-step "6. Call slc through APIM"
+step "7. Call slc through APIM"
 echo "   GET $GATEWAY/amp/slc/case/$CASE_URN/courtschedule"
 # The API requires a correlation id of its own, on top of the token and the subscription key.
 : > /tmp/test-app-registration-body
 # -sS so curl says why it failed, and the rc captured rather than left to set -e: a transport
 # failure here is worth reporting, not worth exiting on without a word.
-CORRELATION_ID=$(uuidgen 2>/dev/null || python3 -c 'import uuid; print(uuid.uuid4())')
-STATUS=$(curl -sSL -o /tmp/test-app-registration-body -w '%{http_code}' \
-  "$GATEWAY/amp/slc/case/$CASE_URN/courtschedule" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Ocp-Apim-Subscription-Key: $APIM_SUBSCRIPTION_KEY" \
-  -H "X-Correlation-ID: $CORRELATION_ID") || CURL_RC=$?
-if [ -n "${CURL_RC:-}" ]; then
-  die "   Could not reach $GATEWAY (curl exit $CURL_RC). Nothing was sent to APIM.
+# The gateway caches subscriptions separately from API Management, so a key it has not picked up
+# yet is refused as "invalid subscription key" - the same 401 a wrong key gets. Retried only on
+# that wording: a token or policy 401 will never come good and should fail at once.
+GATEWAY_ATTEMPTS=${GATEWAY_ATTEMPTS:-10}
+for attempt in $(seq 1 "$GATEWAY_ATTEMPTS"); do
+  CORRELATION_ID=$(uuidgen 2>/dev/null || python3 -c 'import uuid; print(uuid.uuid4())')
+  unset CURL_RC
+  STATUS=$(curl -sSL -o /tmp/test-app-registration-body -w '%{http_code}' \
+    "$GATEWAY/amp/slc/case/$CASE_URN/courtschedule" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Ocp-Apim-Subscription-Key: $APIM_SUBSCRIPTION_KEY" \
+    -H "X-Correlation-ID: $CORRELATION_ID") || CURL_RC=$?
+  if [ -n "${CURL_RC:-}" ]; then
+    die "   Could not reach $GATEWAY (curl exit $CURL_RC). Nothing was sent to APIM.
    The sandbox gateway is reachable from inside the HMCTS network - connect to the VPN and run
-   it again. Steps 1-5 are unaffected."
-fi
+   it again. Steps 1-6 are unaffected."
+  fi
+  grep -qi "invalid subscription key" /tmp/test-app-registration-body || break
+  [ "$attempt" = "$GATEWAY_ATTEMPTS" ] && break
+  echo "   attempt $attempt: the gateway has not picked the key up yet, waiting"
+  sleep 6
+done
 echo "   HTTP $STATUS"
 if jq -e . /tmp/test-app-registration-body >/dev/null 2>&1; then
   jq . /tmp/test-app-registration-body | sed 's/^/   /'
@@ -183,7 +210,9 @@ fi
 case "$STATUS" in
   401) echo "
    401 means the gateway refused it. 'Missing CNP Authorization header' is a header problem;
-   'failed CNP validation' means the token's audience or roles did not satisfy the policy." ;;
+   'failed CNP validation' means the token's audience or roles did not satisfy the policy;
+   'invalid subscription key' after $GATEWAY_ATTEMPTS attempts is not a timing problem - step 4
+   proved API Management has the key, so check the product actually publishes this API." ;;
   200) echo "
    The whole chain worked: registration, role, token, gateway, backend." ;;
   *)   echo "

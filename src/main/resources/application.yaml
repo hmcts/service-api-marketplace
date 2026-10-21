@@ -64,6 +64,11 @@ entra:
   onboarding-client-id: ${ENTRA_ONBOARDING_CLIENT_ID:aba0879b-39e2-452a-b934-f922cd9e6acb}
   onboarding-client-secret: ${ENTRA_ONBOARDING_CLIENT_SECRET:}
 
+# Local only: fakes Entra registration and APIM subscription keys in memory (LocalBypassConfig).
+# Never set ENTRA_BYPASS in a chart.
+local-bypass:
+  enabled: ${ENTRA_BYPASS:false}
+
 azure:
   application-insights:
     instrumentation-key: ${rpe.AppInsightsInstrumentationKey:00000000-0000-0000-0000-000000000000}

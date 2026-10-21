@@ -102,6 +102,28 @@ To build the project execute the following command:
   ./gradlew build
 ```
 
+### Running locally
+
+Start Postgres from `docker-compose.yml`, which creates the `marketplace` database on
+`localhost:5432`, then run the service on port 8080:
+
+```bash
+  docker compose up -d db
+  ENTRA_BYPASS=true ./gradlew bootRun
+  curl http://localhost:8080/api/health
+```
+
+Port 5432 must be free: another Postgres container on it gives `database "marketplace" does not exist`.
+
+`ENTRA_BYPASS=true` (`local-bypass.enabled`, see `LocalBypassConfig`) is for local use only. It
+replaces Entra application registration and APIM subscription keys with in-memory stand-ins, so
+the whole journey (register an application, grant a role, subscribe to an API, read the key,
+delete) works without `ENTRA_ONBOARDING_CLIENT_SECRET` or an Azure login. The client ids, secrets
+and keys it hands out are made up and do not work against the real gateway, and the startup log
+says `ENTRA_BYPASS is on`. It is off by default and is never set in a chart. Without it, registering an
+application answers 503 locally until the onboarding secret is exported, and subscribing needs an
+Azure login with a role on the sandbox APIM instance.
+
 ### Running the application
 
 Create the image of the application by executing the following command:

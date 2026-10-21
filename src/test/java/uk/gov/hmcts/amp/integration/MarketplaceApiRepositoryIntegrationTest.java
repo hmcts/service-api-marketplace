@@ -23,9 +23,9 @@ class MarketplaceApiRepositoryIntegrationTest {
 
         assertThat(slc.getTitle()).isEqualTo("Scheduling and Listing Court Schedule");
         assertThat(slc.getCatalogueName()).isEqualTo("api-cp-crime-schedulingandlisting-courtschedule");
-        assertThat(slc.getProductId()).isEqualTo("cp-crime-schedulingandlisting");
+        assertThat(slc.getProductId()).isEqualTo("try-it-now-cp-crime-schedulingandlisting");
         assertThat(slc.getTryItNowProductId()).isEqualTo("try-it-now-cp-crime-schedulingandlisting");
-        assertThat(slc.getGatewayPath()).isEqualTo("amp/slc");
+        assertThat(slc.getGatewayPath()).isEqualTo("amp/try/slc");
         assertThat(slc.getRole()).isEqualTo("slc.read");
     }
 }

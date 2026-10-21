@@ -35,8 +35,8 @@ class ProductIntegrationTest {
         mockMvc.perform(get(PATH))
             .andExpect(jsonPath("$[1].catalogueName").value("api-cp-crime-schedulingandlisting-courtschedule"))
             // Stripping api- off that would give a product APIM answers "Product not found" for.
-            .andExpect(jsonPath("$[1].productId").value("cp-crime-schedulingandlisting"))
-            .andExpect(jsonPath("$[0].productId").value("cp-refdata-courthearing"));
+            .andExpect(jsonPath("$[1].productId").value("try-it-now-cp-crime-schedulingandlisting"))
+            .andExpect(jsonPath("$[0].productId").value("try-it-now-cp-refdata-courthearing"));
     }
 
     @Test
@@ -51,9 +51,9 @@ class ProductIntegrationTest {
     @Test
     void the_gateway_path_and_role_should_both_be_built_from_the_short_code() throws Exception {
         mockMvc.perform(get(PATH))
-            .andExpect(jsonPath("$[1].gatewayPath").value("amp/slc"))
+            .andExpect(jsonPath("$[1].gatewayPath").value("amp/try/slc"))
             .andExpect(jsonPath("$[1].role").value("slc.read"))
-            .andExpect(jsonPath("$[0].gatewayPath").value("amp/rcc"))
+            .andExpect(jsonPath("$[0].gatewayPath").value("amp/try/rcc"))
             .andExpect(jsonPath("$[0].role").value("rcc.read"));
     }
 

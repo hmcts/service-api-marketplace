@@ -9,10 +9,13 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
+import uk.gov.hmcts.amp.entity.ApplicationApiEntity;
 import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.ProductionRequestRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
+
+import java.time.LocalDateTime;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
@@ -104,6 +107,35 @@ class ProductionRequestIntegrationTest {
                 {"email_address":"ada.lovelace@hmcts.net","reference":"%s",
                  "personalisation":{"consumer_name":"Ada Lovelace","application_name":"Case Viewer"}}"""
                 .formatted(reference), true, true)));
+    }
+
+    @Test
+    void the_email_should_bullet_the_apis_the_application_is_subscribed_to() throws Exception {
+        createApplication(OWNER_OID);
+        subscribedTo("rcc");
+        subscribedTo("slc");
+
+        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
+
+        // Titles from the catalogue rather than the short codes the subscription rows hold.
+        wireMockNotify().verify(postRequestedFor(urlPathEqualTo(SEND_EMAIL))
+            .withRequestBody(equalToJson("""
+                {"personalisation":{"api_list":["Refdata Court Hearing Courthouses",
+                 "Scheduling and Listing Court Schedule"]}}""", true, true)));
+    }
+
+    @Test
+    void an_unsubscribed_application_should_send_an_empty_list_rather_than_no_key() throws Exception {
+        createApplication(OWNER_OID);
+
+        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
+
+        // Notify treats an absent placeholder as an error, so the key has to be there either way.
+        wireMockNotify().verify(postRequestedFor(urlPathEqualTo(SEND_EMAIL))
+            .withRequestBody(equalToJson("""
+                {"personalisation":{"api_list":[]}}""", true, true)));
     }
 
     @Test
@@ -260,6 +292,17 @@ class ProductionRequestIntegrationTest {
     private String reference(final org.springframework.test.web.servlet.RequestBuilder request) throws Exception {
         return JsonPath.read(mockMvc.perform(request).andExpect(status().isCreated())
             .andReturn().getResponse().getContentAsString(), "$.reference");
+    }
+
+    private void subscribedTo(final String shortCode) {
+        ApplicationApiEntity subscription = new ApplicationApiEntity();
+        subscription.setApplication(applications.findByClientId(CLIENT_ID).orElseThrow());
+        subscription.setShortCode(shortCode);
+        subscription.setProductId("cp-crime-schedulingandlisting");
+        subscription.setSubscriptionName("amp-user001-case-viewer-" + shortCode);
+        subscription.setKeyHint("a1b");
+        subscription.setSubscribedAt(LocalDateTime.of(2026, 10, 20, 11, 0));
+        applicationApis.save(subscription);
     }
 
     private String form(final String clientId) {

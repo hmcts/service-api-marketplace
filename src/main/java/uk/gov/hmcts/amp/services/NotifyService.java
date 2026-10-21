@@ -8,12 +8,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.config.NotifyProperties;
 import uk.gov.hmcts.amp.domain.NotifyEmail;
+import uk.gov.hmcts.amp.notify.EmailMask;
 import uk.gov.service.notify.NotificationClientApi;
 import uk.gov.service.notify.NotificationClientException;
 import uk.gov.service.notify.SendEmailResponse;
 
-import java.util.Arrays;
-import java.util.stream.Collectors;
 
 /** Email through GOV.UK Notify. */
 @Slf4j
@@ -33,7 +32,7 @@ public class NotifyService {
             );
             log.info(
                 "Notify accepted template {} to {} as notification {}",
-                email.getTemplateId(), masked(email.getEmailAddress()), sent.getNotificationId()
+                email.getTemplateId(), EmailMask.masked(email.getEmailAddress()), sent.getNotificationId()
             );
         } catch (final NotificationClientException refused) {
             log.error(
@@ -42,19 +41,6 @@ public class NotifyService {
             );
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Could not send the email.");
         }
-    }
-
-    /** Initials and the domain, so a log says where it went without carrying the address itself. */
-    private static String masked(final String emailAddress) {
-        final int at = emailAddress == null ? -1 : emailAddress.indexOf('@');
-        if (at < 1) {
-            return "***";
-        }
-        final String initials = Arrays.stream(emailAddress.substring(0, at).split("\\."))
-            .filter(part -> !part.isBlank())
-            .map(part -> part.substring(0, 1))
-            .collect(Collectors.joining("."));
-        return initials.isEmpty() ? "***" : initials + emailAddress.substring(at);
     }
 
     private NotificationClientApi requireConfigured() {

@@ -8,10 +8,10 @@ import com.azure.resourcemanager.apimanagement.models.SubscriptionKeysContract;
 import com.azure.resourcemanager.apimanagement.models.SubscriptionState;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import uk.gov.hmcts.amp.config.ApimProperties;
 import uk.gov.hmcts.amp.domain.SubscriptionKey;
 
 import java.util.List;
@@ -26,16 +26,13 @@ public class ApimSubscriptionKeyService {
 
     private final ApiManagementManager apim;
     private final UserService users;
+    private final ApimProperties apimProperties;
 
-    @Value("${apim.resource-group}")
-    private String resourceGroup;
 
-    @Value("${apim.service-name}")
-    private String serviceName;
 
     public List<SubscriptionKey> list(final String requestingUserId) {
         final String prefix = prefixFor(requestingUserId);
-        return apim.subscriptions().list(resourceGroup, serviceName).stream()
+        return apim.subscriptions().list(apimProperties.resourceGroup(), apimProperties.serviceName()).stream()
             .map(ApimSubscriptionKeyService::asSubscriptionKey)
             .filter(subscription -> subscription.name().startsWith(prefix))
             .toList();
@@ -56,7 +53,7 @@ public class ApimSubscriptionKeyService {
         }
         try {
             SubscriptionContract created = apim.subscriptions().createOrUpdate(
-                resourceGroup, serviceName, name,
+                apimProperties.resourceGroup(), apimProperties.serviceName(), name,
                 new SubscriptionCreateParameters()
                     .withScope(PRODUCTS + productId)
                     .withDisplayName(displayName)
@@ -72,7 +69,7 @@ public class ApimSubscriptionKeyService {
         requireOwned(requestingUserId, name);
         try {
             SubscriptionKeysContract secrets = apim.subscriptions()
-                .listSecrets(resourceGroup, serviceName, name);
+                .listSecrets(apimProperties.resourceGroup(), apimProperties.serviceName(), name);
             return SubscriptionKey.keysOnly(name, secrets.primaryKey(), secrets.secondaryKey());
         } catch (final ManagementException e) {
             throw translate(name, e);
@@ -84,11 +81,11 @@ public class ApimSubscriptionKeyService {
         // Azure answers a delete of something absent with success, which on a shared instance
         // leaves you unable to tell a revoked key from one that was never there.
         if (!exists(name)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                "No subscription named " + name + " on " + serviceName + " in " + resourceGroup);
+            throw noSuchSubscription(name);
         }
         try {
-            apim.subscriptions().delete(resourceGroup, serviceName, name, MATCH_ANY_STATE);
+            apim.subscriptions().delete(apimProperties.resourceGroup(),
+                apimProperties.serviceName(), name, MATCH_ANY_STATE);
             log.info("Deleted APIM subscription {}", name);
         } catch (final ManagementException e) {
             throw translate(name, e);
@@ -108,7 +105,7 @@ public class ApimSubscriptionKeyService {
 
     private boolean exists(final String name) {
         try {
-            apim.subscriptions().get(resourceGroup, serviceName, name);
+            apim.subscriptions().get(apimProperties.resourceGroup(), apimProperties.serviceName(), name);
             return true;
         } catch (final ManagementException e) {
             if (e.getResponse() != null && e.getResponse().getStatusCode() == HttpStatus.NOT_FOUND.value()) {
@@ -120,7 +117,7 @@ public class ApimSubscriptionKeyService {
 
     private SubscriptionKey withKeys(final SubscriptionKey subscription) {
         SubscriptionKeysContract secrets = apim.subscriptions()
-            .listSecrets(resourceGroup, serviceName, subscription.name());
+            .listSecrets(apimProperties.resourceGroup(), apimProperties.serviceName(), subscription.name());
         return subscription.withKeys(secrets.primaryKey(), secrets.secondaryKey());
     }
 
@@ -145,10 +142,15 @@ public class ApimSubscriptionKeyService {
     }
 
     // Azure's message names the resource group and instance, which the caller has no business seeing.
+    /** A missing instance answers 404 too, so the message has to say where it looked. */
+    private ResponseStatusException noSuchSubscription(final String name) {
+        return new ResponseStatusException(HttpStatus.NOT_FOUND, "No subscription named " + name
+            + " on " + apimProperties.serviceName() + " in " + apimProperties.resourceGroup());
+    }
+
     private RuntimeException translate(final String name, final ManagementException cause) {
         if (cause.getResponse() != null && cause.getResponse().getStatusCode() == HttpStatus.NOT_FOUND.value()) {
-            return new ResponseStatusException(HttpStatus.NOT_FOUND,
-                "No subscription named " + name + " on " + serviceName + " in " + resourceGroup);
+            return noSuchSubscription(name);
         }
         if (cause.getResponse() != null && cause.getResponse().getStatusCode() == HttpStatus.FORBIDDEN.value()) {
             // API Management answered, and said no. Nothing the caller can do and nothing to retry:

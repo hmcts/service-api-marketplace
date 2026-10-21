@@ -82,8 +82,8 @@ public class ProductionRequestService {
 
     /**
      * Sent after the row is written and its failure swallowed: the request is recorded either way,
-     * and failing the call would invite a retry that submits it twice. Synchronous for now - a
-     * queue is what makes a failed send recoverable rather than only logged.
+     * and failing the call would invite a retry that submits it twice. Sending synchronously
+     * means a failed send is only logged; making one recoverable needs a queue.
      */
     private void sendEmailToRequestor(final UserEntity user, final ProductionRequestEntity saved,
                                       final List<String> subscribed) {
@@ -105,12 +105,6 @@ public class ProductionRequestService {
             .toList();
     }
 
-    /**
-     * The panel, the asset owner and the marketplace team each get their own copy: Notify has no
-     * CC, so one send per reviewer is the only way to reach all three. The requester is not
-     * copied. One address failing must not cost the others their email, so each is sent on its
-     * own and reported on its own.
-     */
     private void sendEmailToReviewers(final UserEntity user, final ProductionRequestEntity saved,
                                       final List<String> subscribed) {
         final List<String> reviewers = notifyProperties.reviewers();

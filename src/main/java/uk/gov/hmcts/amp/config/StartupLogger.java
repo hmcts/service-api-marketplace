@@ -1,40 +1,57 @@
 package uk.gov.hmcts.amp.config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
+import uk.gov.hmcts.amp.notify.EmailMask;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class StartupLogger {
 
-    private static final Logger log = LoggerFactory.getLogger(StartupLogger.class);
-
-    @Value("${POSTGRES_HOST:NOT_SET}")
-    private String postgresHost;
-
-    @Value("${POSTGRES_PORT:NOT_SET}")
-    private String postgresPort;
-
-    @Value("${POSTGRES_DATABASE:NOT_SET}")
-    private String postgresDatabase;
-
-    @Value("${POSTGRES_USER:NOT_SET}")
-    private String postgresUser;
-
-    @Value("${POSTGRES_PASS:NOT_SET}")
-    private String postgresPass;
+    private final Environment environment;
+    private final ApimProperties apimProperties;
+    private final EntraProperties entraProperties;
+    private final NotifyProperties notifyProperties;
 
     @EventListener(ApplicationReadyEvent.class)
-    public void logEnvironment() {
-        log.info("=== Vault secret diagnostics ===");
-        log.info("POSTGRES_HOST     : {}", postgresHost);
-        log.info("POSTGRES_PORT     : {}", postgresPort);
-        log.info("POSTGRES_DATABASE : {}", postgresDatabase);
-        log.info("POSTGRES_USER     : {}", postgresUser);
-        log.info("POSTGRES_PASS     : {}", postgresPass.equals("NOT_SET") ? "NOT_SET" : "***SET***");
-        log.info("================================");
+    public void logConfiguration() {
+        log.info("Database: {}", databaseSettings());
+        log.info("API Management: {}", apimSettings());
+        log.info("Entra: {}", entraSettings());
+        log.info("Notify: {}", notifySettings());
+    }
+
+    String databaseSettings() {
+        return "%s as %s, password %s".formatted(
+            environment.getProperty("spring.datasource.url"),
+            environment.getProperty("spring.datasource.username"),
+            whetherSet(environment.getProperty("spring.datasource.password")));
+    }
+
+    String apimSettings() {
+        return "%s in %s, subscription %s, tenant %s".formatted(
+            apimProperties.serviceName(), apimProperties.resourceGroup(),
+            apimProperties.subscriptionId(), apimProperties.tenantId());
+    }
+
+    String entraSettings() {
+        return "tenant %s, api %s, onboarding %s, onboarding secret %s".formatted(
+            entraProperties.tenantId(), entraProperties.apiClientId(),
+            entraProperties.onboardingClientId(), whetherSet(entraProperties.onboardingClientSecret()));
+    }
+
+    String notifySettings() {
+        return "api key %s, base url %s, production requests reviewed by %s".formatted(
+            whetherSet(notifyProperties.apiKey()), notifyProperties.baseUrl(),
+            notifyProperties.reviewers().stream().map(EmailMask::masked).toList());
+    }
+
+    private static String whetherSet(final String secret) {
+        return secret == null || secret.isBlank() || "NOT_SET".equals(secret) ? "NOT SET" : "set";
     }
 }

@@ -12,7 +12,7 @@
 #
 #   ./test-app-registration.sh
 #
-# Optional: CASE_URN, ROLE, NAME, PRODUCT_ID, BASE_URL, GRANT_ATTEMPTS, TOKEN_ATTEMPTS,
+# Optional: CASE_URN, ROLE, NAME, SHORT_CODE, API_PATH, BASE_URL, GRANT_ATTEMPTS, TOKEN_ATTEMPTS,
 # GATEWAY_ATTEMPTS, KEEP=1,
 # REQUESTING_USER_ID to run as somebody else.
 set -euo pipefail
@@ -30,9 +30,14 @@ ROLE=${ROLE:-app.read}
 # Named after whoever ran it: killing the script skips the trap, so orphans happen, and an orphan
 # nobody can be traced to is one nobody will delete.
 NAME=${NAME:-Test App $(whoami | tr -cd '[:alnum:]') $(date +%H%M%S)}
-CASE_URN=${CASE_URN:-28DI3451856}
-PRODUCT_ID=${PRODUCT_ID:-cp-crime-schedulingandlisting}
+# A canned scenario, not a real case. TIN-WEEKCOMM-01, TIN-MULTI-01, TIN-EMPTY-01 and
+# TIN-NOTFOUND-01 are the others; GET $GATEWAY/$API_PATH/scenarios lists them with descriptions,
+# and anything unrecognised answers 404 the way TIN-NOTFOUND-01 does.
+CASE_URN=${CASE_URN:-TIN-ALLOCATED-01}
+SHORT_CODE=${SHORT_CODE:-slc}
+API_PATH=${API_PATH:-amp/try/slc}
 SUBSCRIBED=0
+SUBSCRIPTION=
 
 step () { printf '\n\033[1m%s\033[0m\n' "$*"; }
 die  () { printf '\n%s\n' "$*" >&2; exit 1; }
@@ -67,8 +72,6 @@ fi
 REGISTRATION=$(cat /tmp/test-app-registration-reg)
 CLIENT_ID=$(jq -r .clientId <<<"$REGISTRATION")
 CLIENT_SECRET=$(jq -r .clientSecret <<<"$REGISTRATION")
-APPNAME=$(jq -r .appname <<<"$REGISTRATION")
-SUBSCRIPTION=${SUBSCRIPTION:-amp-$USER_REFERENCE-$APPNAME}
 jq -r '"   clientId \(.clientId), appname \(.appname), secret \(.secretHint)..."' <<<"$REGISTRATION"
 
 cleanup () {
@@ -96,17 +99,21 @@ cleanup () {
 }
 trap cleanup EXIT
 
-step "3. Subscribe to $PRODUCT_ID"
+step "3. Subscribe to $SHORT_CODE"
 KEY_STATUS=$(curl -s -o /tmp/test-app-registration-key -w '%{http_code}' -X POST "$SUBSCRIPTION_KEYS" \
   -H "requestingUserId: $REQUESTING_USER_ID" -H 'Content-Type: application/json' \
-  -d "{\"name\":\"$SUBSCRIPTION\",\"productId\":\"$PRODUCT_ID\",\"displayName\":\"$NAME\"}")
+  -d "{\"clientId\":\"$CLIENT_ID\",\"shortCode\":\"$SHORT_CODE\"}")
 if [ "$KEY_STATUS" != "201" ]; then
   die "   Could not subscribe (HTTP $KEY_STATUS):
-   $(jq -r '.detail // .' /tmp/test-app-registration-key 2>/dev/null || cat /tmp/test-app-registration-key)"
+   $(jq -r '.error // .detail // .' /tmp/test-app-registration-key 2>/dev/null || cat /tmp/test-app-registration-key)"
 fi
 SUBSCRIBED=1
-APIM_SUBSCRIPTION_KEY=$(jq -r .primaryKey /tmp/test-app-registration-key)
-printf '   %s, primary key %s...\n' "$SUBSCRIPTION" "${APIM_SUBSCRIPTION_KEY:0:4}"
+# The marketplace names the subscription and holds the catalogue, so both the name and the product
+# come back rather than being worked out here.
+SUBSCRIPTION=$(jq -r .subscriptionName /tmp/test-app-registration-key)
+APIM_SUBSCRIPTION_KEY=$(jq -r .subscriptionKey /tmp/test-app-registration-key)
+jq -r '"   \(.title) (\(.productId)) as \(.subscriptionName)"' /tmp/test-app-registration-key
+printf '   primary key %s...\n' "${APIM_SUBSCRIPTION_KEY:0:4}"
 
 step "4. Read the subscription back"
 READ_STATUS=$(curl -s -o /tmp/test-app-registration-readback -w '%{http_code}' \
@@ -175,8 +182,8 @@ for attempt in $(seq 1 "$TOKEN_ATTEMPTS"); do
 done
 claims "$TOKEN" | jq '{aud, roles, azp}' | sed 's/^/   /'
 
-step "7. Call slc through APIM"
-echo "   GET $GATEWAY/amp/slc/case/$CASE_URN/courtschedule"
+step "7. Call $SHORT_CODE through APIM"
+echo "   GET $GATEWAY/$API_PATH/case/$CASE_URN/courtschedule"
 # The API requires a correlation id of its own, on top of the token and the subscription key.
 : > /tmp/test-app-registration-body
 # -sS so curl says why it failed, and the rc captured rather than left to set -e: a transport
@@ -189,7 +196,7 @@ for attempt in $(seq 1 "$GATEWAY_ATTEMPTS"); do
   CORRELATION_ID=$(uuidgen 2>/dev/null || python3 -c 'import uuid; print(uuid.uuid4())')
   unset CURL_RC
   STATUS=$(curl -sSL -o /tmp/test-app-registration-body -w '%{http_code}' \
-    "$GATEWAY/amp/slc/case/$CASE_URN/courtschedule" \
+    "$GATEWAY/$API_PATH/case/$CASE_URN/courtschedule" \
     -H "Authorization: Bearer $TOKEN" \
     -H "Ocp-Apim-Subscription-Key: $APIM_SUBSCRIPTION_KEY" \
     -H "X-Correlation-ID: $CORRELATION_ID") || CURL_RC=$?

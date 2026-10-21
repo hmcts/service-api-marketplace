@@ -84,13 +84,13 @@ class ApplicationApiIntegrationTest {
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.shortCode").value("slc"))
             .andExpect(jsonPath("$.title").value("Scheduling and Listing Court Schedule"))
-            .andExpect(jsonPath("$.productId").value("cp-crime-schedulingandlisting"))
+            .andExpect(jsonPath("$.productId").value("try-it-now-cp-crime-schedulingandlisting"))
             .andExpect(jsonPath("$.subscriptionName").value(subscriptionName))
             .andExpect(jsonPath("$.subscriptionKey").isNotEmpty());
 
         wireMockApim().verify(putRequestedFor(urlPathEqualTo(INSTANCE + "/subscriptions/" + subscriptionName))
             .withRequestBody(equalToJson("""
-                {"properties":{"scope":"/products/cp-crime-schedulingandlisting"}}""", true, true)));
+                {"properties":{"scope":"/products/try-it-now-cp-crime-schedulingandlisting"}}""", true, true)));
     }
 
     @Test
@@ -99,7 +99,7 @@ class ApplicationApiIntegrationTest {
 
         assertThat(applicationApis.findAll()).singleElement().satisfies(row -> {
             assertThat(row.getShortCode()).isEqualTo("slc");
-            assertThat(row.getProductId()).isEqualTo("cp-crime-schedulingandlisting");
+            assertThat(row.getProductId()).isEqualTo("try-it-now-cp-crime-schedulingandlisting");
             assertThat(row.getSubscriptionName()).isEqualTo(subscriptionName);
             assertThat(row.getKeyHint()).hasSize(3);
             assertThat(row.getSubscribedAt()).isNotNull();

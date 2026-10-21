@@ -144,7 +144,8 @@ means try again.
 
 ## Not built yet
 
-- `/applications` and `/session` are the design. Today the same work is reachable at
-  `/applications-new` and `PUT /users/entra/{entraObjectId}`, which go when these land.
-- Nothing writes `application_api`, so there is no record of which APIs an application has
-  subscribed to. The subscription name is the only link today.
+- `/apim/products` is not built; without it there is no way to discover a `productId`, which
+  creating a subscription key requires.
+- `/applications/{clientId}/keys/{api}` is specified and not built. Subscribing writes an
+  `application_api` row, so the record of which APIs an application has subscribed to exists, but
+  nothing reads it back over the API.

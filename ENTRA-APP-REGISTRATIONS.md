@@ -4,14 +4,18 @@
 
 | Method | Operation | Path | Success |
 |---|---|---|---|
-| GET | listApplications | `/applications-new` | 200 |
-| GET | getApplication | `/applications-new/{clientId}` | 200 |
-| POST | createApplication | `/applications-new` | 201 |
-| POST | grantRole | `/applications-new/{clientId}/roles` | 204 |
-| DELETE | deleteApplication | `/applications-new/{clientId}` | 204 |
+| GET | listApplications | `/applications` | 200 |
+| GET | getApplication | `/applications/{clientId}` | 200 |
+| POST | createApplication | `/applications` | 201 |
+| POST | grantRole | `/applications/{clientId}/roles` | 204 |
+| DELETE | deleteApplication | `/applications/{clientId}` | 204 |
 
 `{clientId}` is the Entra **Client ID** (`appId`) - the one a subscriber authenticates with, and
 the one `createApplication` returns.
+
+Every call carries a `requestingUserId` header, the caller's Entra object id, and an application
+belongs to whoever registered it: somebody else's reads as 404 rather than 403. Registering also
+writes a row, so the application is listable and deletable afterwards.
 
 ## listApplications
 
@@ -55,7 +59,7 @@ Registers the application and grants its roles in one act.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `name` | string | yes | Free text, the Entra display name |
+| `name` | string | yes | Letters, digits and spaces, 8 to 50 characters. The hyphenated `appname` and the Entra display name `amp-userNNN-<appname>` are derived from it |
 | `roles` | string[] | no | Granted inline if given. Omit and use `grantRole`, which is what `test-app-registration.sh` does |
 
 **Response**
@@ -164,30 +168,38 @@ That warning means the secret did not reach the application, and every call will
 **4. Call the endpoints.**
 
 ```bash
-# list what is already there ... oldest first, never with a secret
-curl -s localhost:8080/applications-new | jq '.[] | {clientId, displayName, created}'
+# sign in first: nothing below works until this service holds a row for you
+OID=11111111-2222-3333-4444-555555555555
+curl -s -X POST localhost:8080/session -H 'Content-Type: application/json' \
+  -d "{\"objectId\":\"$OID\",\"email\":\"you@hmcts.net\",\"name\":\"Your Name\"}" | jq
+```
+
+```bash
+# list your own ... oldest first, never with a secret
+curl -s localhost:8080/applications -H "requestingUserId: $OID" | jq '.[] | {clientId, appname, createdAt}'
 ```
 
 ```bash
 # register one ... this is the only moment the secret exists
-curl -s -X POST localhost:8080/applications-new -H 'Content-Type: application/json' \
-  -d '{"name":"colin-test"}' | jq
+curl -s -X POST localhost:8080/applications \
+  -H "requestingUserId: $OID" -H 'Content-Type: application/json' \
+  -d '{"name":"Colin Test App"}' | jq
 ```
 
 ```bash
 # grant it a role ... retry this, the principal is not assignable for a minute or two
-curl -i -X POST localhost:8080/applications-new/<clientId>/roles \
-  -H 'Content-Type: application/json' -d '{"role":"slc.read"}'
+curl -i -X POST localhost:8080/applications/<clientId>/roles \
+  -H "requestingUserId: $OID" -H 'Content-Type: application/json' -d '{"role":"app.read"}'
 ```
 
 ```bash
-# what roles does it hold?
-curl -s localhost:8080/applications-new/<clientId> | jq
+# read the stored row back ... no secret, only its first three characters
+curl -s localhost:8080/applications/<clientId> -H "requestingUserId: $OID" | jq
 ```
 
 ```bash
 # remove the application ... be careful, this revokes its credentials
-curl -i -X DELETE localhost:8080/applications-new/<clientId>
+curl -i -X DELETE localhost:8080/applications/<clientId> -H "requestingUserId: $OID"
 ```
 
 **Clean up after yourself.** These are real writes to the `hmctsextsbox` tenant, and what you

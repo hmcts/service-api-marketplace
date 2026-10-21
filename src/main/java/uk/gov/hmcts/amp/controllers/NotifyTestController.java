@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import uk.gov.hmcts.amp.domain.NotifyTestRequest;
-import uk.gov.hmcts.amp.domain.ProductionAccessRequestEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionAccessRequestEmail;
 import uk.gov.hmcts.amp.entity.UserEntity;
 import uk.gov.hmcts.amp.services.NotifyService;
 import uk.gov.hmcts.amp.services.UserService;

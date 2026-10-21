@@ -7,7 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.domain.ProductionAccessDetail;
 import uk.gov.hmcts.amp.domain.ProductionAccessRequest;
-import uk.gov.hmcts.amp.domain.ProductionAccessRequestEmail;
+import uk.gov.hmcts.amp.config.NotifyProperties;
+import uk.gov.hmcts.amp.mappers.NotifyMapper;
 import uk.gov.hmcts.amp.domain.ProductionAccessResponse;
 import uk.gov.hmcts.amp.entity.ApplicationEntity;
 import uk.gov.hmcts.amp.entity.MarketplaceApiEntity;
@@ -46,6 +47,8 @@ public class ProductionRequestService {
     private final MarketplaceApiRepository apis;
     private final UserService users;
     private final NotifyService notify;
+    private final NotifyProperties notifyProperties;
+    private final NotifyMapper notifyMapper;
     private final ClockService clockService;
 
     public List<ProductionAccessResponse> list(final String requestingUserId) {
@@ -71,20 +74,21 @@ public class ProductionRequestService {
         log.info("Production request {} for application {} by userId {}",
             saved.getReference(), application.getClientId(), user.getId());
 
-        sendEmailToRequestor(user, saved, subscribedApis(application));
+        final List<String> subscribed = subscribedApis(application);
+        sendEmailToRequestor(user, saved, subscribed);
+        sendEmailToReviewers(user, saved, subscribed);
         return ProductionAccessResponse.from(saved);
     }
 
     /**
      * Sent after the row is written and its failure swallowed: the request is recorded either way,
-     * and failing the call would invite a retry that submits it twice. Synchronous for now - a
-     * queue is what makes a failed send recoverable rather than only logged.
+     * and failing the call would invite a retry that submits it twice. Sending synchronously
+     * means a failed send is only logged; making one recoverable needs a queue.
      */
     private void sendEmailToRequestor(final UserEntity user, final ProductionRequestEntity saved,
                                       final List<String> subscribed) {
         try {
-            notify.send(new ProductionAccessRequestEmail(user.getEmail(), displayName(user),
-                saved.getApplicationName(), subscribed, saved.getReference()));
+            notify.send(notifyMapper.toRequesterEmail(saved, user, subscribed));
         } catch (final RuntimeException notSent) {
             log.error("Production request {} was recorded but its email was not sent",
                 saved.getReference(), notSent);
@@ -101,8 +105,22 @@ public class ProductionRequestService {
             .toList();
     }
 
-    private static String displayName(final UserEntity user) {
-        return (user.getFirstName() + " " + user.getLastName()).trim();
+    private void sendEmailToReviewers(final UserEntity user, final ProductionRequestEntity saved,
+                                      final List<String> subscribed) {
+        final List<String> reviewers = notifyProperties.reviewers();
+        if (reviewers.isEmpty()) {
+            log.info("Production request {} was recorded; no reviewers are configured",
+                saved.getReference());
+            return;
+        }
+        reviewers.forEach(reviewer -> {
+            try {
+                notify.send(notifyMapper.toReviewEmail(saved, user, subscribed, reviewer));
+            } catch (final RuntimeException notSent) {
+                log.error("Production request {} was recorded but a review email was not sent",
+                    saved.getReference(), notSent);
+            }
+        });
     }
 
     private ProductionRequestEntity record(final UserEntity user, final ApplicationEntity application,

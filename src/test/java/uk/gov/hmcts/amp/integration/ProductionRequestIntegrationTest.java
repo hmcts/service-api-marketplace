@@ -9,6 +9,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
+import uk.gov.hmcts.amp.notify.templates.ProductionAccessReviewEmail;
 import uk.gov.hmcts.amp.entity.ApplicationApiEntity;
 import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
@@ -30,6 +31,7 @@ import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.CLIENT_ID;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubRegistration;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubRegistrationAs;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.wireMockGraph;
+import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.REVIEW_INBOX;
 import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.SEND_EMAIL;
 import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.stubAccepted;
 import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.stubRefused;
@@ -42,7 +44,8 @@ import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.wireMockNoti
     "entra.api-client-id=" + API_CLIENT_ID,
     "entra.max-attempts=2",
     "entra.retry-delay-millis=1",
-    "notify.api-key=amptest-00000000-0000-0000-0000-000000000000-11111111-1111-1111-1111-111111111111"})
+    "notify.api-key=amptest-00000000-0000-0000-0000-000000000000-11111111-1111-1111-1111-111111111111",
+    "notify.review-inboxes=" + REVIEW_INBOX})
 @AutoConfigureMockMvc
 @ContextConfiguration(initializers = {TestContainersInitialise.class, WireMockGraphInitialise.class,
     WireMockNotifyInitialise.class})
@@ -136,6 +139,36 @@ class ProductionRequestIntegrationTest {
         wireMockNotify().verify(postRequestedFor(urlPathEqualTo(SEND_EMAIL))
             .withRequestBody(equalToJson("""
                 {"personalisation":{"api_list":[]}}""", true, true)));
+    }
+
+    @Test
+    void the_panel_should_be_sent_the_answers_without_the_requester_copied() throws Exception {
+        createApplication(OWNER_OID);
+        subscribedTo("slc");
+
+        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
+
+        wireMockNotify().verify(postRequestedFor(urlPathEqualTo(SEND_EMAIL))
+            .withRequestBody(equalToJson("""
+                {"email_address":"%s","template_id":"%s",
+                 "personalisation":{"application_name":"Case Viewer","consumer_name":"Ada Lovelace",
+                  "consumer_organisation":"Example Legal Ltd","go_live_date":"27 March 2027",
+                  "expected_call_volumes":"low",
+                  "api_list":["Scheduling and Listing Court Schedule"],
+                  "data_request_description":"Hearing outcomes for listed cases.",
+                  "proposed_outputs":"A weekly outcomes report."}}"""
+                .formatted(REVIEW_INBOX, ProductionAccessReviewEmail.TEMPLATE_ID), true, true)));
+    }
+
+    @Test
+    void submitting_should_send_the_requester_and_the_panel_one_email_each() throws Exception {
+        createApplication(OWNER_OID);
+
+        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
+
+        wireMockNotify().verify(2, postRequestedFor(urlPathEqualTo(SEND_EMAIL)));
     }
 
     @Test

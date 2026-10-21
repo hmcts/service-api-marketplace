@@ -1,15 +1,12 @@
-package uk.gov.hmcts.amp.domain;
+package uk.gov.hmcts.amp.notify.templates;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import uk.gov.hmcts.amp.domain.NotifyEmail;
 
 import java.util.List;
 import java.util.Map;
 
-/**
- * "We've received your production access request for ((application_name))". The wording lives in
- * Notify; the keys below are the only contract with it.
- */
 @Getter
 @RequiredArgsConstructor
 public class ProductionAccessRequestEmail implements NotifyEmail {

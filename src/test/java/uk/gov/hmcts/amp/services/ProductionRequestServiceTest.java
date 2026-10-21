@@ -7,9 +7,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import uk.gov.hmcts.amp.config.NotifyProperties;
+import uk.gov.hmcts.amp.mappers.NotifyMapper;
 import uk.gov.hmcts.amp.domain.ProductionAccessDetail;
 import uk.gov.hmcts.amp.domain.ProductionAccessRequest;
-import uk.gov.hmcts.amp.domain.ProductionAccessRequestEmail;
 import uk.gov.hmcts.amp.entity.ApplicationApiEntity;
 import uk.gov.hmcts.amp.entity.ApplicationEntity;
 import uk.gov.hmcts.amp.entity.MarketplaceApiEntity;
@@ -29,8 +30,11 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -39,6 +43,8 @@ class ProductionRequestServiceTest {
 
     private static final String OID = "aaaaaaaa-1111-2222-3333-444444444444";
     private static final String CLIENT_ID = "22222222-2222-2222-2222-222222222222";
+    private static final List<String> REVIEWERS =
+        List.of("panel@justice.gov.uk", "owner@justice.gov.uk", "team@hmcts.net");
 
     @Mock
     private ProductionRequestRepository requests;
@@ -59,10 +65,17 @@ class ProductionRequestServiceTest {
     private NotifyService notify;
 
     @Mock
+    private NotifyProperties notifyProperties;
+
+    @Mock
+    private NotifyMapper notifyMapper;
+
+    @Mock
     private ClockService clockService;
 
     @InjectMocks
     private ProductionRequestService service;
+
 
     @Test
     void references_that_keep_colliding_should_give_up_rather_than_loop() {
@@ -123,7 +136,7 @@ class ProductionRequestServiceTest {
     }
 
     @Test
-    void the_email_should_list_the_apis_the_application_is_subscribed_to() {
+    void the_subscribed_apis_should_be_named_by_title_for_whichever_template_wants_them() {
         UserEntity user = signedIn();
         givenRequestWillBeRecorded(user);
         when(apis.findAll()).thenReturn(List.of(api("slc", "Scheduling and Listing Court Schedule"),
@@ -133,25 +146,63 @@ class ProductionRequestServiceTest {
 
         service.create(OID, form());
 
-        verify(notify).send(argThat(email -> ((ProductionAccessRequestEmail) email).getApis()
-            .equals(List.of("Refdata Court Hearing Courthouses",
-                "Scheduling and Listing Court Schedule"))));
+        verify(notifyMapper).toRequesterEmail(any(), any(),
+            eq(List.of("Refdata Court Hearing Courthouses", "Scheduling and Listing Court Schedule")));
     }
 
     @Test
     void subscription_to_an_api_we_cannot_name_should_still_appear() {
         UserEntity user = signedIn();
         givenRequestWillBeRecorded(user);
-        when(apis.findAll()).thenReturn(List.of());
         when(applicationApis.findByApplicationId(10L)).thenReturn(List.of(subscription("slc")));
 
         service.create(OID, form());
 
-        verify(notify).send(argThat(email ->
-            ((ProductionAccessRequestEmail) email).getApis().equals(List.of("slc"))));
+        verify(notifyMapper).toRequesterEmail(any(), any(), eq(List.of("slc")));
+    }
+
+    @Test
+    void both_the_requester_and_the_panel_should_be_emailed() {
+        UserEntity user = signedIn();
+        givenRequestWillBeRecorded(user);
+
+        service.create(OID, form());
+
+        verify(notifyMapper).toRequesterEmail(any(), any(), any());
+        REVIEWERS.forEach(reviewer ->
+            verify(notifyMapper).toReviewEmail(any(), any(), any(), eq(reviewer)));
+        verify(notify, times(REVIEWERS.size() + 1)).send(any());
+    }
+
+    @Test
+    void no_reviewers_configured_should_leave_the_requester_emailed_and_nobody_else() {
+        UserEntity user = signedIn();
+        givenRequestWillBeRecorded(user);
+        when(notifyProperties.reviewers()).thenReturn(List.of());
+
+        service.create(OID, form());
+
+        verify(notifyMapper, never()).toReviewEmail(any(), any(), any(), any());
+        verify(notifyMapper).toRequesterEmail(any(), any(), any());
+        verify(notify).send(any());
+    }
+
+    @Test
+    void refused_send_should_leave_the_request_recorded_and_the_other_email_sent() {
+        UserEntity user = signedIn();
+        givenRequestWillBeRecorded(user);
+        doThrow(new ResponseStatusException(HttpStatus.BAD_GATEWAY)).when(notify).send(any());
+
+        assertThat(service.create(OID, form()).reference()).startsWith("PCR-");
+
+        verify(requests).saveAndFlush(any());
+        // Notify has no CC, so one reviewer's address failing must not cost the others theirs.
+        verify(notify, times(REVIEWERS.size() + 1)).send(any());
     }
 
     private void givenRequestWillBeRecorded(final UserEntity user) {
+        // Field mapping is NotifyMapperTest's job; what matters here is which template is asked for.
+        lenient().when(notifyProperties.reviewers()).thenReturn(REVIEWERS);
         when(users.requireSignedIn(OID)).thenReturn(user);
         when(applications.findByClientId(CLIENT_ID)).thenReturn(Optional.of(owned(user)));
         when(clockService.now()).thenReturn(Instant.parse("2026-10-20T11:00:00Z"));

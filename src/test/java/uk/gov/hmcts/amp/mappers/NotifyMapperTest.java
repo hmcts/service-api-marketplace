@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -92,6 +93,16 @@ class NotifyMapperTest {
             .getPersonalisation()).containsEntry("api_list", List.of());
         assertThat(notifyMapper.toReviewEmail(request(), user(), List.of(), INBOX)
             .getPersonalisation()).containsEntry("api_list", List.of());
+    }
+
+    @Test
+    void every_personalisation_key_should_be_snake_case_as_the_templates_spell_them() {
+        // Notify matches a placeholder literally, so ((application name)) and ((application_name))
+        // are two fields and the one nobody fills fails the whole send with a 400.
+        Stream.of(notifyMapper.toRequesterEmail(request(), user(), APIS),
+                notifyMapper.toReviewEmail(request(), user(), APIS, INBOX))
+            .flatMap(email -> email.getPersonalisation().keySet().stream())
+            .forEach(key -> assertThat(key).matches("[a-z][a-z0-9_]*"));
     }
 
     private UserEntity user() {

@@ -11,7 +11,7 @@ public record ApplicationResponse(Long id, String clientId, String tenantId, Str
                                   String clientSecret) {
 
     /** The tenant is not stored per row: every application is registered in the one Entra tenant. */
-    public static ApplicationResponse from(final ApplicationEntity application, final String tenantId) {
+    public static ApplicationResponse from(final String tenantId, final ApplicationEntity application) {
         return new ApplicationResponse(application.getId(), application.getClientId(), tenantId,
             application.getName(), application.getAppname(), application.getSecretHint(),
             application.getSecretExpiresAt(), application.getCreatedAt(), null);

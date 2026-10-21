@@ -143,7 +143,7 @@ public class ApplicationService {
     }
 
     private ApplicationResponse response(final ApplicationEntity application) {
-        return ApplicationResponse.from(application, entra.tenantId());
+        return ApplicationResponse.from(entra.tenantId(), application);
     }
 
     /** 404 rather than 403: a 403 would confirm the application exists and belongs to somebody. */

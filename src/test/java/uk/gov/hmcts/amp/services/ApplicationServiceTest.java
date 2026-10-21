@@ -5,8 +5,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
+import uk.gov.hmcts.amp.config.EntraProperties;
 import uk.gov.hmcts.amp.domain.AppRegistration;
 import uk.gov.hmcts.amp.domain.ApplicationRequest;
 import uk.gov.hmcts.amp.entity.ApplicationEntity;
@@ -33,6 +35,7 @@ class ApplicationServiceTest {
     private static final String OID = "aaaaaaaa-1111-2222-3333-444444444444";
     private static final String CLIENT_ID = "22222222-2222-2222-2222-222222222222";
     private static final Instant NOW = Instant.parse("2026-10-15T12:00:00Z");
+    private static final String TENANT_ID = "d44f885c-4fac-47bf-afde-d7d861ec4d7b";
 
     @Mock
     private ApplicationRepository applications;
@@ -45,6 +48,9 @@ class ApplicationServiceTest {
 
     @Mock
     private ClockService clockService;
+
+    @Spy
+    private EntraProperties entra = new EntraProperties(TENANT_ID, "an-onboarding-app", "a-secret", "an-api", 1, 1);
 
     @InjectMocks
     private ApplicationService service;
@@ -65,6 +71,26 @@ class ApplicationServiceTest {
 
         assertThat(service.get(OID, CLIENT_ID).clientSecret()).isNull();
         assertThat(service.get(OID, CLIENT_ID).appname()).isEqualTo("case-viewer");
+    }
+
+    @Test
+    void listing_and_reading_should_carry_the_tenant_the_application_is_registered_in() {
+        UserEntity user = signedIn();
+        when(users.requireSignedIn(OID)).thenReturn(user);
+        when(applications.findByUserIdOrderByCreatedAtAsc(1L)).thenReturn(List.of(owned(user)));
+        when(applications.findByClientId(CLIENT_ID)).thenReturn(Optional.of(owned(user)));
+
+        assertThat(service.list(OID)).singleElement().extracting("tenantId").isEqualTo(TENANT_ID);
+        assertThat(service.get(OID, CLIENT_ID).tenantId()).isEqualTo(TENANT_ID);
+    }
+
+    @Test
+    void creating_should_carry_the_tenant_alongside_the_secret() {
+        givenCreateReaches(registered("the-secret", null));
+        when(applications.saveAndFlush(any())).thenAnswer(saved -> saved.getArgument(0));
+
+        assertThat(service.create(OID, new ApplicationRequest("Case Viewer", List.of())).tenantId())
+            .isEqualTo(TENANT_ID);
     }
 
     @Test

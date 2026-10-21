@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import uk.gov.hmcts.amp.config.EntraProperties;
 import uk.gov.hmcts.amp.domain.AppRegistration;
 import uk.gov.hmcts.amp.domain.ApiSubscriptionResponse;
 import uk.gov.hmcts.amp.domain.ApplicationResponse;
@@ -40,16 +41,17 @@ public class ApplicationService {
     private final MarketplaceApiRepository apis;
     private final ApimSubscriptionKeyService subscriptionKeys;
     private final ClockService clockService;
+    private final EntraProperties entra;
 
     public List<ApplicationResponse> list(final String requestingUserId) {
         final UserEntity user = users.requireSignedIn(requestingUserId);
         return applications.findByUserIdOrderByCreatedAtAsc(user.getId()).stream()
-            .map(ApplicationResponse::from)
+            .map(this::response)
             .toList();
     }
 
     public ApplicationResponse get(final String requestingUserId, final String clientId) {
-        return ApplicationResponse.from(requireOwned(users.requireSignedIn(requestingUserId), clientId));
+        return response(requireOwned(users.requireSignedIn(requestingUserId), clientId));
     }
 
     /**
@@ -67,7 +69,7 @@ public class ApplicationService {
         final AppRegistration registered =
             registrations.register(UserService.namePrefix(user) + appname, request.roles());
         try {
-            return ApplicationResponse.from(save(user, request, appname, registered))
+            return response(save(user, request, appname, registered))
                 .withSecret(registered.clientSecret());
         } catch (final RuntimeException couldNotSave) {
             removeOrphan(registered, couldNotSave);
@@ -138,6 +140,10 @@ public class ApplicationService {
             log.error("Could not record application {} and could not remove it either",
                 registered.clientId(), cleanupFailed);
         }
+    }
+
+    private ApplicationResponse response(final ApplicationEntity application) {
+        return ApplicationResponse.from(entra.tenantId(), application);
     }
 
     /** 404 rather than 403: a 403 would confirm the application exists and belongs to somebody. */

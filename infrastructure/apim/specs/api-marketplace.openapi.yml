@@ -719,6 +719,13 @@ components:
         clientId:
           type: string
           example: 1bf041a2-a57a-4255-b90f-d218736cda1f
+        tenantId:
+          type: string
+          description: >-
+            The Entra tenant the application is registered in. With the Client
+            ID and Client Secret it gives the token endpoint,
+            https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token
+          example: d44f885c-4fac-47bf-afde-d7d861ec4d7b
         name:
           type: string
           example: Case Viewer

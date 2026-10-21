@@ -41,10 +41,16 @@ spring:
     ignore-migration-patterns: "*:missing"
 
 apim:
-  tenant-id: ${AZURE_TENANT_ID:00000000-0000-0000-0000-000000000000}
-  subscription-id: ${APIM_SUBSCRIPTION_ID:00000000-0000-0000-0000-000000000000}
+  tenant-id: ${AZURE_TENANT_ID:531ff96d-0ae9-462a-8d2d-bec7c0b42082}
+  subscription-id: ${APIM_SUBSCRIPTION_ID:bd2864ed-4f3e-45ed-9c6a-8d179674bab1}
   resource-group: ${APIM_RESOURCE_GROUP:rg-sps-platform-sbox}
   service-name: ${APIM_SERVICE_NAME:sps-api-mgmt-sbox}
+
+notify:
+  # Added to the apim-sbox vault by hand and mounted by cnp-flux-config. Blank elsewhere, which
+  # disables sending rather than stopping the pod - AAT has no key yet.
+  api-key: ${NOTIFY_API_KEY:}
+  base-url: ${NOTIFY_BASE_URL:https://api.notifications.service.gov.uk}
 
 entra:
   max-attempts: ${ENTRA_MAX_ATTEMPTS:20}

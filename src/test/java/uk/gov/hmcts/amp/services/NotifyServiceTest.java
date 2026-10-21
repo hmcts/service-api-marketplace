@@ -1,0 +1,91 @@
+package uk.gov.hmcts.amp.services;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+import uk.gov.hmcts.amp.config.NotifyProperties;
+import uk.gov.hmcts.amp.domain.ProductionAccessRequestEmail;
+import uk.gov.service.notify.NotificationClientApi;
+import uk.gov.service.notify.NotificationClientException;
+import uk.gov.service.notify.SendEmailResponse;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class NotifyServiceTest {
+
+    private static final String TEMPLATE = ProductionAccessRequestEmail.TEMPLATE_ID;
+    private static final String KEY = "amp-00000000-0000-0000-0000-000000000000-"
+        + "11111111-1111-1111-1111-111111111111";
+
+    @Mock
+    private NotificationClientApi client;
+
+    @Test
+    void sending_should_pass_the_template_the_address_and_the_three_personalisations() throws Exception {
+        NotifyService service = serviceWith(KEY, client);
+        SendEmailResponse accepted = mock(SendEmailResponse.class);
+        when(accepted.getNotificationId()).thenReturn(UUID.randomUUID());
+        when(client.sendEmail(any(), any(), any(), any())).thenReturn(accepted);
+
+        service.send(request());
+
+        // api_list stays a List so Notify renders it as bullets; a joined String would not match.
+        verify(client).sendEmail(TEMPLATE, "ada.lovelace@hmcts.net",
+            Map.of("consumer_name", "Ada Lovelace",
+                "application_name", "Case Viewer",
+                "api_list", List.of("Court Schedule", "Hearing Results")),
+            "case-viewer");
+    }
+
+    @Test
+    void no_api_key_should_be_unavailable_rather_than_a_silent_no_op() throws Exception {
+        NotifyService service = serviceWith("", client);
+
+        assertThatThrownBy(() -> service.send(request()))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE))
+            .hasMessageContaining("NOTIFY_API_KEY");
+
+        verify(client, never()).sendEmail(any(), any(), any(), any());
+    }
+
+    @Test
+    void notify_refusing_should_be_a_bad_gateway_without_leaking_its_detail() throws Exception {
+        NotifyService service = serviceWith(KEY, client);
+        when(client.sendEmail(any(), any(), any(), any()))
+            .thenThrow(new NotificationClientException("team-only key: 400 BadRequestError"));
+
+        assertThatThrownBy(() -> service.send(request()))
+            .isInstanceOfSatisfying(ResponseStatusException.class, e -> {
+                assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+                assertThat(e.getReason()).doesNotContain("BadRequestError");
+            });
+    }
+
+    private ProductionAccessRequestEmail request() {
+        return new ProductionAccessRequestEmail("ada.lovelace@hmcts.net", "Ada Lovelace", "Case Viewer",
+            List.of("Court Schedule", "Hearing Results"), "case-viewer");
+    }
+
+    private NotifyService serviceWith(final String apiKey, final NotificationClientApi notify) {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<NotificationClientApi> provider = mock(ObjectProvider.class);
+        org.mockito.Mockito.lenient().when(provider.getIfAvailable()).thenReturn(notify);
+        return new NotifyService(new NotifyProperties(apiKey, "https://notify.example"), provider);
+    }
+}

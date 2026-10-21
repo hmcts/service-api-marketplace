@@ -47,8 +47,23 @@ class NotifyFunctionalTest {
         ProductionAccessRequestEmail template = new ProductionAccessRequestEmail(
             TEST_EMAIL, "Functional Test",
             "Case Viewer",
-            List.of("Court Schedule", "Hearing Results"),
+            List.of("Scheduling and Listing Court Schedule", "Refdata Court Hearing Courthouses"),
             "PCR-FUNCTEST"
+        );
+        notifyService.send(template);
+    }
+
+    /**
+     * An application can be asked about before it is subscribed to anything, and only Notify can
+     * say whether an empty list reads as a present placeholder or a missing one.
+     */
+    @Test
+    void notify_should_accept_an_empty_api_list() {
+        ProductionAccessRequestEmail template = new ProductionAccessRequestEmail(
+            TEST_EMAIL, "Functional Test",
+            "Case Viewer",
+            List.of(),
+            "PCR-FUNCNONE"
         );
         notifyService.send(template);
     }

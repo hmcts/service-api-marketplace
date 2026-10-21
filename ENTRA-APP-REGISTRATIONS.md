@@ -15,8 +15,7 @@ the one `createApplication` returns.
 
 Every call carries a `requestingUserId` header, the caller's Entra object id, and an application
 belongs to whoever registered it: somebody else's reads as 404 rather than 403. Registering also
-writes a row, so the application is listable and deletable afterwards - the earlier unscoped
-`/applications-new`, which only ever talked to Entra, has been removed.
+writes a row, so the application is listable and deletable afterwards.
 
 ## listApplications
 

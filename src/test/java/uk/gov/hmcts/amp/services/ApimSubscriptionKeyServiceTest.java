@@ -13,8 +13,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
+import uk.gov.hmcts.amp.config.ApimProperties;
 import uk.gov.hmcts.amp.domain.SubscriptionKey;
 import uk.gov.hmcts.amp.entity.UserEntity;
 
@@ -54,9 +54,8 @@ class ApimSubscriptionKeyServiceTest {
         caller.setId(1L);
         UserService users = mock(UserService.class);
         lenient().when(users.requireSignedIn(OID)).thenReturn(caller);
-        service = new ApimSubscriptionKeyService(apim, users);
-        ReflectionTestUtils.setField(service, "resourceGroup", RESOURCE_GROUP);
-        ReflectionTestUtils.setField(service, "serviceName", SERVICE_NAME);
+        service = new ApimSubscriptionKeyService(apim, users,
+            new ApimProperties("a-tenant", "a-subscription", RESOURCE_GROUP, SERVICE_NAME));
     }
 
     @Test

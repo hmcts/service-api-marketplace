@@ -11,11 +11,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * "HMCTS API Access Request" to the Data Access Panel, the Information Asset Owner and the
- * Marketplace team. The requester is not copied: the wording asks the three of them to discuss
- * the request on the thread. The keys below are the only contract with Notify.
- */
 @Getter
 @RequiredArgsConstructor
 public class ProductionAccessReviewEmail implements NotifyEmail {

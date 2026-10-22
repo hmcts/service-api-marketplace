@@ -277,21 +277,24 @@ paths:
         - $ref: '#/components/parameters/ClientId'
         - $ref: '#/components/parameters/RequestingUserId'
       requestBody:
+        description: >-
+          One API per call. The role and the resource app it lives on are
+          resolved from the short code, so a caller never names either.
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [role]
+              required: [shortCode]
               properties:
-                role:
+                shortCode:
                   type: string
-                  example: slc.read
+                  example: slc
       responses:
         '204':
           description: Granted
         '400':
-          description: The API offers no such role; the message lists the ones it does
+          description: No API with that short code, or it offers no such role
           content:
             application/json:
               schema:
@@ -862,10 +865,19 @@ components:
           example: amp/slc
         role:
           type: string
+          description: The role to request on this API's resource app
+          example: app.read
+        tenantId:
+          type: string
+          description: The Entra tenant whose token endpoint issues for this API
+          example: d44f885c-4fac-47bf-afde-d7d861ec4d7b
+        resourceAppId:
+          type: string
           description: >-
-            The per-API Entra role. Proposed - hmcts-api-marketplace defines
-            only app.read and slc.read today, so nothing grants these yet
-          example: slc.read
+            The API's own Entra resource app. Goes in scope=<id>/.default and
+            is the aud the token carries. Absent where this environment has no
+            resource app for the API, which is also when a grant is refused
+          example: 11111111-1111-1111-1111-111111111111
 
     ApiSubscription:
       type: object

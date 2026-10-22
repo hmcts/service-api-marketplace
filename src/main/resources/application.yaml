@@ -55,7 +55,12 @@ entra:
   max-attempts: ${ENTRA_MAX_ATTEMPTS:20}
   retry-delay-millis: ${ENTRA_RETRY_DELAY_MILLIS:500}
   tenant-id: ${ENTRA_TENANT_ID:d44f885c-4fac-47bf-afde-d7d861ec4d7b}
-  api-client-id: ${ENTRA_API_CLIENT_ID:30288840-e345-4543-99ee-f9253d789339}
+  # One resource app per API, per environment. The app id is the audience a consumer scopes on,
+  # so it is published rather than kept secret, and it belongs in the chart not the vault. Blank
+  # refuses a grant for that API with a 503 rather than stopping the pod.
+  resource-app-ids:
+    slc: ${ENTRA_RESOURCE_APP_ID_SLC:c4c8974c-2800-4fe6-964f-dcd4c0820507}
+    rcc: ${ENTRA_RESOURCE_APP_ID_RCC:}
   onboarding-client-id: ${ENTRA_ONBOARDING_CLIENT_ID:aba0879b-39e2-452a-b934-f922cd9e6acb}
   onboarding-client-secret: ${ENTRA_ONBOARDING_CLIENT_SECRET:}
 

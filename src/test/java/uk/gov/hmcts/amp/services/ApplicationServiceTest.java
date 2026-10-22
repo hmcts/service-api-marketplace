@@ -7,12 +7,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.config.EntraProperties;
 import uk.gov.hmcts.amp.domain.AppRegistration;
+import uk.gov.hmcts.amp.domain.ApiGrant;
 import uk.gov.hmcts.amp.domain.ApplicationRequest;
 import uk.gov.hmcts.amp.entity.ApplicationEntity;
+import uk.gov.hmcts.amp.entity.MarketplaceApiEntity;
 import uk.gov.hmcts.amp.entity.UserEntity;
+import uk.gov.hmcts.amp.repository.MarketplaceApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
 
 import java.time.Instant;
@@ -20,6 +24,8 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -36,6 +42,7 @@ class ApplicationServiceTest {
     private static final String CLIENT_ID = "22222222-2222-2222-2222-222222222222";
     private static final Instant NOW = Instant.parse("2026-10-15T12:00:00Z");
     private static final String TENANT_ID = "d44f885c-4fac-47bf-afde-d7d861ec4d7b";
+    private static final String RESOURCE_APP_ID = "99999999-9999-9999-9999-999999999999";
 
     @Mock
     private ApplicationRepository applications;
@@ -47,10 +54,14 @@ class ApplicationServiceTest {
     private EntraAppRegistrationService registrations;
 
     @Mock
+    private MarketplaceApiRepository apis;
+
+    @Mock
     private ClockService clockService;
 
     @Spy
-    private EntraProperties entra = new EntraProperties(TENANT_ID, "an-onboarding-app", "a-secret", "an-api", 1, 1);
+    private EntraProperties entra = new EntraProperties(TENANT_ID, "an-onboarding-app", "a-secret",
+        Map.of("slc", RESOURCE_APP_ID), 1, 1);
 
     @InjectMocks
     private ApplicationService service;
@@ -94,14 +105,30 @@ class ApplicationServiceTest {
     }
 
     @Test
-    void granting_a_role_should_check_ownership_before_calling_entra() {
+    void granting_access_should_resolve_the_resource_app_and_role_from_the_short_code() {
         UserEntity user = signedIn();
         when(users.requireSignedIn(OID)).thenReturn(user);
         when(applications.findByClientId(CLIENT_ID)).thenReturn(Optional.of(owned(user)));
+        when(apis.findById("slc")).thenReturn(Optional.of(api("slc", "app.read")));
 
-        service.grantRole(OID, CLIENT_ID, "app.read");
+        service.grantAccess(OID, CLIENT_ID, "slc");
 
-        verify(registrations).grantApiAccess(CLIENT_ID, "app.read");
+        // The caller names the API; the audience and the role are ours to decide.
+        verify(registrations).grantApiAccess(CLIENT_ID, RESOURCE_APP_ID, "app.read");
+    }
+
+    @Test
+    void granting_access_to_an_api_with_no_resource_app_here_should_not_reach_entra() {
+        UserEntity user = signedIn();
+        when(users.requireSignedIn(OID)).thenReturn(user);
+        when(applications.findByClientId(CLIENT_ID)).thenReturn(Optional.of(owned(user)));
+        when(apis.findById("rcc")).thenReturn(Optional.of(api("rcc", "app.read")));
+
+        assertThatThrownBy(() -> service.grantAccess(OID, CLIENT_ID, "rcc"))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));
+
+        verify(registrations, never()).grantApiAccess(any(), any(), any());
     }
 
     @Test
@@ -112,11 +139,11 @@ class ApplicationServiceTest {
         when(users.requireSignedIn(OID)).thenReturn(caller);
         when(applications.findByClientId(CLIENT_ID)).thenReturn(Optional.of(owned(owner)));
 
-        assertThatThrownBy(() -> service.grantRole(OID, CLIENT_ID, "app.read"))
+        assertThatThrownBy(() -> service.grantAccess(OID, CLIENT_ID, "slc"))
             .isInstanceOf(ResponseStatusException.class)
             .hasMessageContaining("No application with client id");
 
-        verify(registrations, never()).grantApiAccess(any(), any());
+        verify(registrations, never()).grantApiAccess(any(), any(), any());
     }
 
     @Test
@@ -181,9 +208,19 @@ class ApplicationServiceTest {
         givenCreateReaches(registered("the-secret", null));
         when(applications.saveAndFlush(any())).thenAnswer(saved -> saved.getArgument(0));
 
-        service.create(OID, new ApplicationRequest("Case Viewer", List.of("app.read")));
+        when(apis.findById("slc")).thenReturn(Optional.of(api("slc", "app.read")));
 
-        verify(registrations).register("amp-user001-case-viewer", List.of("app.read"));
+        service.create(OID, new ApplicationRequest("Case Viewer", List.of("slc")));
+
+        verify(registrations).register("amp-user001-case-viewer",
+            List.of(new ApiGrant("slc", RESOURCE_APP_ID, "app.read")));
+    }
+
+    private static MarketplaceApiEntity api(final String shortCode, final String role) {
+        MarketplaceApiEntity entity = new MarketplaceApiEntity();
+        entity.setShortCode(shortCode);
+        entity.setRole(role);
+        return entity;
     }
 
     private UserEntity signedIn() {

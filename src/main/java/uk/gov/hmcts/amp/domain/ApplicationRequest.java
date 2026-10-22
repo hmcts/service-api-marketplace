@@ -10,10 +10,10 @@ public record ApplicationRequest(
     @Pattern(regexp = "^[A-Za-z0-9][A-Za-z0-9 ]{6,48}[A-Za-z0-9]$",
         message = "Use letters, digits and spaces only, 8 to 50 characters.")
     String name,
-    List<String> roles) {
+    List<String> apis) {
 
     public ApplicationRequest {
-        roles = roles == null ? List.of() : roles;
+        apis = apis == null ? List.of() : apis;
     }
 
     public String appname() {

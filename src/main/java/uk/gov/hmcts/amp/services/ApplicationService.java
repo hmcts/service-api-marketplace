@@ -6,11 +6,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.config.EntraProperties;
-import uk.gov.hmcts.amp.domain.AppRegistration;
+import uk.gov.hmcts.amp.domain.ApiGrant;
 import uk.gov.hmcts.amp.domain.ApiSubscriptionResponse;
+import uk.gov.hmcts.amp.domain.AppRegistration;
+import uk.gov.hmcts.amp.domain.ApplicationRequest;
 import uk.gov.hmcts.amp.domain.ApplicationResponse;
 import uk.gov.hmcts.amp.domain.SubscriptionKey;
-import uk.gov.hmcts.amp.domain.ApplicationRequest;
 import uk.gov.hmcts.amp.entity.ApplicationApiEntity;
 import uk.gov.hmcts.amp.entity.ApplicationEntity;
 import uk.gov.hmcts.amp.entity.MarketplaceApiEntity;
@@ -62,12 +63,14 @@ public class ApplicationService {
         final UserEntity user = users.requireSignedIn(requestingUserId);
         final String appname = request.appname();
         if (applications.existsByUserIdAndAppname(user.getId(), appname)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                "You already have an application called " + request.name() + ".");
+            throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "You already have an application called " + request.name() + "."
+            );
         }
 
         final AppRegistration registered =
-            registrations.register(UserService.namePrefix(user) + appname, request.roles());
+            registrations.register(UserService.namePrefix(user) + appname, grantsFor(request.apis()));
         try {
             return response(save(user, request, appname, registered))
                 .withSecret(registered.clientSecret());
@@ -86,24 +89,45 @@ public class ApplicationService {
 
         final String name = UserService.namePrefix(user) + application.getAppname()
             + "-" + api.getShortCode();
-        final SubscriptionKey created = subscriptionKeys.create(requestingUserId, name,
-            api.getProductId(), application.getName());
+        final SubscriptionKey created = subscriptionKeys.create(
+            requestingUserId, name,
+            api.getProductId(), application.getName()
+        );
 
         record(application, api, name, created.primaryKey());
         log.info("Subscribed application {} to {} as {}", clientId, api.getShortCode(), name);
-        return new ApiSubscriptionResponse(api.getShortCode(), api.getTitle(), api.getProductId(),
-            name, created.primaryKey());
+        return new ApiSubscriptionResponse(
+            api.getShortCode(), api.getTitle(), api.getProductId(),
+            name, created.primaryKey()
+        );
     }
 
-    /** The subscription is gone from APIM, so the row claiming the application has it must go too. */
+    /**
+     * The role lives on the API's own resource app, and its id is the audience a consumer scopes
+     * on, so both halves come from configuration the environment supplies rather than the caller.
+     */
+    private ApiGrant grantFor(final String shortCode) {
+        final MarketplaceApiEntity api = requireKnownApi(shortCode);
+        return new ApiGrant(api.getShortCode(), entra.resourceAppId(api.getShortCode()), api.getRole());
+    }
+
+    private List<ApiGrant> grantsFor(final List<String> shortCodes) {
+        return shortCodes.stream().map(this::grantFor).toList();
+    }
+
+    /**
+     * The subscription is gone from APIM, so the row claiming the application has it must go too.
+     */
     public void forgetApi(final String subscriptionName) {
         applicationApis.findBySubscriptionName(subscriptionName)
             .ifPresent(applicationApis::delete);
     }
 
-    public void grantRole(final String requestingUserId, final String clientId, final String role) {
+    public void grantAccess(final String requestingUserId, final String clientId,
+                            final String shortCode) {
         requireOwned(users.requireSignedIn(requestingUserId), clientId);
-        registrations.grantApiAccess(clientId, role);
+        final ApiGrant grant = grantFor(shortCode);
+        registrations.grantApiAccess(clientId, grant.resourceAppId(), grant.role());
     }
 
     public void delete(final String requestingUserId, final String clientId) {
@@ -137,8 +161,10 @@ public class ApplicationService {
             log.warn("Could not record application {}; removed it from Entra", registered.clientId());
         } catch (final RuntimeException cleanupFailed) {
             cause.addSuppressed(cleanupFailed);
-            log.error("Could not record application {} and could not remove it either",
-                registered.clientId(), cleanupFailed);
+            log.error(
+                "Could not record application {} and could not remove it either",
+                registered.clientId(), cleanupFailed
+            );
         }
     }
 
@@ -146,12 +172,16 @@ public class ApplicationService {
         return ApplicationResponse.from(entra.tenantId(), application);
     }
 
-    /** 404 rather than 403: a 403 would confirm the application exists and belongs to somebody. */
+    /**
+     * 404 rather than 403: a 403 would confirm the application exists and belongs to somebody.
+     */
     private ApplicationEntity requireOwned(final UserEntity user, final String clientId) {
         return applications.findByClientId(clientId)
             .filter(application -> application.getUser().getId().equals(user.getId()))
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                "No application with client id " + clientId + "."));
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND,
+                "No application with client id " + clientId + "."
+            ));
     }
 
     private void record(final ApplicationEntity application, final MarketplaceApiEntity api,
@@ -168,15 +198,19 @@ public class ApplicationService {
 
     private MarketplaceApiEntity requireKnownApi(final String shortCode) {
         return apis.findById(shortCode)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "No API with short code " + shortCode + "."));
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "No API with short code " + shortCode + "."
+            ));
     }
 
     private void requireNotAlreadySubscribed(final ApplicationEntity application,
                                              final MarketplaceApiEntity api) {
         if (applicationApis.existsByApplicationIdAndShortCode(application.getId(), api.getShortCode())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                application.getName() + " is already subscribed to " + api.getShortCode() + ".");
+            throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                application.getName() + " is already subscribed to " + api.getShortCode() + "."
+            );
         }
     }
 

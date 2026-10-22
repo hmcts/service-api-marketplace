@@ -17,10 +17,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.config.EntraProperties;
+import uk.gov.hmcts.amp.domain.ApiGrant;
 import uk.gov.hmcts.amp.domain.AppRegistration;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -70,7 +72,7 @@ public class EntraAppRegistrationService {
      * Anything that fails once the application exists takes it away again, roles included: a registration
      * whose secret was shown but whose access was never granted is worse than none at all.
      */
-    public AppRegistration register(final String applicationName, final List<String> roles) {
+    public AppRegistration register(final String applicationName, final List<ApiGrant> grants) {
         requireCredential();
         Application created = createApplication(applicationName);
         String objectId = created.getId();
@@ -78,11 +80,13 @@ public class EntraAppRegistrationService {
         try {
             withRetry("create service principal", () -> createServicePrincipal(clientId));
             PasswordCredential secret = withRetry("add password", () -> addPassword(objectId));
-            roles.forEach(role -> grantApiAccess(clientId, role));
+            grants.forEach(grant -> grantApiAccess(clientId, grant.resourceAppId(), grant.role()));
 
-            log.info("Registered Entra application {} for '{}' with roles {}", clientId, applicationName, roles);
+            List<String> apis = grants.stream().map(ApiGrant::shortCode).toList();
+            log.info("Registered Entra application {} for '{}' with access to {}",
+                clientId, applicationName, apis);
             return AppRegistration.registered(objectId, clientId, secret.getSecretText(),
-                String.valueOf(secret.getKeyId()), roles, secret.getEndDateTime());
+                String.valueOf(secret.getKeyId()), apis, secret.getEndDateTime());
         } catch (final RuntimeException registrationFailed) {
             removeOrphan(objectId, registrationFailed);
             throw registrationFailed;
@@ -153,11 +157,13 @@ public class EntraAppRegistrationService {
      * Assigns an app role on the marketplace API's service principal. Nothing in APIM changes: its
      * validate-jwt policy already requires the role, and the consumer's token starts carrying it.
      */
-    public void grantApiAccess(final String consumerClientId, final String roleValue) {
+    public void grantApiAccess(final String consumerClientId, final String resourceAppId,
+                               final String roleValue) {
         requireCredential();
         String consumerPrincipalId = servicePrincipalObjectId(consumerClientId,
             "No service principal for application " + consumerClientId);
-        String apiPrincipalId = apiPrincipalId();
+        String apiPrincipalId = servicePrincipalObjectId(resourceAppId,
+            "No service principal for the API " + resourceAppId);
 
         AppRoleAssignment assignment = new AppRoleAssignment();
         assignment.setPrincipalId(UUID.fromString(consumerPrincipalId));
@@ -169,12 +175,7 @@ public class EntraAppRegistrationService {
         } catch (final ApiException e) {
             throw assignmentRefused(e);
         }
-        log.info("Granted {} on {} to application {}", roleValue, config.apiClientId(), consumerClientId);
-    }
-
-    private String apiPrincipalId() {
-        return servicePrincipalObjectId(config.apiClientId(),
-            "No service principal for the API " + config.apiClientId());
+        log.info("Granted {} on {} to application {}", roleValue, resourceAppId, consumerClientId);
     }
 
     /** Retried: run straight after registering, the service principal is seconds old and may not have replicated. */
@@ -202,9 +203,11 @@ public class EntraAppRegistrationService {
 
     private List<String> grantedRoles(final String clientId) {
         String principalId = servicePrincipalObjectId(clientId, "No service principal for " + clientId);
-        Map<UUID, String> namesById = rolesOfferedByTheApi();
+        Map<String, Map<UUID, String>> rolesByResource = new HashMap<>();
         return assignmentsFor(principalId).stream()
-            .map(assignment -> namesById.get(assignment.getAppRoleId()))
+            .map(assignment -> rolesByResource
+                .computeIfAbsent(String.valueOf(assignment.getResourceId()), this::rolesOfferedBy)
+                .get(assignment.getAppRoleId()))
             .filter(Objects::nonNull)
             .sorted()
             .toList();
@@ -216,9 +219,12 @@ public class EntraAppRegistrationService {
         return response == null || response.getValue() == null ? List.of() : response.getValue();
     }
 
-    private Map<UUID, String> rolesOfferedByTheApi() {
-        return graph.servicePrincipals().byServicePrincipalId(apiPrincipalId()).get().getAppRoles().stream()
-            .collect(Collectors.toMap(AppRole::getId, AppRole::getValue));
+    /** Each API defines its own roles, so the names come from the resource the grant was made on. */
+    private Map<UUID, String> rolesOfferedBy(final String resourcePrincipalId) {
+        List<AppRole> offered = graph.servicePrincipals()
+            .byServicePrincipalId(resourcePrincipalId).get().getAppRoles();
+        return offered == null ? Map.of()
+            : offered.stream().collect(Collectors.toMap(AppRole::getId, AppRole::getValue));
     }
 
     /** 500 rather than 503: only a consent grant fixes this, and a 503 invites a client to retry forever. */

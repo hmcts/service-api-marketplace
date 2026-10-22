@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -27,11 +28,21 @@ class StartupLoggerTest {
     }
 
     @Test
-    void the_entra_line_should_name_the_client_ids_but_never_the_secret() {
+    void the_entra_line_should_name_the_resource_app_per_api_but_never_the_secret() {
         assertThat(logger().entraSettings())
-            .isEqualTo("tenant entra-tenant, api an-api-client, onboarding an-onboarding-client, "
-                + "onboarding secret set")
+            .isEqualTo("tenant entra-tenant, onboarding an-onboarding-client, "
+                + "onboarding secret set, resource apps {rcc=rcc-app, slc=slc-app}")
             .doesNotContain("an-onboarding-secret");
+    }
+
+    @Test
+    void an_api_with_no_resource_app_here_should_be_visible_as_missing() {
+        StartupLogger partial = new StartupLogger(environment(),
+            new ApimProperties("a-tenant", "a-subscription", "rg", "instance"),
+            new EntraProperties("entra-tenant", "a-client", "a-secret", Map.of(), 1, 1),
+            new NotifyProperties(KEY, "https://notify.example", List.of()));
+
+        assertThat(partial.entraSettings()).endsWith("resource apps {}");
     }
 
     @Test
@@ -47,7 +58,7 @@ class StartupLoggerTest {
     void an_unset_secret_should_be_said_out_loud_rather_than_left_blank() {
         StartupLogger unconfigured = new StartupLogger(environment(),
             new ApimProperties("a-tenant", "a-subscription", "rg", "instance"),
-            new EntraProperties("entra-tenant", "a-client", "", "an-api", 1, 1),
+            new EntraProperties("entra-tenant", "a-client", "", Map.of("slc", "an-api"), 1, 1),
             new NotifyProperties("", "https://notify.example", List.of()));
 
         assertThat(unconfigured.entraSettings()).contains("onboarding secret NOT SET");
@@ -60,7 +71,7 @@ class StartupLoggerTest {
         // A vault that is mounted but empty resolves to NOT_SET, which is not a secret.
         StartupLogger placeholder = new StartupLogger(environment(),
             new ApimProperties("a-tenant", "a-subscription", "rg", "instance"),
-            new EntraProperties("entra-tenant", "a-client", "NOT_SET", "an-api", 1, 1),
+            new EntraProperties("entra-tenant", "a-client", "NOT_SET", Map.of("slc", "an-api"), 1, 1),
             new NotifyProperties(KEY, "https://notify.example", List.of()));
 
         assertThat(placeholder.entraSettings()).contains("onboarding secret NOT SET");
@@ -71,7 +82,7 @@ class StartupLoggerTest {
             new ApimProperties("a-tenant", "a-subscription", "rg-sps-platform-sbox",
                 "sps-api-mgmt-sbox"),
             new EntraProperties("entra-tenant", "an-onboarding-client", "an-onboarding-secret",
-                "an-api-client", 20, 500),
+                Map.of("slc", "slc-app", "rcc", "rcc-app"), 20, 500),
             new NotifyProperties(KEY, "https://notify.example",
                 List.of("DataAccessPanel@justice.gov.uk", "Craig.Robb@justice.gov.uk")));
     }

@@ -26,6 +26,6 @@ class MarketplaceApiRepositoryIntegrationTest {
         assertThat(slc.getProductId()).isEqualTo("try-it-now-cp-crime-schedulingandlisting");
         assertThat(slc.getTryItNowProductId()).isEqualTo("try-it-now-cp-crime-schedulingandlisting");
         assertThat(slc.getGatewayPath()).isEqualTo("amp/try/slc");
-        assertThat(slc.getRole()).isEqualTo("slc.read");
+        assertThat(slc.getRole()).isEqualTo("app.read");
     }
 }

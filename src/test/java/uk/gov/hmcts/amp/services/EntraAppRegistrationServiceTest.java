@@ -12,10 +12,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 import uk.gov.hmcts.amp.config.EntraProperties;
+import uk.gov.hmcts.amp.domain.ApiGrant;
 import uk.gov.hmcts.amp.domain.AppRegistration;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+
+import java.util.Map;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.delete;
@@ -43,6 +46,7 @@ class EntraAppRegistrationServiceTest {
     private static final String CONSUMER_SP_ID = "55555555-5555-5555-5555-555555555555";
     private static final String ROLE_ID = "66666666-6666-6666-6666-666666666666";
     private static final String API_CLIENT_ID = "99999999-9999-9999-9999-999999999999";
+    private static final List<ApiGrant> SLC_GRANT = List.of(new ApiGrant("slc", API_CLIENT_ID, "app.read"));
     private static final String ASSIGNED_TO = "/servicePrincipals/" + API_SP_ID + "/appRoleAssignedTo";
     private static final int ATTEMPTS = 4;
 
@@ -95,9 +99,9 @@ class EntraAppRegistrationServiceTest {
         stubApiRoles();
         mockEntra.stubFor(post(urlPathEqualTo(ASSIGNED_TO)).willReturn(json("{\"id\":\"assignment-1\"}")));
 
-        AppRegistration registered = service.register("Team Alpha", List.of("slc.read"));
+        AppRegistration registered = service.register("Team Alpha", SLC_GRANT);
 
-        assertThat(registered.roles()).containsExactly("slc.read");
+        assertThat(registered.roles()).containsExactly("slc");
         // Assigned on the API's principal, naming the consumer as principalId - not the other way round.
         mockEntra.verify(postRequestedFor(urlPathEqualTo(ASSIGNED_TO)).withRequestBody(equalToJson("""
             {"principalId":"%s","resourceId":"%s","appRoleId":"%s"}"""
@@ -110,7 +114,7 @@ class EntraAppRegistrationServiceTest {
         stubApiRoles();
         mockEntra.stubFor(post(urlPathEqualTo(ASSIGNED_TO)).willReturn(json("{\"id\":\"assignment-1\"}")));
 
-        service.grantApiAccess(CLIENT_ID, "slc.read");
+        service.grantApiAccess(CLIENT_ID, API_CLIENT_ID, "app.read");
 
         // Assigned on the API's principal, naming the consumer as principalId - not the other way round.
         mockEntra.verify(postRequestedFor(urlPathEqualTo(ASSIGNED_TO)).withRequestBody(equalToJson("""
@@ -123,10 +127,10 @@ class EntraAppRegistrationServiceTest {
         stubServicePrincipalLookups();
         stubApiRoles();
 
-        assertThatThrownBy(() -> service.grantApiAccess(CLIENT_ID, "nonsense.read"))
+        assertThatThrownBy(() -> service.grantApiAccess(CLIENT_ID, API_CLIENT_ID, "nonsense"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST))
-            .hasMessageContaining("slc.read");
+            .hasMessageContaining("app.read");
     }
 
     @Test
@@ -135,7 +139,7 @@ class EntraAppRegistrationServiceTest {
         stubApiRoles();
         mockEntra.stubFor(post(urlPathEqualTo(ASSIGNED_TO)).willReturn(aResponse().withStatus(403)));
 
-        assertThatThrownBy(() -> service.grantApiAccess(CLIENT_ID, "slc.read"))
+        assertThatThrownBy(() -> service.grantApiAccess(CLIENT_ID, API_CLIENT_ID, "app.read"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 // Not 503: a missing consent grant is not temporary, and 503 invites endless retrying.
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR))
@@ -151,12 +155,13 @@ class EntraAppRegistrationServiceTest {
         stubServicePrincipalLookups();
         stubApiRoles();
         stubAssignments("""
-            {"value":[{"id":"assign-1","appRoleId":"%s"}]}""".formatted(ROLE_ID));
+            {"value":[{"id":"assign-1","appRoleId":"%s","resourceId":"%s"}]}"""
+            .formatted(ROLE_ID, API_SP_ID));
 
         AppRegistration detail = service.get(CLIENT_ID);
 
-        // Graph answers with the role's id; the caller wants its name.
-        assertThat(detail.roles()).containsExactly("slc.read");
+        // Graph answers with the role's id, and names the resource it belongs to.
+        assertThat(detail.roles()).containsExactly("app.read");
         assertThat(detail.clientId()).isEqualTo(CLIENT_ID);
         assertThat(detail.clientSecret()).isNull();
     }
@@ -248,7 +253,7 @@ class EntraAppRegistrationServiceTest {
             .willReturn(json("{\"value\":[{\"id\":\"" + CONSUMER_SP_ID + "\"}]}")));
         mockEntra.stubFor(post(urlPathEqualTo(ASSIGNED_TO)).willReturn(json("{\"id\":\"assignment-1\"}")));
 
-        assertThat(service.register("Team Alpha", List.of("slc.read")).roles()).containsExactly("slc.read");
+        assertThat(service.register("Team Alpha", SLC_GRANT).roles()).containsExactly("slc");
     }
 
     @Test
@@ -271,7 +276,7 @@ class EntraAppRegistrationServiceTest {
         mockEntra.stubFor(post(urlPathEqualTo(ASSIGNED_TO)).willReturn(aResponse().withStatus(403)));
         mockEntra.stubFor(delete(urlPathMatching("/applications/.*")).willReturn(aResponse().withStatus(204)));
 
-        assertThatThrownBy(() -> service.register("Team Alpha", List.of("slc.read")))
+        assertThatThrownBy(() -> service.register("Team Alpha", SLC_GRANT))
             .isInstanceOf(ResponseStatusException.class);
 
         // A registration whose secret was shown but whose access failed is worse than none.
@@ -314,7 +319,8 @@ class EntraAppRegistrationServiceTest {
     }
 
     private EntraProperties properties(final String secret) {
-        return new EntraProperties("a-tenant", "an-onboarding-app", secret, API_CLIENT_ID, ATTEMPTS, 1);
+        return new EntraProperties("a-tenant", "an-onboarding-app", secret,
+            Map.of("slc", API_CLIENT_ID), ATTEMPTS, 1);
     }
 
     private void stubRegistrationCalls() {
@@ -350,7 +356,7 @@ class EntraAppRegistrationServiceTest {
 
     private void stubApiRoles() {
         mockEntra.stubFor(get(urlPathEqualTo("/servicePrincipals/" + API_SP_ID)).willReturn(json("""
-            {"id":"%s","appRoles":[{"id":"%s","value":"slc.read"}]}""".formatted(API_SP_ID, ROLE_ID))));
+            {"id":"%s","appRoles":[{"id":"%s","value":"app.read"}]}""".formatted(API_SP_ID, ROLE_ID))));
     }
 
     private void stubAssignments(final String body) {

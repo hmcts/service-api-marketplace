@@ -26,7 +26,7 @@ public class WireMockGraphInitialise implements ApplicationContextInitializer<Co
     public static final String API_CLIENT_ID = "99999999-9999-9999-9999-999999999999";
     public static final String OBJECT_ID = "11111111-1111-1111-1111-111111111111";
     public static final String CLIENT_ID = "22222222-2222-2222-2222-222222222222";
-    public static final String ROLE = "slc.read";
+    public static final String ROLE = "app.read";
 
     private static final String KEY_ID = "33333333-3333-3333-3333-333333333333";
     private static final String API_SP_ID = "44444444-4444-4444-4444-444444444444";

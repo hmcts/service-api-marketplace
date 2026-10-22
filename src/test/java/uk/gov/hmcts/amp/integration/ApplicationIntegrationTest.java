@@ -23,7 +23,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.API_CLIENT_ID;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.CLIENT_ID;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.OBJECT_ID;
-import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.ROLE;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.assignedTo;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubRoleAssignment;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubServicePrincipals;
@@ -37,7 +36,7 @@ import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.wireMockGraph
 @SpringBootTest(properties = {
     "entra.onboarding-client-id=a-test-onboarding-app",
     "entra.onboarding-client-secret=a-test-secret",
-    "entra.api-client-id=" + API_CLIENT_ID,
+    "entra.resource-app-ids.slc=" + API_CLIENT_ID,
     "entra.max-attempts=2",
     "entra.retry-delay-millis=1"})
 @AutoConfigureMockMvc
@@ -142,7 +141,7 @@ class ApplicationIntegrationTest {
         stubRoleAssignment();
 
         mockMvc.perform(post(PATH + "/" + CLIENT_ID + "/roles").header("requestingUserId", OWNER_OID)
-                .contentType(MediaType.APPLICATION_JSON).content("{\"role\":\"" + ROLE + "\"}"))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"shortCode\":\"slc\"}"))
             .andExpect(status().isNoContent());
 
         wireMockGraph().verify(postRequestedFor(urlPathEqualTo(assignedTo())));
@@ -155,7 +154,7 @@ class ApplicationIntegrationTest {
         stubRoleAssignment();
 
         mockMvc.perform(post(PATH + "/" + CLIENT_ID + "/roles").header("requestingUserId", OTHER_OID)
-                .contentType(MediaType.APPLICATION_JSON).content("{\"role\":\"" + ROLE + "\"}"))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"shortCode\":\"slc\"}"))
             .andExpect(status().isNotFound());
 
         wireMockGraph().verify(0, postRequestedFor(urlPathEqualTo(assignedTo())));

@@ -8,6 +8,9 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import uk.gov.hmcts.amp.notify.EmailMask;
 
+import java.util.Map;
+import java.util.TreeMap;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -40,15 +43,20 @@ public class StartupLogger {
     }
 
     String entraSettings() {
-        return "tenant %s, api %s, onboarding %s, onboarding secret %s".formatted(
-            entraProperties.tenantId(), entraProperties.apiClientId(),
-            entraProperties.onboardingClientId(), whetherSet(entraProperties.onboardingClientSecret()));
+        return "tenant %s, onboarding %s, onboarding secret %s, resource apps %s".formatted(
+            entraProperties.tenantId(), entraProperties.onboardingClientId(),
+            whetherSet(entraProperties.onboardingClientSecret()), resourceApps());
     }
 
     String notifySettings() {
         return "api key %s, base url %s, production requests reviewed by %s".formatted(
             whetherSet(notifyProperties.apiKey()), notifyProperties.baseUrl(),
             notifyProperties.reviewers().stream().map(EmailMask::masked).toList());
+    }
+
+    private String resourceApps() {
+        Map<String, String> configured = entraProperties.resourceAppIds();
+        return configured == null ? "{}" : new TreeMap<>(configured).toString();
     }
 
     private static String whetherSet(final String secret) {

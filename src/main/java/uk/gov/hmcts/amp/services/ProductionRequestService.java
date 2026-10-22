@@ -66,6 +66,15 @@ public class ProductionRequestService {
                 "No request with reference " + reference + "."));
     }
 
+    public void delete(final String requestingUserId, final String reference) {
+        final UserEntity user = users.requireSignedIn(requestingUserId);
+        final ProductionRequestEntity request = requests.findByUserIdAndReference(user.getId(), reference)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                "No request with reference " + reference + "."));
+        requests.delete(request);
+        log.info("Deleted production request {} for userId {}", reference, user.getId());
+    }
+
     public ProductionAccessResponse create(final String requestingUserId,
                                            final ProductionAccessRequest request) {
         final UserEntity user = users.requireSignedIn(requestingUserId);

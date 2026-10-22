@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,5 +51,13 @@ public class ProductionRequestController {
         @Valid @RequestBody final ProductionAccessRequest request) {
         log.info("Create a production request for application {}", request.clientId());
         return productionRequests.create(requestingUserId, request);
+    }
+
+    @DeleteMapping("/{reference}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteRequest(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId,
+                              @PathVariable final String reference) {
+        log.info("Delete production request {}", reference);
+        productionRequests.delete(requestingUserId, reference);
     }
 }

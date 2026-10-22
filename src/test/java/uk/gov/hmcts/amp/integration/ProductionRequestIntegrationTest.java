@@ -22,6 +22,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -313,6 +314,37 @@ class ProductionRequestIntegrationTest {
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
 
         mockMvc.perform(get(PATH + "/" + reference).header("requestingUserId", OTHER_OID))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deleting_a_request_should_remove_it_and_leave_the_application_alone() throws Exception {
+        createApplication(OWNER_OID);
+        String reference = reference(post(PATH).header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
+
+        mockMvc.perform(delete(PATH + "/" + reference).header("requestingUserId", OWNER_OID))
+            .andExpect(status().isNoContent());
+
+        assertThat(productionRequests.count()).isZero();
+        assertThat(applications.findByClientId(CLIENT_ID)).isPresent();
+    }
+
+    @Test
+    void deleting_another_users_request_should_be_not_found_and_leave_it_there() throws Exception {
+        createApplication(OWNER_OID);
+        String reference = reference(post(PATH).header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
+
+        mockMvc.perform(delete(PATH + "/" + reference).header("requestingUserId", OTHER_OID))
+            .andExpect(status().isNotFound());
+
+        assertThat(productionRequests.count()).isEqualTo(1);
+    }
+
+    @Test
+    void deleting_a_reference_that_does_not_exist_should_be_not_found() throws Exception {
+        mockMvc.perform(delete(PATH + "/PCR-NOSUCH12").header("requestingUserId", OWNER_OID))
             .andExpect(status().isNotFound());
     }
 

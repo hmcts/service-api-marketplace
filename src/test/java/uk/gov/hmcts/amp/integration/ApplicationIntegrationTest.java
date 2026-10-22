@@ -28,6 +28,7 @@ import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubRoleAssig
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubServicePrincipals;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubApplicationDelete;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubApplicationList;
+import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubNoApplications;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubRegistration;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubRegistrationAs;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.wireMockGraph;
@@ -105,6 +106,18 @@ class ApplicationIntegrationTest {
 
         mockMvc.perform(get(PATH + "/" + CLIENT_ID).header("requestingUserId", OTHER_OID))
             .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deleting_an_application_entra_has_already_lost_should_still_remove_the_row() throws Exception {
+        create(OWNER_OID, "Case Viewer");
+        stubNoApplications();
+
+        mockMvc.perform(delete(PATH + "/" + CLIENT_ID).header("requestingUserId", OWNER_OID))
+            .andExpect(status().isNoContent());
+
+        mockMvc.perform(get(PATH).header("requestingUserId", OWNER_OID))
+            .andExpect(jsonPath("$").isEmpty());
     }
 
     @Test

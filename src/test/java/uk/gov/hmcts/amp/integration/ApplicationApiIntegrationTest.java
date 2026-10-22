@@ -14,6 +14,7 @@ import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.deleteRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.putRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
@@ -28,6 +29,8 @@ import static uk.gov.hmcts.amp.integration.WireMockApimInitialise.stubSubscripti
 import static uk.gov.hmcts.amp.integration.WireMockApimInitialise.wireMockApim;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.API_CLIENT_ID;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.CLIENT_ID;
+import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubApplicationDelete;
+import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubApplicationList;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubRegistration;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.wireMockGraph;
 
@@ -155,6 +158,21 @@ class ApplicationApiIntegrationTest {
 
         mockMvc.perform(get(PATH + "/" + subscriptionName + "/values").header("requestingUserId", OWNER_OID))
             .andExpect(status().isNotFound());
+        assertThat(applicationApis.count()).isZero();
+    }
+
+    @Test
+    void deleting_the_application_should_revoke_the_key_not_just_forget_it() throws Exception {
+        mockMvc.perform(subscribeTo("slc")).andExpect(status().isCreated());
+        stubApplicationList();
+        stubApplicationDelete();
+
+        mockMvc.perform(delete("/applications/" + CLIENT_ID).header("requestingUserId", OWNER_OID))
+            .andExpect(status().isNoContent());
+
+        // The row goes with the application either way; the key only stops working if APIM is told.
+        wireMockApim().verify(deleteRequestedFor(
+            urlPathEqualTo(INSTANCE + "/subscriptions/" + subscriptionName)));
         assertThat(applicationApis.count()).isZero();
     }
 

@@ -32,3 +32,6 @@ applicationinsights-agent-*.jar
 
 # Working documents
 *.pdf
+
+# Local operator scripts, not part of the service
+purge-sbox.sh

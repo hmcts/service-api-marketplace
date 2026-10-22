@@ -132,9 +132,39 @@ public class ApplicationService {
 
     public void delete(final String requestingUserId, final String clientId) {
         final ApplicationEntity application = requireOwned(users.requireSignedIn(requestingUserId), clientId);
-        registrations.delete(clientId);
+        revokeKeys(requestingUserId, application);
+        forgetInEntra(clientId);
         applications.delete(application);
         log.info("Deleted application {} for userId {}", clientId, application.getUser().getId());
+    }
+
+    /**
+     * A subscription key outlives the application it was issued for: the row goes with the
+     * application but APIM holds the key, and it keeps opening the gateway.
+     */
+    private void revokeKeys(final String requestingUserId, final ApplicationEntity application) {
+        applicationApis.findByApplicationId(application.getId()).forEach(subscribed -> {
+            try {
+                subscriptionKeys.delete(requestingUserId, subscribed.getSubscriptionName());
+            } catch (final ResponseStatusException refused) {
+                if (refused.getStatusCode() != HttpStatus.NOT_FOUND) {
+                    throw refused;
+                }
+                log.warn("API Management has no subscription {}", subscribed.getSubscriptionName());
+            }
+        });
+    }
+
+    /** Entra having already lost the registration is the state we want, not a reason to stop. */
+    private void forgetInEntra(final String clientId) {
+        try {
+            registrations.delete(clientId);
+        } catch (final ResponseStatusException refused) {
+            if (refused.getStatusCode() != HttpStatus.NOT_FOUND) {
+                throw refused;
+            }
+            log.warn("Entra has no registration for {}; removing the row it left behind", clientId);
+        }
     }
 
     private ApplicationEntity save(final UserEntity user, final ApplicationRequest request, final String appname,

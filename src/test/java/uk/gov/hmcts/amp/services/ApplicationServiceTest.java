@@ -109,12 +109,12 @@ class ApplicationServiceTest {
         UserEntity user = signedIn();
         when(users.requireSignedIn(OID)).thenReturn(user);
         when(applications.findByClientId(CLIENT_ID)).thenReturn(Optional.of(owned(user)));
-        when(apis.findById("slc")).thenReturn(Optional.of(api("slc", "read")));
+        when(apis.findById("slc")).thenReturn(Optional.of(api("slc", "app.read")));
 
         service.grantAccess(OID, CLIENT_ID, "slc");
 
         // The caller names the API; the audience and the role are ours to decide.
-        verify(registrations).grantApiAccess(CLIENT_ID, RESOURCE_APP_ID, "read");
+        verify(registrations).grantApiAccess(CLIENT_ID, RESOURCE_APP_ID, "app.read");
     }
 
     @Test
@@ -122,7 +122,7 @@ class ApplicationServiceTest {
         UserEntity user = signedIn();
         when(users.requireSignedIn(OID)).thenReturn(user);
         when(applications.findByClientId(CLIENT_ID)).thenReturn(Optional.of(owned(user)));
-        when(apis.findById("rcc")).thenReturn(Optional.of(api("rcc", "read")));
+        when(apis.findById("rcc")).thenReturn(Optional.of(api("rcc", "app.read")));
 
         assertThatThrownBy(() -> service.grantAccess(OID, CLIENT_ID, "rcc"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
@@ -208,12 +208,12 @@ class ApplicationServiceTest {
         givenCreateReaches(registered("the-secret", null));
         when(applications.saveAndFlush(any())).thenAnswer(saved -> saved.getArgument(0));
 
-        when(apis.findById("slc")).thenReturn(Optional.of(api("slc", "read")));
+        when(apis.findById("slc")).thenReturn(Optional.of(api("slc", "app.read")));
 
         service.create(OID, new ApplicationRequest("Case Viewer", List.of("slc")));
 
         verify(registrations).register("amp-user001-case-viewer",
-            List.of(new ApiGrant("slc", RESOURCE_APP_ID, "read")));
+            List.of(new ApiGrant("slc", RESOURCE_APP_ID, "app.read")));
     }
 
     private static MarketplaceApiEntity api(final String shortCode, final String role) {

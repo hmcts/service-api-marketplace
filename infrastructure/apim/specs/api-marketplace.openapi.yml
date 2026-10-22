@@ -865,10 +865,8 @@ components:
           example: amp/slc
         role:
           type: string
-          description: >-
-            The role to request on this API's resource app. Not namespaced:
-            the resource app is already the namespace
-          example: read
+          description: The role to request on this API's resource app
+          example: app.read
         tenantId:
           type: string
           description: The Entra tenant whose token endpoint issues for this API

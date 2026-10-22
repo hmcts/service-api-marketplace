@@ -46,7 +46,7 @@ class EntraAppRegistrationServiceTest {
     private static final String CONSUMER_SP_ID = "55555555-5555-5555-5555-555555555555";
     private static final String ROLE_ID = "66666666-6666-6666-6666-666666666666";
     private static final String API_CLIENT_ID = "99999999-9999-9999-9999-999999999999";
-    private static final List<ApiGrant> SLC_GRANT = List.of(new ApiGrant("slc", API_CLIENT_ID, "read"));
+    private static final List<ApiGrant> SLC_GRANT = List.of(new ApiGrant("slc", API_CLIENT_ID, "app.read"));
     private static final String ASSIGNED_TO = "/servicePrincipals/" + API_SP_ID + "/appRoleAssignedTo";
     private static final int ATTEMPTS = 4;
 
@@ -114,7 +114,7 @@ class EntraAppRegistrationServiceTest {
         stubApiRoles();
         mockEntra.stubFor(post(urlPathEqualTo(ASSIGNED_TO)).willReturn(json("{\"id\":\"assignment-1\"}")));
 
-        service.grantApiAccess(CLIENT_ID, API_CLIENT_ID, "read");
+        service.grantApiAccess(CLIENT_ID, API_CLIENT_ID, "app.read");
 
         // Assigned on the API's principal, naming the consumer as principalId - not the other way round.
         mockEntra.verify(postRequestedFor(urlPathEqualTo(ASSIGNED_TO)).withRequestBody(equalToJson("""
@@ -130,7 +130,7 @@ class EntraAppRegistrationServiceTest {
         assertThatThrownBy(() -> service.grantApiAccess(CLIENT_ID, API_CLIENT_ID, "nonsense"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST))
-            .hasMessageContaining("read");
+            .hasMessageContaining("app.read");
     }
 
     @Test
@@ -139,7 +139,7 @@ class EntraAppRegistrationServiceTest {
         stubApiRoles();
         mockEntra.stubFor(post(urlPathEqualTo(ASSIGNED_TO)).willReturn(aResponse().withStatus(403)));
 
-        assertThatThrownBy(() -> service.grantApiAccess(CLIENT_ID, API_CLIENT_ID, "read"))
+        assertThatThrownBy(() -> service.grantApiAccess(CLIENT_ID, API_CLIENT_ID, "app.read"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 // Not 503: a missing consent grant is not temporary, and 503 invites endless retrying.
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR))
@@ -161,7 +161,7 @@ class EntraAppRegistrationServiceTest {
         AppRegistration detail = service.get(CLIENT_ID);
 
         // Graph answers with the role's id, and names the resource it belongs to.
-        assertThat(detail.roles()).containsExactly("read");
+        assertThat(detail.roles()).containsExactly("app.read");
         assertThat(detail.clientId()).isEqualTo(CLIENT_ID);
         assertThat(detail.clientSecret()).isNull();
     }
@@ -356,7 +356,7 @@ class EntraAppRegistrationServiceTest {
 
     private void stubApiRoles() {
         mockEntra.stubFor(get(urlPathEqualTo("/servicePrincipals/" + API_SP_ID)).willReturn(json("""
-            {"id":"%s","appRoles":[{"id":"%s","value":"read"}]}""".formatted(API_SP_ID, ROLE_ID))));
+            {"id":"%s","appRoles":[{"id":"%s","value":"app.read"}]}""".formatted(API_SP_ID, ROLE_ID))));
     }
 
     private void stubAssignments(final String body) {

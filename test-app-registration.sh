@@ -24,9 +24,7 @@ SESSION=$BASE_URL/session
 # The same object id every run, so the script keeps reusing one marketplace_user row.
 REQUESTING_USER_ID=${REQUESTING_USER_ID:-11111111-2222-3333-4444-555555555555}
 TENANT=${ENTRA_TENANT_ID:-d44f885c-4fac-47bf-afde-d7d861ec4d7b}
-RESOURCE_APP_ID=${ENTRA_RESOURCE_APP_ID:?set it to the app id of amp-api-<shortcode>}
 GATEWAY=${APIM_GATEWAY:-https://sps-api-mgmt.sandbox.api.hmcts.net}
-ROLE=${ROLE:-read}
 # Named after whoever ran it: killing the script skips the trap, so orphans happen, and an orphan
 # nobody can be traced to is one nobody will delete.
 NAME=${NAME:-Test App $(whoami | tr -cd '[:alnum:]') $(date +%H%M%S)}
@@ -36,6 +34,12 @@ NAME=${NAME:-Test App $(whoami | tr -cd '[:alnum:]') $(date +%H%M%S)}
 CASE_URN=${CASE_URN:-TIN-ALLOCATED-01}
 SHORT_CODE=${SHORT_CODE:-slc}
 API_PATH=${API_PATH:-amp/try/slc}
+# Both taken from the catalogue rather than assumed. The audience and the role a grant assigns
+# come from there, and a script guessing either waits for a token that is never coming.
+PRODUCT=$(curl -sS "$BASE_URL/products" 2>/dev/null \
+  | jq -r --arg s "$SHORT_CODE" 'map(select(.shortCode == $s)) | .[0] // empty' 2>/dev/null)
+ROLE=${ROLE:-$(jq -r '.role // empty' <<<"$PRODUCT")}
+RESOURCE_APP_ID=${ENTRA_RESOURCE_APP_ID:-$(jq -r '.resourceAppId // empty' <<<"$PRODUCT")}
 SUBSCRIBED=0
 SUBSCRIPTION=
 
@@ -43,6 +47,9 @@ step () { printf '\n\033[1m%s\033[0m\n' "$*"; }
 die  () { printf '\n%s\n' "$*" >&2; exit 1; }
 
 command -v jq >/dev/null || die "jq is needed. brew install jq"
+
+[ -n "$RESOURCE_APP_ID" ] || die "No resource app for $SHORT_CODE. Set ENTRA_RESOURCE_APP_ID, or
+configure entra.resource-app-ids.$SHORT_CODE so GET /products publishes it."
 # /api/health rather than one of the endpoints below: those want a caller, and "nothing is
 # running" should not come back looking like a rejected request.
 curl -fsS -o /dev/null "$BASE_URL/api/health" 2>/dev/null \

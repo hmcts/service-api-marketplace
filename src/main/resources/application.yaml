@@ -59,7 +59,7 @@ entra:
   # so it is published rather than kept secret, and it belongs in the chart not the vault. Blank
   # refuses a grant for that API with a 503 rather than stopping the pod.
   resource-app-ids:
-    slc: ${ENTRA_RESOURCE_APP_ID_SLC:}
+    slc: ${ENTRA_RESOURCE_APP_ID_SLC:c4c8974c-2800-4fe6-964f-dcd4c0820507}
     rcc: ${ENTRA_RESOURCE_APP_ID_RCC:}
   onboarding-client-id: ${ENTRA_ONBOARDING_CLIENT_ID:aba0879b-39e2-452a-b934-f922cd9e6acb}
   onboarding-client-secret: ${ENTRA_ONBOARDING_CLIENT_SECRET:}

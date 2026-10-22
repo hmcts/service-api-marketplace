@@ -240,7 +240,7 @@ curl -s -X POST "https://login.microsoftonline.com/d44f885c-4fac-47bf-afde-d7d86
 `--data-urlencode` on the secret, not `-d`: Entra secrets contain `~`, `.` and sometimes `+` or `=`,
 and an unencoded one is silently mangled into `AADSTS7000215: Invalid client secret provided`.
 
-Decode it and check two claims. **`"roles": ["read"]`** - a token with `"roles": null` is
+Decode it and check two claims. **`"roles": ["app.read"]`** - a token with `"roles": null` is
 authenticated and authorised for nothing, which is exactly what the role assignment exists to fix.
 **`aud`** - it is the resource app of the API you asked for, and a token for one API is refused by
 another before any role is read.

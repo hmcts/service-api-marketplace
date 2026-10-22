@@ -63,8 +63,8 @@ class ProductIntegrationTest {
     @Test
     void the_role_should_not_name_the_api_because_the_audience_already_does() throws Exception {
         mockMvc.perform(get(PATH))
-            .andExpect(jsonPath("$[0].role").value("read"))
-            .andExpect(jsonPath("$[1].role").value("read"));
+            .andExpect(jsonPath("$[0].role").value("app.read"))
+            .andExpect(jsonPath("$[1].role").value("app.read"));
     }
 
     @Test

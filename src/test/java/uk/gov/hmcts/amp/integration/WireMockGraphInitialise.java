@@ -87,6 +87,11 @@ public class WireMockGraphInitialise implements ApplicationContextInitializer<Co
         WIREMOCK_GRAPH.stubFor(post(urlPathEqualTo(assignedTo())).willReturn(json("{\"id\":\"assign-1\"}")));
     }
 
+    /** What a registration deleted by hand in the Entra portal looks like to us. */
+    public static void stubNoApplications() {
+        WIREMOCK_GRAPH.stubFor(get(urlPathEqualTo("/applications")).willReturn(json("{\"value\":[]}")));
+    }
+
     public static void stubApplicationDelete() {
         WIREMOCK_GRAPH.stubFor(delete(urlPathMatching("/applications/.*")).willReturn(aResponse().withStatus(204)));
     }

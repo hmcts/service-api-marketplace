@@ -13,7 +13,7 @@
 # in APIM_SUBSCRIPTION_KEY; or give SUBSCRIPTION and REQUESTING_USER_ID and it is read from the
 # running marketplace instead.
 #
-# Optional: CASE_URN, ROLE, TOKEN_ATTEMPTS, BASE_URL, APIM_GATEWAY, ENTRA_TENANT_ID,
+# Optional: CASE_URN, ROLE, API_PATH, TOKEN_ATTEMPTS, BASE_URL, APIM_GATEWAY, ENTRA_TENANT_ID,
 # ENTRA_RESOURCE_APP_ID.
 set -euo pipefail
 
@@ -22,7 +22,11 @@ TENANT=${ENTRA_TENANT_ID:-d44f885c-4fac-47bf-afde-d7d861ec4d7b}
 RESOURCE_APP_ID=${ENTRA_RESOURCE_APP_ID:?set it to the app id of amp-api-<shortcode>}
 GATEWAY=${APIM_GATEWAY:-https://sps-api-mgmt.sandbox.api.hmcts.net}
 ROLE=${ROLE:-app.read}
-CASE_URN=${CASE_URN:-28DI3451856}
+# A canned Try It Now scenario, not a real case. GET $GATEWAY/$API_PATH/scenarios lists the others.
+CASE_URN=${CASE_URN:-TIN-ALLOCATED-01}
+# The gateway path of the API the key is for. A key is only valid for an API in its own product,
+# and the marketplace subscribes to the Try It Now products.
+API_PATH=${API_PATH:-amp/try/slc}
 TOKEN_ATTEMPTS=${TOKEN_ATTEMPTS:-10}
 HINT=""
 
@@ -54,7 +58,7 @@ fi
 
 claims () { jq -R 'split(".")[1] | @base64d | fromjson' <<<"$1"; }
 
-step "1. Get a token for $API_CLIENT_ID carrying $ROLE"
+step "1. Get a token for $RESOURCE_APP_ID carrying $ROLE"
 # Fewer attempts than the registration script: an established application needs no waiting. The
 # retry is here for one issued moments ago, where the secret or the role assignment may not have
 # replicated yet, and a token with "roles": null is refused by validate-jwt two steps later.
@@ -77,7 +81,7 @@ for attempt in $(seq 1 "$TOKEN_ATTEMPTS"); do
    A role granted minutes ago takes a while to reach the token service, but one granted long ago
    will never appear if the grant never happened. Check with:
      curl -i -X POST $BASE_URL/applications/$CLIENT_ID/roles -H \"requestingUserId: <your oid>\" \\
-       -H 'Content-Type: application/json' -d '{\"role\":\"$ROLE\"}'"
+       -H 'Content-Type: application/json' -d '{\"shortCode\":\"slc\"}'"
     TOKEN=""
   fi
 
@@ -88,14 +92,14 @@ done
 claims "$TOKEN" | jq '{aud, roles, azp}' | sed 's/^/   /'
 
 step "2. Call slc through APIM"
-echo "   GET $GATEWAY/amp/slc/case/$CASE_URN/courtschedule"
+echo "   GET $GATEWAY/$API_PATH/case/$CASE_URN/courtschedule"
 : > /tmp/test-api-call-body
 # The API requires a correlation id of its own, on top of the token and the subscription key.
 CORRELATION_ID=$(uuidgen 2>/dev/null || python3 -c 'import uuid; print(uuid.uuid4())')
 # -sS so curl says why it failed, and the rc captured rather than left to set -e: a transport
 # failure here is worth reporting, not worth exiting on without a word.
 STATUS=$(curl -sSL -o /tmp/test-api-call-body -w '%{http_code}' \
-  "$GATEWAY/amp/slc/case/$CASE_URN/courtschedule" \
+  "$GATEWAY/$API_PATH/case/$CASE_URN/courtschedule" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Ocp-Apim-Subscription-Key: $APIM_SUBSCRIPTION_KEY" \
   -H "X-Correlation-ID: $CORRELATION_ID") || CURL_RC=$?
@@ -114,7 +118,9 @@ fi
 case "$STATUS" in
   401) echo "
    401 means the gateway refused it. 'Missing CNP Authorization header' is a header problem;
-   'failed CNP validation' means the token's audience or roles did not satisfy the policy." ;;
+   'failed CNP validation' means the token's audience or roles did not satisfy the policy;
+   'invalid subscription key' usually means API_PATH names an API outside the product the key
+   was issued for, rather than the key itself being wrong." ;;
   200) echo "
    Credentials, subscription key and gateway all good." ;;
   *)   echo "

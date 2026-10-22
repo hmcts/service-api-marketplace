@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.config.EntraProperties;
 import uk.gov.hmcts.amp.domain.AppRegistration;
+import uk.gov.hmcts.amp.config.EntraProperties;
+import uk.gov.hmcts.amp.domain.ApiGrant;
 import uk.gov.hmcts.amp.domain.ApiSubscriptionResponse;
 import uk.gov.hmcts.amp.domain.ApplicationResponse;
 import uk.gov.hmcts.amp.domain.SubscriptionKey;
@@ -67,7 +69,7 @@ public class ApplicationService {
         }
 
         final AppRegistration registered =
-            registrations.register(UserService.namePrefix(user) + appname, request.roles());
+            registrations.register(UserService.namePrefix(user) + appname, grantsFor(request.apis()));
         try {
             return response(save(user, request, appname, registered))
                 .withSecret(registered.clientSecret());
@@ -95,15 +97,30 @@ public class ApplicationService {
             name, created.primaryKey());
     }
 
+    /**
+     * The role lives on the API's own resource app, and its id is the audience a consumer scopes
+     * on, so both halves come from configuration the environment supplies rather than the caller.
+     */
+    private ApiGrant grantFor(final String shortCode) {
+        final MarketplaceApiEntity api = requireKnownApi(shortCode);
+        return new ApiGrant(api.getShortCode(), entra.resourceAppId(api.getShortCode()), api.getRole());
+    }
+
+    private List<ApiGrant> grantsFor(final List<String> shortCodes) {
+        return shortCodes.stream().map(this::grantFor).toList();
+    }
+
     /** The subscription is gone from APIM, so the row claiming the application has it must go too. */
     public void forgetApi(final String subscriptionName) {
         applicationApis.findBySubscriptionName(subscriptionName)
             .ifPresent(applicationApis::delete);
     }
 
-    public void grantRole(final String requestingUserId, final String clientId, final String role) {
+    public void grantAccess(final String requestingUserId, final String clientId,
+                            final String shortCode) {
         requireOwned(users.requireSignedIn(requestingUserId), clientId);
-        registrations.grantApiAccess(clientId, role);
+        final ApiGrant grant = grantFor(shortCode);
+        registrations.grantApiAccess(clientId, grant.resourceAppId(), grant.role());
     }
 
     public void delete(final String requestingUserId, final String clientId) {

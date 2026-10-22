@@ -14,14 +14,14 @@
 # running marketplace instead.
 #
 # Optional: CASE_URN, ROLE, TOKEN_ATTEMPTS, BASE_URL, APIM_GATEWAY, ENTRA_TENANT_ID,
-# ENTRA_API_CLIENT_ID.
+# ENTRA_RESOURCE_APP_ID.
 set -euo pipefail
 
 BASE_URL=${BASE_URL:-http://localhost:8080}
 TENANT=${ENTRA_TENANT_ID:-d44f885c-4fac-47bf-afde-d7d861ec4d7b}
-API_CLIENT_ID=${ENTRA_API_CLIENT_ID:-30288840-e345-4543-99ee-f9253d789339}
+RESOURCE_APP_ID=${ENTRA_RESOURCE_APP_ID:?set it to the app id of amp-api-<shortcode>}
 GATEWAY=${APIM_GATEWAY:-https://sps-api-mgmt.sandbox.api.hmcts.net}
-ROLE=${ROLE:-app.read}
+ROLE=${ROLE:-read}
 CASE_URN=${CASE_URN:-28DI3451856}
 TOKEN_ATTEMPTS=${TOKEN_ATTEMPTS:-10}
 HINT=""
@@ -62,7 +62,7 @@ for attempt in $(seq 1 "$TOKEN_ATTEMPTS"); do
   # Not -f: a 401 carries the JSON saying which of the two waits this is, and -f throws it away.
   TOKEN_RESPONSE=$(curl -sS -X POST "https://login.microsoftonline.com/$TENANT/oauth2/v2.0/token" \
     -d "client_id=$CLIENT_ID" --data-urlencode "client_secret=$CLIENT_SECRET" \
-    -d "scope=$API_CLIENT_ID/.default" -d "grant_type=client_credentials" || true)
+    -d "scope=$RESOURCE_APP_ID/.default" -d "grant_type=client_credentials" || true)
   TOKEN=$(jq -r '.access_token // empty' <<<"$TOKEN_RESPONSE")
 
   if [ -z "$TOKEN" ]; then

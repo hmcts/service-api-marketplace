@@ -24,9 +24,9 @@ SESSION=$BASE_URL/session
 # The same object id every run, so the script keeps reusing one marketplace_user row.
 REQUESTING_USER_ID=${REQUESTING_USER_ID:-11111111-2222-3333-4444-555555555555}
 TENANT=${ENTRA_TENANT_ID:-d44f885c-4fac-47bf-afde-d7d861ec4d7b}
-API_CLIENT_ID=${ENTRA_API_CLIENT_ID:-30288840-e345-4543-99ee-f9253d789339}
+RESOURCE_APP_ID=${ENTRA_RESOURCE_APP_ID:?set it to the app id of amp-api-<shortcode>}
 GATEWAY=${APIM_GATEWAY:-https://sps-api-mgmt.sandbox.api.hmcts.net}
-ROLE=${ROLE:-app.read}
+ROLE=${ROLE:-read}
 # Named after whoever ran it: killing the script skips the trap, so orphans happen, and an orphan
 # nobody can be traced to is one nobody will delete.
 NAME=${NAME:-Test App $(whoami | tr -cd '[:alnum:]') $(date +%H%M%S)}
@@ -139,7 +139,7 @@ for attempt in $(seq 1 "$GRANT_ATTEMPTS"); do
   GRANT_STATUS=$(curl -s -o /tmp/test-app-registration-grant -w '%{http_code}' -X POST \
     "$APPLICATIONS/$CLIENT_ID/roles" \
     -H "requestingUserId: $REQUESTING_USER_ID" -H 'Content-Type: application/json' \
-    -d "{\"role\":\"$ROLE\"}")
+    -d "{\"shortCode\":\"$SHORT_CODE\"}")
   [ "$GRANT_STATUS" = "204" ] && { echo "   granted on attempt $attempt"; break; }
   [ "$attempt" = "$GRANT_ATTEMPTS" ] && die "   Could not grant $ROLE after $GRANT_ATTEMPTS attempts (HTTP $GRANT_STATUS):
    $(jq -r '.detail // .' /tmp/test-app-registration-grant 2>/dev/null || cat /tmp/test-app-registration-grant)"
@@ -151,7 +151,7 @@ done
 # well as the token, and borrowing someone else's proves nothing about this application.
 claims () { jq -R 'split(".")[1] | @base64d | fromjson' <<<"$1"; }
 
-step "6. Get a token for $API_CLIENT_ID carrying $ROLE"
+step "6. Get a token for $RESOURCE_APP_ID carrying $ROLE"
 # Two separate waits, both Entra catching up with itself. A secret seconds old is rejected as
 # invalid_client until it has replicated. Worse, once the secret works the token can come back
 # without the role: the assignment is already in the directory - the GET shows it - but the token
@@ -163,7 +163,7 @@ for attempt in $(seq 1 "$TOKEN_ATTEMPTS"); do
   # Not -f: a 401 carries the JSON saying which of the two waits this is, and -f throws it away.
   TOKEN_RESPONSE=$(curl -sS -X POST "https://login.microsoftonline.com/$TENANT/oauth2/v2.0/token" \
     -d "client_id=$CLIENT_ID" --data-urlencode "client_secret=$CLIENT_SECRET" \
-    -d "scope=$API_CLIENT_ID/.default" -d "grant_type=client_credentials" || true)
+    -d "scope=$RESOURCE_APP_ID/.default" -d "grant_type=client_credentials" || true)
   TOKEN=$(jq -r '.access_token // empty' <<<"$TOKEN_RESPONSE")
 
   if [ -z "$TOKEN" ]; then

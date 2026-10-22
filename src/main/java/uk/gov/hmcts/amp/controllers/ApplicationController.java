@@ -54,10 +54,11 @@ public class ApplicationController {
 
     @PostMapping("/{clientId}/roles")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void grantRole(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId,
-                          @PathVariable final String clientId, @Valid @RequestBody final ApiAccess request) {
-        log.info("Grant role {} to application {}", request.role(), clientId);
-        applications.grantRole(requestingUserId, clientId, request.role());
+    public void grantAccess(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId,
+                            @PathVariable final String clientId,
+                            @Valid @RequestBody final ApiAccess request) {
+        log.info("Grant access to {} for application {}", request.shortCode(), clientId);
+        applications.grantAccess(requestingUserId, clientId, request.shortCode());
     }
 
     @DeleteMapping("/{clientId}")

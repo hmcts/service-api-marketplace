@@ -29,3 +29,6 @@ applicationinsights-agent-*.jar
 *.tfstate
 *.tfstate.*
 .terraform.lock.hcl
+
+# Working documents
+*.pdf

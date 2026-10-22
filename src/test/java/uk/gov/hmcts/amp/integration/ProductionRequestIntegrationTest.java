@@ -41,7 +41,7 @@ import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.wireMockNoti
 @SpringBootTest(properties = {
     "entra.onboarding-client-id=a-test-onboarding-app",
     "entra.onboarding-client-secret=a-test-secret",
-    "entra.api-client-id=" + API_CLIENT_ID,
+    "entra.resource-app-ids.slc=" + API_CLIENT_ID,
     "entra.max-attempts=2",
     "entra.retry-delay-millis=1",
     "notify.api-key=amptest-00000000-0000-0000-0000-000000000000-11111111-1111-1111-1111-111111111111",

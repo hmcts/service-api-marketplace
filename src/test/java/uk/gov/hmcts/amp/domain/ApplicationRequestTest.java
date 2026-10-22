@@ -9,14 +9,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ApplicationRequestTest {
 
     @Test
-    void omitting_roles_should_leave_an_empty_list_rather_than_null() {
-        assertThat(new ApplicationRequest("Case Viewer", null).roles()).isEmpty();
+    void omitting_apis_should_leave_an_empty_list_rather_than_null() {
+        assertThat(new ApplicationRequest("Case Viewer", null).apis()).isEmpty();
     }
 
     @Test
-    void supplied_roles_should_be_kept_as_they_are() {
-        assertThat(new ApplicationRequest("Case Viewer", List.of("app.read")).roles())
-            .containsExactly("app.read");
+    void supplied_apis_should_be_kept_as_they_are() {
+        assertThat(new ApplicationRequest("Case Viewer", List.of("slc")).apis())
+            .containsExactly("slc");
     }
 
     @Test

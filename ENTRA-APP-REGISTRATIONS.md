@@ -187,9 +187,9 @@ curl -s -X POST localhost:8080/applications \
 ```
 
 ```bash
-# grant it a role ... retry this, the principal is not assignable for a minute or two
+# grant it access to one API ... retry this, the principal is not assignable for a minute or two
 curl -i -X POST localhost:8080/applications/<clientId>/roles \
-  -H "requestingUserId: $OID" -H 'Content-Type: application/json' -d '{"role":"app.read"}'
+  -H "requestingUserId: $OID" -H 'Content-Type: application/json' -d '{"shortCode":"slc"}'
 ```
 
 ```bash
@@ -240,8 +240,10 @@ curl -s -X POST "https://login.microsoftonline.com/d44f885c-4fac-47bf-afde-d7d86
 `--data-urlencode` on the secret, not `-d`: Entra secrets contain `~`, `.` and sometimes `+` or `=`,
 and an unencoded one is silently mangled into `AADSTS7000215: Invalid client secret provided`.
 
-Decode it. **`"roles": ["slc.read"]` is the thing worth checking** - a token with `"roles": null` is
+Decode it and check two claims. **`"roles": ["read"]`** - a token with `"roles": null` is
 authenticated and authorised for nothing, which is exactly what the role assignment exists to fix.
+**`aud`** - it is the resource app of the API you asked for, and a token for one API is refused by
+another before any role is read.
 
 ## Configuration
 
@@ -250,6 +252,7 @@ authenticated and authorised for nothing, which is exactly what the role assignm
 | `ENTRA_TENANT_ID` | `d44f885c-...`, the `hmctsextsbox` CIAM tenant |
 | `ENTRA_ONBOARDING_CLIENT_ID` | `aba0879b-...`, `amp-role-assignment-test` |
 | `ENTRA_ONBOARDING_CLIENT_SECRET` | *required* - without it every endpoint answers 503 |
-| `ENTRA_API_CLIENT_ID` | `30288840-...`, `hmcts-api-marketplace`, which defines `slc.read` and `app.read` |
+| `ENTRA_RESOURCE_APP_ID_SLC` | The app id of `amp-api-slc` in this environment's tenant |
+| `ENTRA_RESOURCE_APP_ID_RCC` | The app id of `amp-api-rcc`. Blank refuses a grant for that API with a 503 |
 | `ENTRA_MAX_ATTEMPTS` | `20` - directory reads, which lag by seconds |
 | `ENTRA_RETRY_DELAY_MILLIS` | `500` |

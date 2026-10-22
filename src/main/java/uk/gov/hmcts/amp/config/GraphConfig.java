@@ -19,8 +19,7 @@ public class GraphConfig {
     @Bean
     @ConditionalOnMissingBean
     public GraphServiceClient graphServiceClient(final EntraProperties config) {
-        log.info("Entra tenant {}, onboarding client {}, API {}",
-            config.tenantId(), config.onboardingClientId(), config.apiClientId());
+        log.info("Entra tenant {}, onboarding client {}", config.tenantId(), config.onboardingClientId());
         if (!config.credentialConfigured()) {
             log.warn("ENTRA_ONBOARDING_CLIENT_SECRET is not set: the application registration endpoints will fail.");
         }

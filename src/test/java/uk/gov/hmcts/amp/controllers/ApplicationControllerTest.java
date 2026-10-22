@@ -56,10 +56,10 @@ class ApplicationControllerTest {
     }
 
     @Test
-    void granting_a_role_should_delegate_with_the_role_name() {
-        controller.grantRole(OID, CLIENT_ID, new ApiAccess("app.read"));
+    void granting_access_should_delegate_with_the_short_code() {
+        controller.grantAccess(OID, CLIENT_ID, new ApiAccess("slc"));
 
-        verify(applications).grantRole(OID, CLIENT_ID, "app.read");
+        verify(applications).grantAccess(OID, CLIENT_ID, "slc");
     }
 
     @Test

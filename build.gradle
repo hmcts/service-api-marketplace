@@ -203,7 +203,7 @@ dependencies {
 }
 
 bootJar {
-  archiveFileName = "apim-marketplace.jar"
+  archiveFileName = "amp-marketplace.jar"
 
   manifest {
     attributes('Implementation-Version': project.version.toString())

@@ -102,74 +102,62 @@ To build the project execute the following command:
   ./gradlew build
 ```
 
-### Running the application
+### Running locally
 
-Create the image of the application by executing the following command:
+Start Postgres from `docker-compose.yml`, which creates the `marketplace` database on
+`localhost:5432`, then run the service on port 8080:
 
 ```bash
+  docker compose up -d db
+  ENTRA_BYPASS=true ./gradlew bootRun
+  curl http://localhost:8080/api/health
+```
+
+Port 5432 must be free: another Postgres container on it gives `database "marketplace" does not exist`.
+
+`ENTRA_BYPASS=true` (`local-bypass.enabled`, see `LocalBypassConfig`) is for local use only. It
+replaces Entra application registration and APIM subscription keys with in-memory stand-ins, so
+the whole journey (register an application, grant a role, subscribe to an API, read the key,
+delete) works without `ENTRA_ONBOARDING_CLIENT_SECRET` or an Azure login. The client ids, secrets
+and keys it hands out are made up and do not work against the real gateway, and the startup log
+says `ENTRA_BYPASS is on`. It is off by default and is never set in a chart. Without it, registering an
+application answers 503 locally until the onboarding secret is exported, and subscribing needs an
+Azure login with a role on the sandbox APIM instance.
+
+### Running in Docker
+
+`docker-compose.yml` runs Postgres only; it has no service for the application. To run the
+application in a container too, as it runs in AKS, build the jar and the image, then point the
+container at the database:
+
+The base image is in the HMCTS registry, so log in to it first (`az login` beforehand if needed);
+without that, `docker build` fails with 401 Unauthorized from `hmctsprod.azurecr.io`.
+
+```bash
+  az acr login --name hmctsprod
   ./gradlew assemble
+  docker build -t apim-marketplace .
+  docker compose up -d db
+  docker run --rm -p 8080:8080 \
+    -e POSTGRES_HOST=host.docker.internal -e POSTGRES_USER=postgres -e POSTGRES_PASS=postgres \
+    -e ENTRA_BYPASS=true apim-marketplace
 ```
 
-Note: Docker Compose V2 is highly recommended for building and running the application.
-In the Compose V2 old `docker-compose` command is replaced with `docker compose`.
+`./bin/run-in-docker.sh` (`-h` for its options) is left from the template: it runs
+`docker compose up`, which here starts only Postgres.
 
-Create docker image:
+### Checking it is up
 
 ```bash
-  docker compose build
+  curl http://localhost:8080/api/health   # {"status":"ok"}
+  curl http://localhost:8080/health       # Spring Boot actuator, including the database
 ```
 
-Run the distribution (created in `build/install/spring-boot-template` directory)
-by executing the following command:
+To start again from an empty database, remove its volume. This deletes all local data:
 
 ```bash
-  docker compose up
+  docker compose down -v && docker compose up -d db
 ```
-
-This will start the API container exposing the application's port
-(set to `4550` in this template app).
-
-In order to test if the application is up, you can call its health endpoint:
-
-```bash
-  curl http://localhost:4550/health
-```
-
-You should get a response similar to this:
-
-```
-  {"status":"UP","diskSpace":{"status":"UP","total":249644974080,"free":137188298752,"threshold":10485760}}
-```
-
-### Alternative script to run application
-
-To skip all the setting up and building, just execute the following command:
-
-```bash
-./bin/run-in-docker.sh
-```
-
-For more information:
-
-```bash
-./bin/run-in-docker.sh -h
-```
-
-Script includes bare minimum environment variables necessary to start api instance. Whenever any variable is changed or any other script regarding docker image/container build, the suggested way to ensure all is cleaned up properly is by this command:
-
-```bash
-docker compose rm
-```
-
-It clears stopped containers correctly. Might consider removing clutter of images too, especially the ones fiddled with:
-
-```bash
-docker images
-
-docker image rm <image-id>
-```
-
-There is no need to remove postgres and java or similar core images.
 
 ## AAT Deployment
 

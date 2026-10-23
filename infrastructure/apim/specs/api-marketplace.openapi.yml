@@ -411,6 +411,33 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           $ref: '#/components/responses/UnknownUser'
+    delete:
+      summary: Delete one request
+      description: >-
+        Removes the request. The application it named is untouched: the
+        foreign key is on delete set null, so deleting either leaves the other
+        readable.
+      operationId: deleteProductionRequest
+      tags: [production-requests]
+      parameters:
+        - $ref: '#/components/parameters/RequestingUserId'
+        - name: reference
+          in: path
+          required: true
+          schema:
+            type: string
+          example: PCR-ABCD2345
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: >-
+            No request with that reference, or it belongs to someone else.
+            The lookup is keyed on the owner, so the two are indistinguishable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /products:
     get:

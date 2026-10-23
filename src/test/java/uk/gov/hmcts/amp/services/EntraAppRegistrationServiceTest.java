@@ -109,6 +109,43 @@ class EntraAppRegistrationServiceTest {
     }
 
     @Test
+    void assignment_refused_while_the_principal_is_new_should_be_retried_rather_than_rolled_back() {
+        stubRegistrationCalls();
+        stubServicePrincipalLookups();
+        stubApiRoles();
+        // Entra refuses an assignment against a service principal seconds old, for a while.
+        mockEntra.stubFor(post(urlPathEqualTo(ASSIGNED_TO)).inScenario("assignable")
+            .whenScenarioStateIs(STARTED)
+            .willReturn(aResponse().withStatus(400).withBody("Not a valid reference update."))
+            .willSetStateTo("assignable"));
+        mockEntra.stubFor(post(urlPathEqualTo(ASSIGNED_TO)).inScenario("assignable")
+            .whenScenarioStateIs("assignable")
+            .willReturn(json("{\"id\":\"assignment-1\"}")));
+
+        assertThat(service.register("Team Alpha", SLC_GRANT).roles()).containsExactly("slc");
+
+        mockEntra.verify(2, postRequestedFor(urlPathEqualTo(ASSIGNED_TO)));
+        // The application survives, rather than being removed as an orphan.
+        mockEntra.verify(0, deleteRequestedFor(urlPathEqualTo("/applications/" + OBJECT_ID)));
+    }
+
+    @Test
+    void registering_when_a_graph_permission_is_missing_should_fail_at_once_rather_than_wait() {
+        stubRegistrationCalls();
+        stubServicePrincipalLookups();
+        stubApiRoles();
+        mockEntra.stubFor(post(urlPathEqualTo(ASSIGNED_TO)).willReturn(aResponse().withStatus(403)));
+
+        assertThatThrownBy(() -> service.register("Team Alpha", SLC_GRANT))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR))
+            .hasMessageContaining("AppRoleAssignment.ReadWrite.All");
+
+        // Waiting never grants a permission, so the attempts would hold the request open for nothing.
+        mockEntra.verify(1, postRequestedFor(urlPathEqualTo(ASSIGNED_TO)));
+    }
+
+    @Test
     void granting_a_role_should_assign_it_on_the_apis_service_principal() {
         stubServicePrincipalLookups();
         stubApiRoles();

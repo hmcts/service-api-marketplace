@@ -23,10 +23,13 @@ locals {
   )
 }
 
-resource "azurerm_resource_group" "rg" {
-  name     = "${var.product}-shared-${var.env}"
-  location = var.location
-  tags     = local.tags
+# Consumed, not declared. Under apim this repo created the product's shared resource group and
+# Key Vault. Under amp they already exist - try-cp-crime-schedulingandlisting-courtschedule was
+# amp's first component and created them there (commit fdf7b37), which says in terms that this
+# service must consume them when it migrates. Two repositories declaring one vault fight over its
+# state, and the second to apply wins by destroying what the first made.
+data "azurerm_resource_group" "rg" {
+  name = "${var.product}-shared-${var.env}"
 }
 
 
@@ -60,50 +63,34 @@ module "postgresql_flexible" {
 resource "azurerm_key_vault_secret" "postgres_user" {
   name         = "marketplace-POSTGRES-USER"
   value        = module.postgresql_flexible.username
-  key_vault_id = module.vault.key_vault_id
-  depends_on   = [module.vault]
+  key_vault_id = data.azurerm_key_vault.vault.id
 }
 
 resource "azurerm_key_vault_secret" "postgres_pass" {
   name         = "marketplace-POSTGRES-PASS"
   value        = module.postgresql_flexible.password
-  key_vault_id = module.vault.key_vault_id
-  depends_on   = [module.vault]
+  key_vault_id = data.azurerm_key_vault.vault.id
 }
 
 resource "azurerm_key_vault_secret" "postgres_host" {
   name         = "marketplace-POSTGRES-HOST"
   value        = module.postgresql_flexible.fqdn
-  key_vault_id = module.vault.key_vault_id
-  depends_on   = [module.vault]
+  key_vault_id = data.azurerm_key_vault.vault.id
 }
 
 resource "azurerm_key_vault_secret" "postgres_port" {
   name         = "marketplace-POSTGRES-PORT"
   value        = "5432"
-  key_vault_id = module.vault.key_vault_id
-  depends_on   = [module.vault]
+  key_vault_id = data.azurerm_key_vault.vault.id
 }
 
 resource "azurerm_key_vault_secret" "postgres_database" {
   name         = "marketplace-POSTGRES-DATABASE"
   value        = "marketplace"
-  key_vault_id = module.vault.key_vault_id
-  depends_on   = [module.vault]
+  key_vault_id = data.azurerm_key_vault.vault.id
 }
 
-module "vault" {
-  source                               = "git@github.com:hmcts/cnp-module-key-vault?ref=master"
-  name                                 = var.vault_name != "" ? var.vault_name : "${var.product}-${var.env}"
-  product                              = var.product
-  env                                  = var.env
-  tenant_id                            = var.tenant_id
-  object_id                            = var.jenkins_AAD_objectId
-  resource_group_name                  = azurerm_resource_group.rg.name
-  product_group_name                   = "DTS API Marketplace"
-  common_tags                          = local.tags
-  managed_identity_object_id           = var.managed_identity_object_id
-  create_managed_identity              = true
-  additional_managed_identities_access = var.additional_managed_identities_access
-  jenkins_object_id                    = data.azurerm_user_assigned_identity.jenkins.principal_id
+data "azurerm_key_vault" "vault" {
+  name                = var.vault_name != "" ? var.vault_name : "${var.product}-${var.env}"
+  resource_group_name = data.azurerm_resource_group.rg.name
 }

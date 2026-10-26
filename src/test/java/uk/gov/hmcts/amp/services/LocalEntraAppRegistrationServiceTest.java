@@ -3,6 +3,7 @@ package uk.gov.hmcts.amp.services;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import uk.gov.hmcts.amp.domain.ApiGrant;
 import uk.gov.hmcts.amp.domain.AppRegistration;
 
 import java.util.List;
@@ -17,20 +18,21 @@ class LocalEntraAppRegistrationServiceTest {
 
     @Test
     void registering_should_come_back_with_made_up_credentials() {
-        AppRegistration registered = service.register("amp-user001-case-viewer", List.of("app.read"));
+        AppRegistration registered = service.register("amp-user001-case-viewer",
+            List.of(new ApiGrant("slc", "a-resource-app", "app.read")));
 
         assertThat(registered.clientId()).isNotBlank();
         assertThat(registered.objectId()).isNotBlank();
         assertThat(registered.clientSecret()).startsWith("local~");
         assertThat(registered.secretExpiresAt()).isNotNull();
-        assertThat(registered.roles()).containsExactly("app.read");
+        assertThat(registered.roles()).containsExactly("slc");
     }
 
     @Test
     void reading_one_back_should_carry_the_roles_granted_since() {
         String clientId = service.register("amp-user001-case-viewer", List.of()).clientId();
 
-        service.grantApiAccess(clientId, "app.read");
+        service.grantApiAccess(clientId, "a-resource-app", "app.read");
 
         AppRegistration found = service.get(clientId);
         assertThat(found.displayName()).isEqualTo("amp-user001-case-viewer");

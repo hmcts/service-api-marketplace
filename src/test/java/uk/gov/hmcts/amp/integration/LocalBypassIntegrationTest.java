@@ -69,7 +69,7 @@ class LocalBypassIntegrationTest {
         String clientId = JsonPath.read(created, "$.clientId");
 
         mockMvc.perform(post("/applications/" + clientId + "/roles").header("requestingUserId", OID)
-                .contentType(MediaType.APPLICATION_JSON).content("{\"role\":\"app.read\"}"))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"shortCode\":\"slc\"}"))
             .andExpect(status().isNoContent());
 
         String subscribed = mockMvc.perform(post(KEYS).header("requestingUserId", OID)

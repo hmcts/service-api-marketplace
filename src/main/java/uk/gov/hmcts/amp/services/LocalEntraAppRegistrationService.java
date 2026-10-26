@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.config.EntraProperties;
+import uk.gov.hmcts.amp.domain.ApiGrant;
 import uk.gov.hmcts.amp.domain.AppRegistration;
 
 import java.time.OffsetDateTime;
@@ -51,15 +52,16 @@ public class LocalEntraAppRegistrationService extends EntraAppRegistrationServic
     }
 
     @Override
-    public AppRegistration register(final String applicationName, final List<String> wanted) {
+    public AppRegistration register(final String applicationName, final List<ApiGrant> grants) {
         String objectId = UUID.randomUUID().toString();
         String clientId = UUID.randomUUID().toString();
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         registrations.put(clientId, AppRegistration.summary(objectId, clientId, applicationName, now));
-        roles.put(clientId, new ArrayList<>(wanted));
-        log.warn("ENTRA_BYPASS: made up registration {} for '{}' with roles {}", clientId, applicationName, wanted);
+        roles.put(clientId, new ArrayList<>(grants.stream().map(ApiGrant::role).toList()));
+        List<String> apis = grants.stream().map(ApiGrant::shortCode).toList();
+        log.warn("ENTRA_BYPASS: made up registration {} for '{}' with access to {}", clientId, applicationName, apis);
         return AppRegistration.registered(objectId, clientId, "local~" + UUID.randomUUID(),
-            UUID.randomUUID().toString(), wanted, now.plusYears(SECRET_YEARS));
+            UUID.randomUUID().toString(), apis, now.plusYears(SECRET_YEARS));
     }
 
     @Override
@@ -70,8 +72,9 @@ public class LocalEntraAppRegistrationService extends EntraAppRegistrationServic
     }
 
     @Override
-    public void grantApiAccess(final String consumerClientId, final String roleValue) {
+    public void grantApiAccess(final String consumerClientId, final String resourceAppId,
+                               final String roleValue) {
         roles.computeIfAbsent(consumerClientId, unknown -> new ArrayList<>()).add(roleValue);
-        log.warn("ENTRA_BYPASS: granted {} to {}", roleValue, consumerClientId);
+        log.warn("ENTRA_BYPASS: granted {} on {} to {}", roleValue, resourceAppId, consumerClientId);
     }
 }

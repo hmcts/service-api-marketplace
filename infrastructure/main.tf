@@ -98,9 +98,10 @@ resource "azurerm_key_vault_secret" "postgres_database" {
   depends_on   = [module.vault]
 }
 
+# amp-{env}: this is the only amp repo that creates it.
 module "vault" {
   source                               = "git@github.com:hmcts/cnp-module-key-vault?ref=master"
-  name                                 = var.vault_name != "" ? var.vault_name : "${var.product}-${var.component}-${var.env}"
+  name                                 = var.vault_name != "" ? var.vault_name : "${var.product}-${var.env}"
   product                              = var.product
   env                                  = var.env
   tenant_id                            = var.tenant_id

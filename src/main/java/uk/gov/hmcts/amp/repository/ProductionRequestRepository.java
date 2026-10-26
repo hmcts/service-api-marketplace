@@ -15,4 +15,6 @@ public interface ProductionRequestRepository extends JpaRepository<ProductionReq
     Optional<ProductionRequestEntity> findByUserIdAndReference(Long userId, String reference);
 
     boolean existsByReference(String reference);
+
+    boolean existsByApplicationId(Long applicationId);
 }

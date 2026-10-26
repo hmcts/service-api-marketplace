@@ -69,8 +69,8 @@ does.
 
 | Method | Path | Returns | |
 |---|---|---|---|
-| POST | `/production-requests` | 201 400 404 | Records the request |
-| GET | `/production-requests` | 200 400 404 | The caller's own, newest first |
+| POST | `/production-requests` | 201 400 404 409 | One per application; 409 on a second |
+| GET | `/production-requests` | 200 400 404 | The caller's own, newest first, each naming its application |
 | DELETE | `/production-requests/{reference}` | 204 400 404 | The application it named is untouched |
 
 **Nothing is issued here.** Client ids, secrets, subscription keys and publisher ids are still

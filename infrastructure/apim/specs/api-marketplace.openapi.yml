@@ -380,7 +380,10 @@ paths:
         Records what was asked for. Nothing is issued here: client ids,
         secrets, subscription keys and publisher ids are still created by hand
         offline, and the Data Access Panel decides.
-        The Data Access Panel decides.
+
+        One request per application. A second is a duplicate ask rather than a
+        second thing being asked for, so it answers 409 and the caller is
+        expected to read the existing one instead.
       operationId: createProductionRequest
       tags: [production-requests]
       parameters:
@@ -411,6 +414,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           $ref: '#/components/responses/UnknownUser'
+        '409':
+          description: That application already has a production access request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     delete:
       summary: Delete one request
       description: >-
@@ -862,6 +871,16 @@ components:
         submittedAt:
           type: string
           format: date-time
+        clientId:
+          type: string
+          description: >-
+            The application the request is for. Absent where it has since
+            been deleted - the request outlives it
+          example: 2f3b8c1a-5d47-4e92-8b6f-1c0a7e49d3b2
+        applicationName:
+          type: string
+          description: Stored on the request, so it survives the application
+          example: Case Viewer
 
     ApiProduct:
       type: object

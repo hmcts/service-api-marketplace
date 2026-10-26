@@ -21,7 +21,7 @@ management:
 spring:
   config:
     # kvspsextidsbox holds the Entra onboarding credentials, managed by hmcts/external-entra-id.
-    import: "optional:configtree:/mnt/secrets/amp/,optional:configtree:/mnt/secrets/amp-sbox/,optional:configtree:/mnt/secrets/kvspsextidsbox/"
+    import: "optional:configtree:/mnt/secrets/amp-marketplace/,optional:configtree:/mnt/secrets/amp-marketplace-sbox/,optional:configtree:/mnt/secrets/kvspsextidsbox/"
   application:
     name: service-api-marketplace
   jpa:

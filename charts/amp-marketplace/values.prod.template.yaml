@@ -1,12 +1,12 @@
 # Don't modify this file, it is only needed for the pipeline to set the image and ingressHost
 java:
   image: ${IMAGE_NAME}
-  ingressHost: apim-marketplace.platform.hmcts.net
+  ingressHost: amp-marketplace.platform.hmcts.net
   environment:
     # Notify has no CC, so each address gets its own copy.
     NOTIFY_REVIEW_INBOXES: DataAccessPanel@justice.gov.uk,Craig.Robb@justice.gov.uk,APIMarketplace@hmcts.net
   keyVaults:
-    apim:
+    amp-marketplace:
       secrets:
         - name: marketplace-POSTGRES-USER
           alias: POSTGRES_USER

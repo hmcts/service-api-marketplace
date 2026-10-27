@@ -3,7 +3,7 @@ java:
   image: ${IMAGE_NAME}
   ingressHost: ${SERVICE_FQDN}
   keyVaults:
-    apim:
+    amp:
       secrets:
         - name: marketplace-POSTGRES-USER
           alias: POSTGRES_USER

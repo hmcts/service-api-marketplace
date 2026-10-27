@@ -53,6 +53,7 @@ class NotifyMapperTest {
             Map.entry("submitted_date", "19 October 2026"),
             Map.entry("submitted_time", "2:30pm"),
             Map.entry("consumer_name", "Ada Lovelace"),
+            Map.entry("consumer_email_address", "ada.lovelace@hmcts.net"),
             Map.entry("consumer_organisation", "Example Legal Ltd"),
             Map.entry("go_live_date", "27 March 2027"),
             Map.entry("expected_call_volumes", "low"),

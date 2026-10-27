@@ -26,6 +26,7 @@ public interface NotifyMapper {
     @Mapping(source = "request.applicationName", target = "applicationName")
     @Mapping(source = "request.submittedAt", target = "submittedAt")
     @Mapping(target = "consumerName", expression = "java(displayName(user))")
+    @Mapping(source = "user.email", target = "consumerEmailAddress")
     @Mapping(source = "request.organisation", target = "consumerOrganisation")
     @Mapping(source = "request.goLiveDate", target = "goLiveDate")
     @Mapping(source = "request.callVolume", target = "expectedCallVolumes")

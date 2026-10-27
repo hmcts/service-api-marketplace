@@ -98,6 +98,19 @@ resource "azurerm_key_vault_secret" "postgres_database" {
   depends_on   = [module.vault]
 }
 
+# AAT HAS AN ORPHANED amp-aat VAULT, in this same resource group, left behind by this rename.
+#
+# amp-aat was created by the apply before the rename and held the five secrets below. Key Vault
+# names are ForceNew, so pointing at amp-marketplace-aat meant destroying it - and the destroy
+# failed on the CanNotDelete lock on amp-marketplace-aat:
+#
+#   ScopeLocked: ... cannot perform delete operation because following scope(s) are locked
+#
+# Rather than lift the lock mid-pipeline, module.vault and the five secrets were removed from the
+# aat state so terraform created the new vault alongside and stopped managing the old one. Delete
+# amp-aat once amp-marketplace-aat is serving; it needs the lock lifted, and nothing references it.
+# sbox, demo and preview never had amp-{env}, so only aat is affected.
+
 # amp-marketplace-{env}, matching the resource group above and amp-try-slc-{env} /
 # amp-try-it-now-{env} alongside it. Component-scoped rather than product-scoped: a vault named
 # "${var.product}-${var.env}" would be the same name in every amp repo, so the first to apply

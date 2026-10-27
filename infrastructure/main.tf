@@ -98,10 +98,17 @@ resource "azurerm_key_vault_secret" "postgres_database" {
   depends_on   = [module.vault]
 }
 
-# amp-{env}: this is the only amp repo that creates it.
+# amp-marketplace-{env}, matching the resource group above and amp-try-slc-{env} /
+# amp-try-it-now-{env} alongside it. Component-scoped rather than product-scoped: a vault named
+# "${var.product}-${var.env}" would be the same name in every amp repo, so the first to apply
+# creates it and every other repo's apply fails on a name that already exists. One vault per
+# component means each repo owns exactly what it creates.
+#
+# web-api-marketplace consumes THIS vault rather than declaring its own - its redis and session
+# secrets live here, and its vault_resource_group already points at this resource group.
 module "vault" {
   source                               = "git@github.com:hmcts/cnp-module-key-vault?ref=master"
-  name                                 = var.vault_name != "" ? var.vault_name : "${var.product}-${var.env}"
+  name                                 = var.vault_name != "" ? var.vault_name : "${var.product}-${var.component}-${var.env}"
   product                              = var.product
   env                                  = var.env
   tenant_id                            = var.tenant_id

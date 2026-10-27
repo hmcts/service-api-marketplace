@@ -9,6 +9,7 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import uk.gov.hmcts.amp.config.ApplicationProperties;
 import uk.gov.hmcts.amp.config.EntraProperties;
 import uk.gov.hmcts.amp.domain.AppRegistration;
 import uk.gov.hmcts.amp.domain.ApiGrant;
@@ -63,6 +64,9 @@ class ApplicationServiceTest {
     private EntraProperties entra = new EntraProperties(TENANT_ID, "an-onboarding-app", "a-secret",
         Map.of("slc", RESOURCE_APP_ID), 1, 1);
 
+    @Spy
+    private ApplicationProperties limits = new ApplicationProperties(5);
+
     @InjectMocks
     private ApplicationService service;
 
@@ -102,6 +106,45 @@ class ApplicationServiceTest {
 
         assertThat(service.create(OID, new ApplicationRequest("Case Viewer", List.of())).tenantId())
             .isEqualTo(TENANT_ID);
+    }
+
+    @Test
+    void creating_at_the_limit_should_be_refused_without_reaching_entra() {
+        when(users.requireSignedIn(OID)).thenReturn(signedIn());
+        when(applications.existsByUserIdAndAppname(1L, "case-viewer")).thenReturn(false);
+        when(applications.countByUserId(1L)).thenReturn(5L);
+
+        assertThatThrownBy(() -> service.create(OID, new ApplicationRequest("Case Viewer", List.of())))
+            .isInstanceOfSatisfying(ResponseStatusException.class, refused -> {
+                assertThat(refused.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+                assertThat(refused.getReason()).isEqualTo("You can have up to 5 applications. "
+                    + "Delete an application you no longer need before you add another.");
+            });
+
+        verify(registrations, never()).register(any(), any());
+    }
+
+    @Test
+    void creating_one_below_the_limit_should_go_ahead() {
+        givenCreateReaches(registered("the-secret", null));
+        when(applications.countByUserId(1L)).thenReturn(4L);
+        when(applications.saveAndFlush(any())).thenAnswer(saved -> saved.getArgument(0));
+
+        assertThat(service.create(OID, new ApplicationRequest("Case Viewer", List.of())).clientId())
+            .isEqualTo(CLIENT_ID);
+    }
+
+    @Test
+    void the_allowance_should_say_how_many_are_left() {
+        when(users.requireSignedIn(OID)).thenReturn(signedIn());
+        when(applications.countByUserId(1L)).thenReturn(3L, 5L);
+
+        assertThat(service.allowance(OID)).satisfies(allowance -> {
+            assertThat(allowance.maxPerUser()).isEqualTo(5);
+            assertThat(allowance.count()).isEqualTo(3);
+            assertThat(allowance.canCreate()).isTrue();
+        });
+        assertThat(service.allowance(OID).canCreate()).isFalse();
     }
 
     @Test

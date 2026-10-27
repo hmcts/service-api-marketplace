@@ -1,6 +1,6 @@
 # Marketplace API
 
-Eighteen operations across fourteen paths. The machine-readable version is
+Twenty operations across fifteen paths. The machine-readable version is
 [`infrastructure/apim/specs/api-marketplace.openapi.yml`](infrastructure/apim/specs/api-marketplace.openapi.yml);
 this is the same thing at a glance.
 
@@ -46,7 +46,8 @@ Every one carries `requestingUserId` — the caller's Entra object id, in the he
 | Method | Path | Returns | |
 |---|---|---|---|
 | GET | `/applications` | 200 404 | The list, from stored data alone |
-| POST | `/applications` | 201 400 404 409 502 503 | 409 is a duplicate appname |
+| POST | `/applications` | 201 400 403 404 409 502 503 | 403 is at the limit, 409 a duplicate appname |
+| GET | `/applications/allowance` | 200 404 | `applications.max-per-user` (default 5) against what the caller holds |
 | GET | `/applications/{clientId}` | 200 404 | |
 | DELETE | `/applications/{clientId}` | 204 404 502 | |
 | POST | `/applications/{clientId}/roles` | 204 400 404 500 502 | One call per API |

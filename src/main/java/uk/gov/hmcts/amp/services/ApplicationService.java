@@ -5,10 +5,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import uk.gov.hmcts.amp.config.ApplicationProperties;
 import uk.gov.hmcts.amp.config.EntraProperties;
 import uk.gov.hmcts.amp.domain.ApiGrant;
 import uk.gov.hmcts.amp.domain.ApiSubscriptionResponse;
 import uk.gov.hmcts.amp.domain.AppRegistration;
+import uk.gov.hmcts.amp.domain.ApplicationAllowance;
 import uk.gov.hmcts.amp.domain.ApplicationRequest;
 import uk.gov.hmcts.amp.domain.ApplicationResponse;
 import uk.gov.hmcts.amp.domain.SubscriptionKey;
@@ -43,6 +45,7 @@ public class ApplicationService {
     private final ApimSubscriptionKeyService subscriptionKeys;
     private final ClockService clockService;
     private final EntraProperties entra;
+    private final ApplicationProperties limits;
 
     public List<ApplicationResponse> list(final String requestingUserId) {
         final UserEntity user = users.requireSignedIn(requestingUserId);
@@ -53,6 +56,14 @@ public class ApplicationService {
 
     public ApplicationResponse get(final String requestingUserId, final String clientId) {
         return response(requireOwned(users.requireSignedIn(requestingUserId), clientId));
+    }
+
+    public ApplicationAllowance allowance(final String requestingUserId) {
+        return allowanceFor(users.requireSignedIn(requestingUserId));
+    }
+
+    private ApplicationAllowance allowanceFor(final UserEntity user) {
+        return ApplicationAllowance.of(limits.maxPerUser(), applications.countByUserId(user.getId()));
     }
 
     /**
@@ -67,6 +78,11 @@ public class ApplicationService {
                 HttpStatus.CONFLICT,
                 "You already have an application called " + request.name() + "."
             );
+        }
+        // Before Entra, so an over-limit request never spends one of the tenant's app registrations.
+        if (!allowanceFor(user).canCreate()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can have up to " + limits.maxPerUser()
+                + " applications. Delete an application you no longer need before you add another.");
         }
 
         final AppRegistration registered =

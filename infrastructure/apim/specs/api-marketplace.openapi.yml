@@ -213,6 +213,18 @@ paths:
                 $ref: '#/components/schemas/CreatedApplication'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '403':
+          description: >-
+            The caller already holds applications.max-per-user applications.
+            Checked before Entra, so nothing is registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: >-
+                  You can have up to 5 applications. Delete an application you
+                  no longer need before you add another.
         '404':
           $ref: '#/components/responses/UnknownUser'
         '409':
@@ -225,6 +237,27 @@ paths:
           $ref: '#/components/responses/UpstreamUnreachable'
         '503':
           $ref: '#/components/responses/NotConfigured'
+
+  /applications/allowance:
+    get:
+      summary: How many more applications the caller may register
+      description: >-
+        The cap (applications.max-per-user) against what the caller holds now,
+        so a client can say so before the caller starts. POST /applications
+        enforces it regardless.
+      operationId: getApplicationAllowance
+      tags: [applications]
+      parameters:
+        - $ref: '#/components/parameters/RequestingUserId'
+      responses:
+        '200':
+          description: The caller's allowance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationAllowance'
+        '404':
+          $ref: '#/components/responses/UnknownUser'
 
   /applications/{clientId}:
     parameters:
@@ -806,6 +839,22 @@ components:
         subscribedAt:
           type: string
           format: date-time
+
+    ApplicationAllowance:
+      type: object
+      properties:
+        maxPerUser:
+          type: integer
+          example: 5
+        count:
+          type: integer
+          format: int64
+          description: Applications the caller holds now
+          example: 2
+        canCreate:
+          type: boolean
+          description: count is below maxPerUser
+          example: true
 
     CreatedApplication:
       allOf:

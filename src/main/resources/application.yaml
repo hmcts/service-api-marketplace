@@ -53,6 +53,9 @@ notify:
   base-url: ${NOTIFY_BASE_URL:https://api.notifications.service.gov.uk}
   review-inboxes: ${NOTIFY_REVIEW_INBOXES:APIMarketplace@hmcts.net}
 
+applications:
+  max-per-user: ${APPLICATIONS_MAX_PER_USER:5}
+
 entra:
   max-attempts: ${ENTRA_MAX_ATTEMPTS:20}
   retry-delay-millis: ${ENTRA_RETRY_DELAY_MILLIS:500}

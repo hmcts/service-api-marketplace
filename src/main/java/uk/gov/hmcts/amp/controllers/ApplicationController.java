@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import uk.gov.hmcts.amp.domain.ApiAccess;
+import uk.gov.hmcts.amp.domain.ApplicationAllowance;
 import uk.gov.hmcts.amp.domain.ApplicationResponse;
 import uk.gov.hmcts.amp.domain.ApplicationRequest;
 import uk.gov.hmcts.amp.services.ApplicationService;
@@ -35,6 +36,12 @@ public class ApplicationController {
         @RequestHeader(REQUESTING_USER_ID) final String requestingUserId) {
         log.info("List applications");
         return applications.list(requestingUserId);
+    }
+
+    @GetMapping("/allowance")
+    public ApplicationAllowance getAllowance(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId) {
+        log.info("Read application allowance");
+        return applications.allowance(requestingUserId);
     }
 
     @GetMapping("/{clientId}")

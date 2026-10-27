@@ -172,7 +172,7 @@ dependencies {
   implementation 'com.azure:azure-core-http-jdk-httpclient:1.2.0'
 
   // Entra application registrations, as in service-hmcts-springboot-demo's entra-app-registration-demo
-  implementation 'com.microsoft.graph:microsoft-graph:6.71.0'
+  implementation 'com.microsoft.graph:microsoft-graph:6.72.0'
 
   // GOV.UK Notify. Email bodies live in Notify and are edited there, so this carries template ids
   // and personalisation, never content.

@@ -63,61 +63,22 @@ module "postgresql_flexible" {
   pgsql_sku     = var.pgsql_sku
 }
 
-resource "azurerm_key_vault_secret" "postgres_user" {
-  name         = "marketplace-POSTGRES-USER"
-  value        = module.postgresql_flexible.username
-  key_vault_id = module.vault.key_vault_id
-  depends_on   = [module.vault]
-}
-
-resource "azurerm_key_vault_secret" "postgres_pass" {
-  name         = "marketplace-POSTGRES-PASS"
-  value        = module.postgresql_flexible.password
-  key_vault_id = module.vault.key_vault_id
-  depends_on   = [module.vault]
-}
-
-resource "azurerm_key_vault_secret" "postgres_host" {
-  name         = "marketplace-POSTGRES-HOST"
-  value        = module.postgresql_flexible.fqdn
-  key_vault_id = module.vault.key_vault_id
-  depends_on   = [module.vault]
-}
-
-resource "azurerm_key_vault_secret" "postgres_port" {
-  name         = "marketplace-POSTGRES-PORT"
-  value        = "5432"
-  key_vault_id = module.vault.key_vault_id
-  depends_on   = [module.vault]
-}
-
-resource "azurerm_key_vault_secret" "postgres_database" {
-  name         = "marketplace-POSTGRES-DATABASE"
-  value        = "marketplace"
-  key_vault_id = module.vault.key_vault_id
-  depends_on   = [module.vault]
-}
-
-# amp-marketplace-{env}, matching the resource group above and amp-try-slc-{env} /
-# amp-try-it-now-{env} alongside it. Component-scoped rather than product-scoped: a vault named
-# "${var.product}-${var.env}" would be the same name in every amp repo, so the first to apply
-# creates it and every other repo's apply fails on a name that already exists. One vault per
-# component means each repo owns exactly what it creates.
+# Step one of two. The vault is named amp-aat in state and amp-marketplace-{env} in config, and
+# a key vault rename is a replace: terraform destroys the old one first, which the CanNotDelete
+# lock on the resource group refuses. Nobody on the team holds the permission to lift that lock,
+# nor to write this state by hand.
 #
-# web-api-marketplace consumes THIS vault rather than declaring its own - its redis and session
-# secrets live here, and its vault_resource_group already points at this resource group.
-module "vault" {
-  source                               = "git@github.com:hmcts/cnp-module-key-vault?ref=master"
-  name                                 = var.vault_name != "" ? var.vault_name : "${var.product}-${var.component}-${var.env}"
-  product                              = var.product
-  env                                  = var.env
-  tenant_id                            = var.tenant_id
-  object_id                            = var.jenkins_AAD_objectId
-  resource_group_name                  = azurerm_resource_group.rg.name
-  product_group_name                   = "DTS API Marketplace"
-  common_tags                          = local.tags
-  managed_identity_object_id           = data.azurerm_user_assigned_identity.amp.principal_id
-  create_managed_identity              = false
-  additional_managed_identities_access = var.additional_managed_identities_access
-  jenkins_object_id                    = data.azurerm_user_assigned_identity.jenkins.principal_id
+# So terraform is told to forget the vault instead of destroying it. destroy = false leaves the
+# resource in Azure, untouched and unmanaged. The module and the secrets that live in it come
+# back under the new name in the follow-up, which creates them fresh.
+#
+# The old vault is empty - its secrets were never applied, because the apply fails at the destroy
+# before reaching them - so nothing is stranded in it. Remove this block once it has applied; a
+# removed block and the module it names cannot both exist.
+removed {
+  from = module.vault
+
+  lifecycle {
+    destroy = false
+  }
 }

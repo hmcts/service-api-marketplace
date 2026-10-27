@@ -22,10 +22,10 @@ public record ProductionAccessRequest(
     String callVolume,
 
     @NotBlank(message = "Describe the data request, how you plan to use it and why you need it.")
-    @Size(max = 1000, message = "Data request must be 1000 characters or fewer.")
+    @Size(max = 2000, message = "Data request must be 2000 characters or fewer.")
     String dataRequest,
 
     @NotBlank(message = "Describe the proposed outputs from this data use.")
-    @Size(max = 1000, message = "Proposed outputs must be 1000 characters or fewer.")
+    @Size(max = 2000, message = "Proposed outputs must be 2000 characters or fewer.")
     String proposedOutputs) {
 }

@@ -199,7 +199,7 @@ dependencies {
 
   testImplementation group: 'org.springframework.boot', name: 'spring-boot-starter-test'
   testImplementation group: 'org.springframework.boot', name: 'spring-boot-starter-webmvc-test'
-  testImplementation group: 'io.rest-assured', name: 'rest-assured', version: '6.2.0'
+  testImplementation group: 'io.rest-assured', name: 'rest-assured', version: '6.3.0'
 }
 
 bootJar {

@@ -1,4 +1,6 @@
-aks_subscription_id = "bf308a5c-0624-4334-8ff8-8dca9fd43783"
+# The subscription holding cft-sbox-vnet, which the postgres_network provider reads the
+# delegated subnet from. Not the one the resources are created in.
+aks_subscription_id = "b72ab7b7-723f-4b18-b6f6-03b0f2c6a1bb"
 pgsql_sku           = "B_Standard_B1ms"
 # sbox, not sandbox: the resource group is amp-marketplace-sandbox but the vault abbreviates,
 # as amp-try-slc-sbox and amp-try-it-now-sbox do.

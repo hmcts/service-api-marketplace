@@ -1,5 +1,6 @@
 package uk.gov.hmcts.amp.integration;
 
+import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +20,7 @@ import java.time.LocalDateTime;
 import org.springframework.test.web.servlet.ResultActions;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -71,10 +73,11 @@ class SessionIntegrationTest {
         final String first = signIn(OID, "{\"email\":\"joe@example.com\",\"name\":\"Joe\"}")
             .andReturn().getResponse().getContentAsString();
 
-        signIn(OID.toUpperCase(), "{\"email\":\"joseph@example.com\",\"name\":\"Joseph Bloggs\"}")
+        // The address is the person, matched however Entra happens to case it.
+        signIn(OID.toUpperCase(), "{\"email\":\"JOE@Example.com\",\"name\":\"Joseph Bloggs\"}")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(idIn(first)))
-            .andExpect(jsonPath("$.email").value("joseph@example.com"))
+            .andExpect(jsonPath("$.email").value("joe@example.com"))
             .andExpect(jsonPath("$.name").value("Joseph Bloggs"));
 
         assertThat(users()).isEqualTo(1);
@@ -88,14 +91,35 @@ class SessionIntegrationTest {
     }
 
     @Test
-    void another_entra_user_bringing_a_taken_email_should_be_refused() throws Exception {
-        signIn(OID, "{\"email\":\"joe@example.com\"}").andExpect(status().isOk());
+    void an_account_recreated_in_entra_should_take_over_the_row_it_left_behind() throws Exception {
+        String before = signIn(OID, "{\"email\":\"joe@example.com\"}")
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
 
-        signIn(OTHER_OID, "{\"email\":\"JOE@example.com\"}")
-            .andExpect(status().isConflict())
-            .andExpect(jsonPath("$.error").value("This email address is already used by another account."));
+        // Deleting and recreating an Entra account gives the same person a new object id.
+        String after = signIn(OTHER_OID, "{\"email\":\"JOE@example.com\"}")
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
 
+        // Same row, so the applications it owns and the amp-userNNN prefix they are checked
+        // against stay reachable. A second row would strand them.
+        assertThat(JsonPath.<Integer>read(after, "$.id"))
+            .isEqualTo(JsonPath.<Integer>read(before, "$.id"));
+        assertThat(JsonPath.<String>read(after, "$.userReference"))
+            .isEqualTo(JsonPath.<String>read(before, "$.userReference"));
+        assertThat(JsonPath.<String>read(after, "$.entraObjectId")).isEqualTo(OTHER_OID);
         assertThat(users()).isEqualTo(1);
+    }
+
+    @Test
+    void the_object_id_it_was_created_with_should_stop_working_once_adopted() throws Exception {
+        signIn(OID, "{\"email\":\"joe@example.com\"}").andExpect(status().isOk());
+        signIn(OTHER_OID, "{\"email\":\"joe@example.com\"}").andExpect(status().isOk());
+
+        mockMvc.perform(get("/applications").header("requestingUserId", OID))
+            .andExpect(status().isNotFound());
+        mockMvc.perform(get("/applications").header("requestingUserId", OTHER_OID))
+            .andExpect(status().isOk());
     }
 
     @Test

@@ -16,7 +16,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.regex.Pattern;
 
 @Slf4j
@@ -74,20 +73,18 @@ public class UserService {
         final LocalDateTime now = LocalDateTime.ofInstant(clockService.now(), ZoneOffset.UTC);
         final String email = request.email().trim().toLowerCase(Locale.UK);
 
-        final UserEntity user = userRepository.findByEntraObjectId(oid).orElseGet(() -> newUser(oid, now));
+        // The email address is the person. An Entra account deleted and recreated comes back
+        // with a new object id, and the row it left behind owns the applications, the
+        // subscription names and the amp-userNNN prefix they are checked against.
+        final UserEntity user = userRepository.findByEmail(email).orElseGet(() -> newUser(oid, now));
         if (!UserEntity.ACTIVE.equals(user.getStatus())) {
             log.warn("Entra sign in refused for userId {}, which is not active", user.getId());
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This account is not active.");
         }
 
-        final Optional<UserEntity> sameEmail = userRepository.findByEmail(email);
-        if (sameEmail.isPresent() && !oid.equals(sameEmail.get().getEntraObjectId())) {
-            log.warn("Entra sign in brought the email address of userId {}", sameEmail.get().getId());
-            throw emailInUse();
-        }
-
         final boolean created = user.getId() == null;
         user.setEmail(email);
+        user.setEntraObjectId(oid);
         final String[] names = request.name() == null ? new String[0] : request.name().trim().split("\\s+", 2);
         user.setFirstName(names.length > 0 ? names[0] : "");
         user.setLastName(names.length > 1 ? names[1] : "");

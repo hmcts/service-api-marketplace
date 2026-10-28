@@ -33,12 +33,14 @@ class SessionFunctionalTest {
     }
 
     @Test
-    void another_entra_user_with_a_taken_email_should_be_refused_with_409() throws Exception {
-        upsert(OID, "{\"email\":\"" + EMAIL + "\"}");
+    void another_entra_account_with_the_same_email_should_take_over_the_user() throws Exception {
+        var original = upsert(OID, "{\"email\":\"" + EMAIL + "\"}");
 
-        var response = upsert(OTHER_OID, "{\"email\":\"" + EMAIL.toUpperCase() + "\"}");
+        var recreated = upsert(OTHER_OID, "{\"email\":\"" + EMAIL.toUpperCase() + "\"}");
 
-        assertThat(response.statusCode()).isEqualTo(409);
+        assertThat(recreated.statusCode()).isEqualTo(200);
+        assertThat(idIn(recreated.body())).isEqualTo(idIn(original.body()));
+        assertThat(recreated.body()).contains("\"entraObjectId\":\"" + OTHER_OID + "\"");
     }
 
     @Test

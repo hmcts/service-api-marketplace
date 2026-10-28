@@ -138,7 +138,6 @@ class UserServiceTest {
     @Test
     void first_sign_in_should_create_an_active_user() {
         when(clockService.now()).thenReturn(NOW);
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.empty());
         when(userRepository.findByEmail("joe@example.com")).thenReturn(Optional.empty());
         when(userRepository.saveAndFlush(any(UserEntity.class))).thenAnswer(call -> withId(call.getArgument(0), 1L));
 
@@ -156,28 +155,27 @@ class UserServiceTest {
     }
 
     @Test
-    void signing_in_again_should_update_email_names_and_last_login_but_not_created_at() {
+    void signing_in_again_should_update_names_and_last_login_but_not_created_at() {
         when(clockService.now()).thenReturn(NOW);
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(existing(OID, "joe@example.com")));
-        when(userRepository.findByEmail("joseph@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("joe@example.com"))
+            .thenReturn(Optional.of(existing(OID, "joe@example.com")));
         when(userRepository.saveAndFlush(any(UserEntity.class))).thenAnswer(call -> call.getArgument(0));
 
-        userService.signIn(new SessionRequest(OID, "joseph@example.com", "Joseph Bloggs"));
+        userService.signIn(new SessionRequest(OID, "joe@example.com", "Joseph Bloggs"));
 
         ArgumentCaptor<UserEntity> saved = ArgumentCaptor.forClass(UserEntity.class);
         verify(userRepository).saveAndFlush(saved.capture());
         assertThat(saved.getValue().getId()).isEqualTo(7L);
-        assertThat(saved.getValue().getEmail()).isEqualTo("joseph@example.com");
+        assertThat(saved.getValue().getEmail()).isEqualTo("joe@example.com");
         assertThat(saved.getValue().getFirstName()).isEqualTo("Joseph");
         assertThat(saved.getValue().getCreatedAt()).isEqualTo(CREATED);
         assertThat(saved.getValue().getLastLoginAt()).isEqualTo(NOW_UTC);
     }
 
     @Test
-    void signing_in_with_an_unchanged_email_should_find_the_user_by_it_and_still_succeed() {
+    void signing_in_again_should_find_the_same_user_by_email() {
         UserEntity joe = existing(OID, "joe@example.com");
         when(clockService.now()).thenReturn(NOW);
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(joe));
         when(userRepository.findByEmail("joe@example.com")).thenReturn(Optional.of(joe));
         when(userRepository.saveAndFlush(joe)).thenReturn(joe);
 
@@ -188,7 +186,6 @@ class UserServiceTest {
     @Test
     void missing_name_should_be_saved_as_empty() {
         when(clockService.now()).thenReturn(NOW);
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.empty());
         when(userRepository.findByEmail("joe@example.com")).thenReturn(Optional.empty());
         when(userRepository.saveAndFlush(any(UserEntity.class))).thenAnswer(call -> withId(call.getArgument(0), 1L));
 
@@ -198,15 +195,20 @@ class UserServiceTest {
     }
 
     @Test
-    void an_email_held_by_another_entra_user_should_throw_409() {
+    void an_email_arriving_with_a_new_object_id_should_take_over_that_row() {
         when(clockService.now()).thenReturn(NOW);
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.empty());
         when(userRepository.findByEmail("joe@example.com"))
             .thenReturn(Optional.of(existing(OTHER_OID, "joe@example.com")));
+        when(userRepository.saveAndFlush(any(UserEntity.class))).thenAnswer(call -> call.getArgument(0));
 
-        assertStatus(() -> userService.signIn(new SessionRequest(OID, "joe@example.com", "Joe")),
-            HttpStatus.CONFLICT);
-        verify(userRepository, never()).saveAndFlush(any());
+        userService.signIn(new SessionRequest(OID, "joe@example.com", "Joe"));
+
+        // The row keeps its id, so the applications and subscription names that hang off it stay
+        // reachable; only the object id Entra now issues for that person changes.
+        ArgumentCaptor<UserEntity> saved = ArgumentCaptor.forClass(UserEntity.class);
+        verify(userRepository).saveAndFlush(saved.capture());
+        assertThat(saved.getValue().getId()).isEqualTo(7L);
+        assertThat(saved.getValue().getEntraObjectId()).isEqualTo(OID);
     }
 
     @Test
@@ -214,7 +216,7 @@ class UserServiceTest {
         UserEntity suspended = existing(OID, "joe@example.com");
         suspended.setStatus("SUSPENDED");
         when(clockService.now()).thenReturn(NOW);
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(suspended));
+        when(userRepository.findByEmail("joe@example.com")).thenReturn(Optional.of(suspended));
 
         assertStatus(() -> userService.signIn(new SessionRequest(OID, "joe@example.com", "Joe")),
             HttpStatus.FORBIDDEN);
@@ -231,9 +233,6 @@ class UserServiceTest {
     @Test
     void losing_a_first_sign_in_race_should_retry_and_update_the_winning_row() {
         when(clockService.now()).thenReturn(NOW);
-        when(userRepository.findByEntraObjectId(OID))
-            .thenReturn(Optional.empty())
-            .thenReturn(Optional.of(existing(OID, "joe@example.com")));
         when(userRepository.findByEmail("joe@example.com"))
             .thenReturn(Optional.empty())
             .thenReturn(Optional.of(existing(OID, "joe@example.com")));
@@ -250,7 +249,6 @@ class UserServiceTest {
     @Test
     void clashing_twice_should_throw_409() {
         when(clockService.now()).thenReturn(NOW);
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.empty());
         when(userRepository.findByEmail("joe@example.com")).thenReturn(Optional.empty());
         when(userRepository.saveAndFlush(any(UserEntity.class)))
             .thenThrow(new DataIntegrityViolationException("duplicate key"));
@@ -263,7 +261,6 @@ class UserServiceTest {
     @Test
     void the_name_should_be_split_at_the_first_space_into_first_and_last_name() {
         when(clockService.now()).thenReturn(NOW);
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.empty());
         when(userRepository.findByEmail("joe@example.com")).thenReturn(Optional.empty());
         when(userRepository.saveAndFlush(any(UserEntity.class))).thenAnswer(call -> withId(call.getArgument(0), 1L));
 
@@ -278,7 +275,6 @@ class UserServiceTest {
     @Test
     void the_user_reference_should_be_formatted_from_the_id() {
         when(clockService.now()).thenReturn(NOW);
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.empty());
         when(userRepository.findByEmail("joe@example.com")).thenReturn(Optional.empty());
         when(userRepository.saveAndFlush(any(UserEntity.class))).thenAnswer(call -> withId(call.getArgument(0), 7L));
 

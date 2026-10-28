@@ -121,3 +121,15 @@ module "vault" {
   additional_managed_identities_access = var.additional_managed_identities_access
   jenkins_object_id                    = data.azurerm_user_assigned_identity.jenkins.principal_id
 }
+
+# Temporary. web-api-marketplace's state still holds four secrets in the vault this product used
+# before the rename, so its plan cannot refresh them and fails. Terraform there replaces them into
+# the vault above once it can read and delete the originals. Remove once that has run.
+resource "azurerm_key_vault_access_policy" "superseded_vault" {
+  count = var.superseded_vault_id == "" ? 0 : 1
+
+  key_vault_id       = var.superseded_vault_id
+  tenant_id          = var.tenant_id
+  object_id          = var.jenkins_AAD_objectId
+  secret_permissions = ["Get", "List", "Delete"]
+}

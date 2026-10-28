@@ -23,15 +23,18 @@ locals {
   )
 }
 
-# Consumed, not declared. Under apim this repo created the product's shared resource group and
-# Key Vault. Under amp they already exist - try-cp-crime-schedulingandlisting-courtschedule was
-# amp's first component and created them there (commit fdf7b37), which says in terms that this
-# service must consume them when it migrates. Two repositories declaring one vault fight over its
-# state, and the second to apply wins by destroying what the first made.
-data "azurerm_resource_group" "rg" {
-  name = "${var.product}-shared-${var.env}"
+# Product-wide identity created by try-slc; this repo must not create it.
+data "azurerm_user_assigned_identity" "amp" {
+  name                = "${var.product}-${var.env}-mi"
+  resource_group_name = "managed-identities-${var.env}-rg"
 }
 
+# Component-scoped so it does not clash with other amp repos.
+resource "azurerm_resource_group" "rg" {
+  name     = "${var.product}-${var.component}-${var.env}"
+  location = var.location
+  tags     = local.tags
+}
 
 module "postgresql_flexible" {
   providers = {
@@ -63,34 +66,70 @@ module "postgresql_flexible" {
 resource "azurerm_key_vault_secret" "postgres_user" {
   name         = "marketplace-POSTGRES-USER"
   value        = module.postgresql_flexible.username
-  key_vault_id = data.azurerm_key_vault.vault.id
+  key_vault_id = module.vault.key_vault_id
+  depends_on   = [module.vault]
 }
 
 resource "azurerm_key_vault_secret" "postgres_pass" {
   name         = "marketplace-POSTGRES-PASS"
   value        = module.postgresql_flexible.password
-  key_vault_id = data.azurerm_key_vault.vault.id
+  key_vault_id = module.vault.key_vault_id
+  depends_on   = [module.vault]
 }
 
 resource "azurerm_key_vault_secret" "postgres_host" {
   name         = "marketplace-POSTGRES-HOST"
   value        = module.postgresql_flexible.fqdn
-  key_vault_id = data.azurerm_key_vault.vault.id
+  key_vault_id = module.vault.key_vault_id
+  depends_on   = [module.vault]
 }
 
 resource "azurerm_key_vault_secret" "postgres_port" {
   name         = "marketplace-POSTGRES-PORT"
   value        = "5432"
-  key_vault_id = data.azurerm_key_vault.vault.id
+  key_vault_id = module.vault.key_vault_id
+  depends_on   = [module.vault]
 }
 
 resource "azurerm_key_vault_secret" "postgres_database" {
   name         = "marketplace-POSTGRES-DATABASE"
   value        = "marketplace"
-  key_vault_id = data.azurerm_key_vault.vault.id
+  key_vault_id = module.vault.key_vault_id
+  depends_on   = [module.vault]
 }
 
-data "azurerm_key_vault" "vault" {
-  name                = var.vault_name != "" ? var.vault_name : "${var.product}-${var.env}"
-  resource_group_name = data.azurerm_resource_group.rg.name
+# amp-marketplace-{env}, matching the resource group above and amp-try-slc-{env} /
+# amp-try-it-now-{env} alongside it. Component-scoped rather than product-scoped: a vault named
+# "${var.product}-${var.env}" would be the same name in every amp repo, so the first to apply
+# creates it and every other repo's apply fails on a name that already exists. One vault per
+# component means each repo owns exactly what it creates.
+#
+# web-api-marketplace consumes THIS vault rather than declaring its own - its redis and session
+# secrets live here, and its vault_resource_group already points at this resource group.
+module "vault" {
+  source                               = "git@github.com:hmcts/cnp-module-key-vault?ref=master"
+  name                                 = var.vault_name != "" ? var.vault_name : "${var.product}-${var.component}-${var.env}"
+  product                              = var.product
+  env                                  = var.env
+  tenant_id                            = var.tenant_id
+  object_id                            = var.jenkins_AAD_objectId
+  resource_group_name                  = azurerm_resource_group.rg.name
+  product_group_name                   = "DTS API Marketplace"
+  common_tags                          = local.tags
+  managed_identity_object_id           = data.azurerm_user_assigned_identity.amp.principal_id
+  create_managed_identity              = false
+  additional_managed_identities_access = var.additional_managed_identities_access
+  jenkins_object_id                    = data.azurerm_user_assigned_identity.jenkins.principal_id
+}
+
+# Temporary. web-api-marketplace's state still holds four secrets in the vault this product used
+# before the rename, so its plan cannot refresh them and fails. Terraform there replaces them into
+# the vault above once it can read and delete the originals. Remove once that has run.
+resource "azurerm_key_vault_access_policy" "superseded_vault" {
+  count = var.superseded_vault_id == "" ? 0 : 1
+
+  key_vault_id       = var.superseded_vault_id
+  tenant_id          = var.tenant_id
+  object_id          = var.jenkins_AAD_objectId
+  secret_permissions = ["Get", "List", "Delete"]
 }

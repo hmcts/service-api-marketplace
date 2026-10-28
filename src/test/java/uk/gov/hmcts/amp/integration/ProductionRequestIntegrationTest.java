@@ -22,6 +22,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -97,6 +98,29 @@ class ProductionRequestIntegrationTest {
 
         assertThat(JsonPath.<String>read(body, "$.reference")).startsWith("PCR-");
         assertThat(productionRequests.count()).isEqualTo(1);
+    }
+
+    @Test
+    void the_long_answers_should_take_two_thousand_characters() throws Exception {
+        createApplication(OWNER_OID);
+
+        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+                .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID, 2000)))
+            .andExpect(status().isCreated());
+
+        assertThat(productionRequests.count()).isEqualTo(1);
+    }
+
+    @Test
+    void an_answer_past_two_thousand_characters_should_say_so_rather_than_be_cut_short() throws Exception {
+        createApplication(OWNER_OID);
+
+        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+                .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID, 2001)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").value(containsString("2000 characters or fewer")));
+
+        assertThat(productionRequests.count()).isZero();
     }
 
     @Test
@@ -419,6 +443,15 @@ class ProductionRequestIntegrationTest {
             {"clientId":"%s","organisation":"Example Legal Ltd","goLiveDate":"2027-03-27",
              "callVolume":"low","dataRequest":"Hearing outcomes for listed cases.",
              "proposedOutputs":"A weekly outcomes report."}""".formatted(clientId);
+    }
+
+    /** The same request with both long answers filled to exactly the given length. */
+    private String form(final String clientId, final int answerLength) {
+        final String answer = "x".repeat(answerLength);
+        return """
+            {"clientId":"%s","organisation":"Example Legal Ltd","goLiveDate":"2027-03-27",
+             "callVolume":"low","dataRequest":"%s","proposedOutputs":"%s"}"""
+            .formatted(clientId, answer, answer);
     }
 
     private void signIn(final String oid, final String email) throws Exception {

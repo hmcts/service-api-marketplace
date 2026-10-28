@@ -159,7 +159,7 @@ ENTRA_ONBOARDING_CLIENT_SECRET='<paste it - quoted, the value contains ~>' \
 Everything else already defaults to sbox. The startup log confirms what it is pointed at:
 
 ```
-INFO  Entra tenant d44f885c-..., onboarding client aba0879b-..., API 30288840-...
+INFO  Entra tenant d44f885c-..., onboarding client 74afcacd-...
 WARN  ENTRA_ONBOARDING_CLIENT_SECRET is not set: the application registration endpoints will fail.
 ```
 
@@ -250,9 +250,9 @@ another before any role is read.
 | Setting | Default |
 |---|---|
 | `ENTRA_TENANT_ID` | `d44f885c-...`, the `hmctsextsbox` CIAM tenant |
-| `ENTRA_ONBOARDING_CLIENT_ID` | `aba0879b-...`, `amp-role-assignment-test` |
+| `ENTRA_ONBOARDING_CLIENT_ID` | `74afcacd-...`, `amp-client-onboarding`, the identity cnp-flux-config mounts in sbox |
 | `ENTRA_ONBOARDING_CLIENT_SECRET` | *required* - without it every endpoint answers 503 |
-| `ENTRA_RESOURCE_APP_ID_SLC` | The app id of `amp-api-slc` in this environment's tenant |
+| `ENTRA_RESOURCE_APP_ID_SLC` | The app id of the slc resource app in this environment's tenant |
 | `ENTRA_RESOURCE_APP_ID_RCC` | The app id of `amp-api-rcc`. Blank refuses a grant for that API with a 503 |
 | `ENTRA_MAX_ATTEMPTS` | `20` - directory reads, which lag by seconds |
 | `ENTRA_RETRY_DELAY_MILLIS` | `500` |

@@ -79,6 +79,7 @@ public class ProductionRequestService {
                                            final ProductionAccessRequest request) {
         final UserEntity user = users.requireSignedIn(requestingUserId);
         final ApplicationEntity application = requireOwned(user, request.clientId());
+        requireNoRequestYet(application.getId(), application.getName());
         final ProductionRequestEntity saved = requests.saveAndFlush(record(user, application, request));
         log.info("Production request {} for application {} by userId {}",
             saved.getReference(), application.getClientId(), user.getId());
@@ -147,6 +148,14 @@ public class ProductionRequestService {
         entity.setDataRequest(request.dataRequest().trim());
         entity.setProposedOutputs(request.proposedOutputs().trim());
         return entity;
+    }
+
+    /** One request per application: a second is a duplicate ask, not a second thing being asked for. */
+    private void requireNoRequestYet(final Long applicationId, final String applicationName) {
+        if (requests.existsByApplicationId(applicationId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                applicationName + " already has a production access request.");
+        }
     }
 
     private ApplicationEntity requireOwned(final UserEntity user, final String clientId) {

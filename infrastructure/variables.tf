@@ -1,5 +1,5 @@
 variable "product" {
-  default = "apim"
+  default = "amp"
 }
 
 variable "component" {}
@@ -45,6 +45,10 @@ variable "pgsql_subnet_suffix" {
 
 variable "pgsql_public_access" {
   default = false
+}
+
+variable "superseded_vault_id" {
+  default = ""
 }
 
 variable "vault_name" {

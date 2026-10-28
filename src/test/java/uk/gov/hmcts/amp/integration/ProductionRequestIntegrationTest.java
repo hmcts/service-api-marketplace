@@ -173,6 +173,45 @@ class ProductionRequestIntegrationTest {
     }
 
     @Test
+    void second_request_for_the_same_application_should_conflict() throws Exception {
+        createApplication(OWNER_OID);
+        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)))
+            .andExpect(status().isCreated());
+
+        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+                .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)))
+            .andExpect(status().isConflict());
+
+        assertThat(productionRequests.count()).isEqualTo(1);
+    }
+
+    @Test
+    void deleting_a_request_should_let_the_application_be_asked_about_again() throws Exception {
+        createApplication(OWNER_OID);
+        String reference = reference(post(PATH).header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
+        mockMvc.perform(delete(PATH + "/" + reference).header("requestingUserId", OWNER_OID))
+            .andExpect(status().isNoContent());
+
+        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+                .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)))
+            .andExpect(status().isCreated());
+    }
+
+    @Test
+    void the_list_should_name_the_application_so_a_caller_can_tell_which_is_which() throws Exception {
+        createApplication(OWNER_OID);
+        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
+
+        // Without this the web cannot tell which application already has a request.
+        mockMvc.perform(get(PATH).header("requestingUserId", OWNER_OID))
+            .andExpect(jsonPath("$[0].clientId").value(CLIENT_ID))
+            .andExpect(jsonPath("$[0].applicationName").value("Case Viewer"));
+    }
+
+    @Test
     void notify_failing_should_still_leave_the_request_recorded() throws Exception {
         createApplication(OWNER_OID);
         stubRefused(400, "email_address Not a valid email address");
@@ -268,10 +307,15 @@ class ProductionRequestIntegrationTest {
     @Test
     void two_requests_should_get_different_references() throws Exception {
         createApplication(OWNER_OID);
+        // One request per application, so a second reference needs a second application.
+        mockMvc.perform(post("/applications").header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Case Reader\"}"))
+            .andExpect(status().isCreated());
+
         String first = reference(post(PATH).header("requestingUserId", OWNER_OID)
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
         String second = reference(post(PATH).header("requestingUserId", OWNER_OID)
-            .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
+            .contentType(MediaType.APPLICATION_JSON).content(form("client-other")));
 
         assertThat(first).isNotEqualTo(second);
     }

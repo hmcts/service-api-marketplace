@@ -98,10 +98,17 @@ resource "azurerm_key_vault_secret" "postgres_database" {
   depends_on   = [module.vault]
 }
 
-# amp-{env}: this is the only amp repo that creates it.
+# amp-marketplace-{env}, matching the resource group above and amp-try-slc-{env} /
+# amp-try-it-now-{env} alongside it. Component-scoped rather than product-scoped: a vault named
+# "${var.product}-${var.env}" would be the same name in every amp repo, so the first to apply
+# creates it and every other repo's apply fails on a name that already exists. One vault per
+# component means each repo owns exactly what it creates.
+#
+# web-api-marketplace consumes THIS vault rather than declaring its own - its redis and session
+# secrets live here, and its vault_resource_group already points at this resource group.
 module "vault" {
   source                               = "git@github.com:hmcts/cnp-module-key-vault?ref=master"
-  name                                 = var.vault_name != "" ? var.vault_name : "${var.product}-${var.env}"
+  name                                 = var.vault_name != "" ? var.vault_name : "${var.product}-${var.component}-${var.env}"
   product                              = var.product
   env                                  = var.env
   tenant_id                            = var.tenant_id
@@ -113,4 +120,16 @@ module "vault" {
   create_managed_identity              = false
   additional_managed_identities_access = var.additional_managed_identities_access
   jenkins_object_id                    = data.azurerm_user_assigned_identity.jenkins.principal_id
+}
+
+# Temporary. web-api-marketplace's state still holds four secrets in the vault this product used
+# before the rename, so its plan cannot refresh them and fails. Terraform there replaces them into
+# the vault above once it can read and delete the originals. Remove once that has run.
+resource "azurerm_key_vault_access_policy" "superseded_vault" {
+  count = var.superseded_vault_id == "" ? 0 : 1
+
+  key_vault_id       = var.superseded_vault_id
+  tenant_id          = var.tenant_id
+  object_id          = var.jenkins_AAD_objectId
+  secret_permissions = ["Get", "List", "Delete"]
 }

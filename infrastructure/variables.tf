@@ -47,6 +47,10 @@ variable "pgsql_public_access" {
   default = false
 }
 
+variable "superseded_vault_id" {
+  default = ""
+}
+
 variable "vault_name" {
   default = ""
 }

@@ -20,8 +20,10 @@ management:
 
 spring:
   config:
-    # kvspsextidsbox holds the Entra onboarding credentials, managed by hmcts/external-entra-id.
-    import: "optional:configtree:/mnt/secrets/amp/,optional:configtree:/mnt/secrets/amp-sbox/,optional:configtree:/mnt/secrets/kvspsextidsbox/"
+    # The chart mounts each vault at /mnt/secrets/<vault>/; amp-marketplace is the vault since AMP-1244,
+    # amp and amp-sbox are the old names. kvspsextidsbox holds the Entra onboarding credentials,
+    # managed by hmcts/external-entra-id.
+    import: "optional:configtree:/mnt/secrets/amp-marketplace/,optional:configtree:/mnt/secrets/amp-marketplace-sbox/,optional:configtree:/mnt/secrets/amp/,optional:configtree:/mnt/secrets/amp-sbox/,optional:configtree:/mnt/secrets/kvspsextidsbox/"
   application:
     name: service-api-marketplace
   jpa:

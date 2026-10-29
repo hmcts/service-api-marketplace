@@ -178,6 +178,7 @@ class ProductionRequestIntegrationTest {
             .withRequestBody(equalToJson("""
                 {"email_address":"%s","template_id":"%s",
                  "personalisation":{"application_name":"Case Viewer","consumer_name":"Ada Lovelace",
+                  "consumer_email_address":"ada.lovelace@hmcts.net",
                   "consumer_organisation":"Example Legal Ltd","go_live_date":"27 March 2027",
                   "expected_call_volumes":"low",
                   "api_list":["Scheduling and Listing Court Schedule"],

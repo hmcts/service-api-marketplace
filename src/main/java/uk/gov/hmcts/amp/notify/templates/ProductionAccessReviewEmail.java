@@ -24,6 +24,7 @@ public class ProductionAccessReviewEmail implements NotifyEmail {
     private final String applicationName;
     private final LocalDateTime submittedAt;
     private final String consumerName;
+    private final String consumerEmailAddress;
     private final String consumerOrganisation;
     private final LocalDate goLiveDate;
     private final String expectedCallVolumes;
@@ -45,6 +46,7 @@ public class ProductionAccessReviewEmail implements NotifyEmail {
             Map.entry("submitted_date", DATE.format(submittedAt)),
             Map.entry("submitted_time", TIME.format(submittedAt).toLowerCase(Locale.UK)),
             Map.entry("consumer_name", consumerName),
+            Map.entry("consumer_email_address", consumerEmailAddress),
             Map.entry("consumer_organisation", consumerOrganisation),
             Map.entry("go_live_date", DATE.format(goLiveDate)),
             Map.entry("expected_call_volumes", expectedCallVolumes),

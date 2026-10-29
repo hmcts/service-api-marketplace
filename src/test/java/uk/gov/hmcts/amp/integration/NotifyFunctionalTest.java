@@ -51,6 +51,7 @@ class NotifyFunctionalTest {
             "Case Viewer",
             LocalDateTime.of(2026, 10, 20, 14, 30),
             "Functional Test",
+            TEST_EMAIL,
             "Example Legal Ltd",
             LocalDate.of(2027, 3, 27),
             "Fewer than 1,000 calls a day",

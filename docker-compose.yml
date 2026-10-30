@@ -1,7 +1,6 @@
 version: '2.1'
 
-# The database's name and credentials, written once. The app and the postgres image read them
-# under different variable names (the image's are fixed; the app's match the Key Vault aliases).
+# Shared by both services, which read them under different variable names
 x-database:
   name: &db-name marketplace
   user: &db-user postgres
@@ -9,7 +8,6 @@ x-database:
 
 services:
   marketplace-api:
-    # Copies build/libs/amp-marketplace.jar, so run ./gradlew assemble first
     build:
       context: .
     environment:
@@ -18,7 +16,6 @@ services:
       POSTGRES_DATABASE: *db-name
       POSTGRES_USER: *db-user
       POSTGRES_PASS: *db-password
-      # Fakes Entra registration and APIM keys in memory; local use only (see LocalBypassConfig)
       ENTRA_BYPASS: 'true'
     ports:
       - "8080:8080"
@@ -35,7 +32,6 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      # $$ leaves the variables for the container's shell, so this follows the values above
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       retries: 10

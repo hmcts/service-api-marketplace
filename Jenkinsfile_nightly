@@ -2,13 +2,23 @@
 
 properties([
   // H allow predefined but random minute see https://en.wikipedia.org/wiki/Cron#Non-standard_characters
-  pipelineTriggers([cron('H 07 * * 1-5')])
+  pipelineTriggers([cron('H 07 * * 1-5')]),
+  parameters([
+    string(name: 'URL_TO_TEST', defaultValue: 'https://amp-marketplace.aat.platform.hmcts.net', description: 'The URL you want to run these tests against'),
+    string(name: 'SecurityRules',
+      defaultValue: 'https://raw.githubusercontent.com/hmcts/security-test-rules/master/conf/security-rules.conf',
+      description: 'Security rules config'),
+  ]),
 ])
 
-@Library("Infrastructure")
+@Library("Infrastructure@2.13.4")
 
 def type = "java"
-def product = "rpe"
-def component = "spring-boot-template"
+def product = "amp"
+def component = "marketplace"
 
-withNightlyPipeline(type, product, component) {}
+withNightlyPipeline(type, product, component) {
+  env.TEST_URL = params.URL_TO_TEST
+  env.SecurityRules = params.SecurityRules
+  enableSecurityScan()
+}

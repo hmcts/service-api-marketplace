@@ -2,7 +2,7 @@
 #
 # The whole credential journey against the real sandbox, in one run:
 #
-#   sign in -> register -> grant a role -> subscribe -> get a token with the role -> call slc
+#   sign in -> register -> grant a role -> subscribe -> get a token with the role -> call the API
 #
 # The application and the subscription are both removed at the end, however the run turns out.
 # KEEP=1 leaves them behind.
@@ -10,10 +10,11 @@
 # Needs the service running (./gradlew bootRun) with the onboarding secret exported, and the
 # credentials it uses to reach APIM:
 #
-#   ./test-app-registration.sh
+#   ./test-app-registration.sh          # slc, the default
+#   ./test-app-registration.sh rcc
 #
-# Optional: CASE_URN, ROLE, NAME, SHORT_CODE, API_PATH, BASE_URL, GRANT_ATTEMPTS, TOKEN_ATTEMPTS,
-# GATEWAY_ATTEMPTS, KEEP=1,
+# Optional: CASE_URN, COURTHOUSE_ID, REQUEST_PATH, ROLE, NAME, API_PATH, BASE_URL,
+# GRANT_ATTEMPTS, TOKEN_ATTEMPTS, GATEWAY_ATTEMPTS, KEEP=1,
 # REQUESTING_USER_ID to run as somebody else.
 set -euo pipefail
 
@@ -28,18 +29,28 @@ GATEWAY=${APIM_GATEWAY:-https://sps-api-mgmt.sandbox.api.hmcts.net}
 # Named after whoever ran it: killing the script skips the trap, so orphans happen, and an orphan
 # nobody can be traced to is one nobody will delete.
 NAME=${NAME:-Test App $(whoami | tr -cd '[:alnum:]') $(date +%H%M%S)}
-# A canned scenario, not a real case. TIN-WEEKCOMM-01, TIN-MULTI-01, TIN-EMPTY-01 and
-# TIN-NOTFOUND-01 are the others; GET $GATEWAY/$API_PATH/scenarios lists them with descriptions,
-# and anything unrecognised answers 404 the way TIN-NOTFOUND-01 does.
-CASE_URN=${CASE_URN:-TIN-ALLOCATED-01}
-SHORT_CODE=${SHORT_CODE:-slc}
-API_PATH=${API_PATH:-amp/try/slc}
-# Both taken from the catalogue rather than assumed. The audience and the role a grant assigns
-# come from there, and a script guessing either waits for a token that is never coming.
+# The API to exercise, as a positional argument so the common case needs nothing else.
+SHORT_CODE=${1:-${SHORT_CODE:-slc}}
+# Taken from the catalogue rather than assumed. The audience, the role a grant assigns and the
+# gateway path all come from there, and a script guessing any of them waits for a token that is
+# never coming, or calls a path the gateway does not publish.
+# || true so a service that is not running does not kill the script here under pipefail, before
+# the health check below has had the chance to say so.
 PRODUCT=$(curl -sS "$BASE_URL/products" 2>/dev/null \
-  | jq -r --arg s "$SHORT_CODE" 'map(select(.shortCode == $s)) | .[0] // empty' 2>/dev/null)
+  | jq -r --arg s "$SHORT_CODE" 'map(select(.shortCode == $s)) | .[0] // empty' 2>/dev/null || true)
 ROLE=${ROLE:-$(jq -r '.role // empty' <<<"$PRODUCT")}
 RESOURCE_APP_ID=${ENTRA_RESOURCE_APP_ID:-$(jq -r '.resourceAppId // empty' <<<"$PRODUCT")}
+API_PATH=${API_PATH:-$(jq -r '.gatewayPath // empty' <<<"$PRODUCT")}
+
+# The operation to call once the credentials are proven. Every API takes its own shape - one path
+# parameter here, two there, and two of them spell the same concept differently - so there is no
+# generic default, only a known one per API.
+#
+# Both are canned scenarios rather than real records, and GET $GATEWAY/$API_PATH/scenarios lists
+# what each API has. Anything unrecognised answers 404, which is a valid outcome for this script:
+# everything it set out to prove has already happened by then.
+CASE_URN=${CASE_URN:-TIN-ALLOCATED-01}
+COURTHOUSE_ID=${COURTHOUSE_ID:-57323172-1083-454d-8ab7-2455a8b993e7}
 SUBSCRIBED=0
 SUBSCRIPTION=
 
@@ -48,12 +59,20 @@ die  () { printf '\n%s\n' "$*" >&2; exit 1; }
 
 command -v jq >/dev/null || die "jq is needed. brew install jq"
 
-[ -n "$RESOURCE_APP_ID" ] || die "No resource app for $SHORT_CODE. Set ENTRA_RESOURCE_APP_ID, or
-configure entra.resource-app-ids.$SHORT_CODE so GET /products publishes it."
+case "$SHORT_CODE" in
+  slc) REQUEST_PATH=${REQUEST_PATH:-case/$CASE_URN/courtschedule} ;;
+  rcc) REQUEST_PATH=${REQUEST_PATH:-courthouses/$COURTHOUSE_ID} ;;
+  *)   [ -n "${REQUEST_PATH:-}" ] || die "No known operation for $SHORT_CODE.
+Set REQUEST_PATH to one, for example REQUEST_PATH=courthouses/<id>." ;;
+esac
+
 # /api/health rather than one of the endpoints below: those want a caller, and "nothing is
 # running" should not come back looking like a rejected request.
 curl -fsS -o /dev/null "$BASE_URL/api/health" 2>/dev/null \
   || die "Nothing answering at $BASE_URL. Start it with ./gradlew bootRun (and the onboarding secret exported)."
+
+[ -n "$RESOURCE_APP_ID" ] || die "No resource app for $SHORT_CODE. Set ENTRA_RESOURCE_APP_ID, or
+configure entra.resource-app-ids.$SHORT_CODE so GET /products publishes it."
 
 step "1. Sign in as $REQUESTING_USER_ID"
 SESSION_STATUS=$(curl -s -o /tmp/test-app-registration-session -w '%{http_code}' -X POST "$SESSION" \
@@ -148,8 +167,17 @@ for attempt in $(seq 1 "$GRANT_ATTEMPTS"); do
     -H "requestingUserId: $REQUESTING_USER_ID" -H 'Content-Type: application/json' \
     -d "{\"shortCode\":\"$SHORT_CODE\"}")
   [ "$GRANT_STATUS" = "204" ] && { echo "   granted on attempt $attempt"; break; }
+  GRANT_DETAIL=$(jq -r '.detail // .' /tmp/test-app-registration-grant 2>/dev/null \
+    || cat /tmp/test-app-registration-grant)
+  # Only the assignment lag is worth waiting out. A 403 is a permission the onboarding identity
+  # does not hold and a 503 is something this environment has not been configured with - neither
+  # improves by asking again, and retrying buries the reason under minutes of identical lines.
+  case "$GRANT_STATUS" in
+    403|503) die "   Could not grant $ROLE (HTTP $GRANT_STATUS), and waiting will not help:
+   $GRANT_DETAIL" ;;
+  esac
   [ "$attempt" = "$GRANT_ATTEMPTS" ] && die "   Could not grant $ROLE after $GRANT_ATTEMPTS attempts (HTTP $GRANT_STATUS):
-   $(jq -r '.detail // .' /tmp/test-app-registration-grant 2>/dev/null || cat /tmp/test-app-registration-grant)"
+   $GRANT_DETAIL"
   echo "   attempt $attempt: HTTP $GRANT_STATUS - the principal is not assignable yet, waiting"
   sleep 15
 done
@@ -190,7 +218,7 @@ done
 claims "$TOKEN" | jq '{aud, roles, azp}' | sed 's/^/   /'
 
 step "7. Call $SHORT_CODE through APIM"
-echo "   GET $GATEWAY/$API_PATH/case/$CASE_URN/courtschedule"
+echo "   GET $GATEWAY/$API_PATH/$REQUEST_PATH"
 # The API requires a correlation id of its own, on top of the token and the subscription key.
 : > /tmp/test-app-registration-body
 # -sS so curl says why it failed, and the rc captured rather than left to set -e: a transport
@@ -203,7 +231,7 @@ for attempt in $(seq 1 "$GATEWAY_ATTEMPTS"); do
   CORRELATION_ID=$(uuidgen 2>/dev/null || python3 -c 'import uuid; print(uuid.uuid4())')
   unset CURL_RC
   STATUS=$(curl -sSL -o /tmp/test-app-registration-body -w '%{http_code}' \
-    "$GATEWAY/$API_PATH/case/$CASE_URN/courtschedule" \
+    "$GATEWAY/$API_PATH/$REQUEST_PATH" \
     -H "Authorization: Bearer $TOKEN" \
     -H "Ocp-Apim-Subscription-Key: $APIM_SUBSCRIPTION_KEY" \
     -H "X-Correlation-ID: $CORRELATION_ID") || CURL_RC=$?
@@ -234,5 +262,5 @@ case "$STATUS" in
    The whole chain worked: registration, role, token, gateway, backend." ;;
   *)   echo "
    Past the gateway - validate-jwt and the subscription key both passed, and this is the
-   backend's own answer. A 404 here usually just means that case URN does not exist." ;;
+   backend's own answer. A 404 here usually just means that scenario does not exist." ;;
 esac

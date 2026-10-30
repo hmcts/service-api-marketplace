@@ -53,7 +53,7 @@ execute_script() {
 
   echo "Bringing up docker containers.."
 
-  docker compose up
+  docker compose up --build
 }
 
 while true ; do

@@ -9,20 +9,17 @@ import java.net.http.HttpResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class SampleSmokeTest {
+class ProductSmokeTest {
 
     private final String testUrl = System.getenv().getOrDefault("TEST_URL", "http://localhost:8080");
 
     @Test
-    void calling_root_should_return_welcome_message() throws Exception {
-        var client = HttpClient.newHttpClient();
-        var request = HttpRequest.newBuilder()
-            .uri(URI.create(testUrl))
-            .GET()
-            .build();
-        var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+    void the_catalogue_should_list_the_apis_the_migrations_add() throws Exception {
+        var request = HttpRequest.newBuilder().uri(URI.create(testUrl + "/products")).GET().build();
+
+        var response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
 
         assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(response.body()).startsWith("Welcome");
+        assertThat(response.body()).contains("\"shortCode\":\"slc\"", "\"shortCode\":\"rcc\"");
     }
 }

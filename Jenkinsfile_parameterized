@@ -3,8 +3,11 @@
 
 properties([
     parameters([
-        choice(name: 'ENVIRONMENT', defaultValue: 'sandbox', choices: 'sandbox', description: 'Environment to deploy infrastructure to'),
+        choice(name: 'ENVIRONMENT', defaultValue: 'sandbox', choices: 'sandbox\ndemo', description: 'Environment to deploy infrastructure to'),
     ])
 ])
 
-withParameterizedPipeline('java', 'amp', 'marketplace', params.ENVIRONMENT, 'sandbox') {}
+// sandbox has its own subscription; every other environment here is nonprod.
+def subscription = params.ENVIRONMENT == 'sandbox' ? 'sandbox' : 'nonprod'
+
+withParameterizedPipeline('java', 'amp', 'marketplace', params.ENVIRONMENT, subscription) {}

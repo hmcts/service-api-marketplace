@@ -10,7 +10,6 @@ import static uk.gov.hmcts.amp.controllers.MarketplaceApi.signIn;
 
 class UserFunctionalTest {
 
-    // Fixed, so every run updates the same row rather than adding more.
     private static final String OID = "00000000-0000-0000-0000-0000000f0101";
     private static final String NEVER_SIGNED_IN = "00000000-0000-0000-0000-0000000f01ff";
 

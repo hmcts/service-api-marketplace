@@ -16,10 +16,8 @@ class ProductFunctionalTest {
         List<Map<String, Object>> products = response.jsonPath().getList("$");
 
         assertThat(response.statusCode()).isEqualTo(200);
-        // Sorted by short code
         assertThat(response.jsonPath().getList("shortCode")).containsSubsequence("rcc", "slc");
-        // Product ids, paths and roles move with migrations and differ by environment,
-        // so only their presence is checked
+        // Values differ by environment and migration, so only their presence is checked
         assertThat(products).allSatisfy(product -> assertThat(product)
             .extractingByKeys("title", "productId", "gatewayPath", "role", "tenantId")
             .allSatisfy(value -> assertThat(value).asString().isNotBlank()));

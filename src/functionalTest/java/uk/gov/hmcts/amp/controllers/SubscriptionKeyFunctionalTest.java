@@ -29,7 +29,6 @@ class SubscriptionKeyFunctionalTest {
 
     @AfterEach
     void clearUp() {
-        // Deleting the application revokes its keys too
         deleteApplicationsNamed(OID, NAME);
     }
 

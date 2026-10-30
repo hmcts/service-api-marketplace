@@ -15,10 +15,7 @@ import static uk.gov.hmcts.amp.controllers.MarketplaceApi.deleteApplicationsName
 import static uk.gov.hmcts.amp.controllers.MarketplaceApi.registerApplication;
 import static uk.gov.hmcts.amp.controllers.MarketplaceApi.signIn;
 
-/**
- * A request emails the requester and the review inboxes wherever Notify is configured. Preview and
- * AAT have no Notify key, so there the send fails and is only logged.
- */
+/** Submitting a request emails the review inboxes wherever Notify is configured; preview and AAT have no key. */
 class ProductionRequestFunctionalTest {
 
     private static final String OID = "00000000-0000-0000-0000-0000000f0301";

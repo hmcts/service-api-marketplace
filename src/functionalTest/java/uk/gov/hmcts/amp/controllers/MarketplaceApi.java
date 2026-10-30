@@ -10,7 +10,6 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
-/** Calls the deployed service at TEST_URL, the way the web app does. */
 final class MarketplaceApi {
 
     static final String TEST_URL = System.getenv().getOrDefault("TEST_URL", "http://localhost:8080");
@@ -28,7 +27,6 @@ final class MarketplaceApi {
         return anonymous().header(REQUESTING_USER_ID, objectId);
     }
 
-    /** Creates the user on the first run and updates them after, so every run starts from the same row. */
     static void signIn(final String objectId, final String email) {
         anonymous()
             .body(Map.of("objectId", objectId, "email", email, "name", "Functional Test"))
@@ -36,10 +34,7 @@ final class MarketplaceApi {
             .then().statusCode(200);
     }
 
-    /**
-     * Registers an application, or skips the calling test where this environment cannot: the service
-     * answers 503 when it has no Entra onboarding secret, as preview and AAT have none yet.
-     */
+    /** Skips the calling test where the service has no Entra onboarding secret, as on preview and AAT. */
     static Response registerApplication(final String objectId, final String name) {
         final Response response = asUser(objectId)
             .body(Map.of("name", name, "apis", List.of()))
@@ -49,7 +44,6 @@ final class MarketplaceApi {
         return response;
     }
 
-    /** Removes what an earlier, interrupted run left behind, so a fixed name can be registered again. */
     static void deleteApplicationsNamed(final String objectId, final String name) {
         final List<Map<String, Object>> owned = asUser(objectId).get("/applications").jsonPath().getList("$");
         owned.stream()

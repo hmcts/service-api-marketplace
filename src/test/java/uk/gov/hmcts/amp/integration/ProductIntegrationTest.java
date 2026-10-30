@@ -11,9 +11,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+// rcc is blanked rather than left to the application default, so the case below stays a case:
+// every API having a resource app is the goal, and the catalogue still has to cope with one that
+// does not yet.
 @SpringBootTest(properties = {
     "entra.tenant-id=" + ProductIntegrationTest.TENANT_ID,
-    "entra.resource-app-ids.slc=" + ProductIntegrationTest.SLC_RESOURCE_APP_ID})
+    "entra.resource-app-ids.slc=" + ProductIntegrationTest.SLC_RESOURCE_APP_ID,
+    "entra.resource-app-ids.rcc="})
 @AutoConfigureMockMvc
 @ContextConfiguration(initializers = {TestContainersInitialise.class})
 class ProductIntegrationTest {

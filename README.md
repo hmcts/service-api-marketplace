@@ -126,25 +126,51 @@ Azure login with a role on the sandbox APIM instance.
 
 ### Running in Docker
 
-`docker-compose.yml` runs Postgres only; it has no service for the application. To run the
-application in a container too, as it runs in AKS, build the jar and the image, then point the
-container at the database:
+`docker-compose.yml` runs the application in a container, as it runs in AKS, next to Postgres.
+You need Docker Desktop running, Java 25, and the Azure CLI signed in (`az login`).
 
-The base image is in the HMCTS registry, so log in to it first (`az login` beforehand if needed);
-without that, `docker build` fails with 401 Unauthorized from `hmctsprod.azurecr.io`.
+1. Log in to the HMCTS registry, which holds the base image. The login lasts about 3 hours;
+   without it the build fails with 401 Unauthorized from `hmctsprod.azurecr.io`.
+
+   ```bash
+     az acr login --name hmctsprod
+   ```
+
+2. Build the jar. The image copies it from `build/libs`.
+
+   ```bash
+     ./gradlew assemble
+   ```
+
+3. Build the image and start Postgres and the API. The API starts once Postgres is healthy and
+   is ready when the log says `Started Application`.
+
+   ```bash
+     docker compose up --build
+   ```
+
+The API runs on `localhost:8080` with `ENTRA_BYPASS=true` (see above). To run the smoke and
+functional tests against it, from a second terminal:
 
 ```bash
-  az acr login --name hmctsprod
-  ./gradlew assemble
-  docker build -t apim-marketplace .
-  docker compose up -d db
-  docker run --rm -p 8080:8080 \
-    -e POSTGRES_HOST=host.docker.internal -e POSTGRES_USER=postgres -e POSTGRES_PASS=postgres \
-    -e ENTRA_BYPASS=true apim-marketplace
+  ./gradlew smoke functional
 ```
 
-`./bin/run-in-docker.sh` (`-h` for its options) is left from the template: it runs
-`docker compose up`, which here starts only Postgres.
+After a code change, run `./gradlew assemble` and `docker compose up --build` again, or
+`./bin/run-in-docker.sh -i` to do both (`-h` for its options).
+
+To stop it:
+
+```bash
+  docker compose down
+```
+
+| Problem | Fix |
+| --- | --- |
+| `401 Unauthorized` from `hmctsprod.azurecr.io` | Run `az acr login --name hmctsprod` again |
+| `amp-marketplace.jar` not found during the build | Run `./gradlew assemble` first |
+| Port 5432 already allocated | Stop the other Postgres (another compose stack, or `brew services stop postgresql`) |
+| Port 8080 already allocated | Stop whatever else is on 8080, such as a `./gradlew bootRun` |
 
 ### Checking it is up
 

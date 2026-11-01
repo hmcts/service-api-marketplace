@@ -7,6 +7,5 @@ def product = "amp"
 def component = "marketplace"
 
 withPipeline(type, product, component) {
-  enableAksStagingDeployment()
   disableLegacyDeployment()
 }

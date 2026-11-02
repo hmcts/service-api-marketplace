@@ -10,6 +10,7 @@ plugins {
     See https://github.com/hmcts/gradle-java-plugin
  */
   id 'uk.gov.hmcts.java' version '0.12.70'
+  id 'org.openapi.generator' version '7.23.0'
 }
 
 application {
@@ -51,6 +52,50 @@ configurations {
 tasks.withType(JavaCompile).configureEach {
   options.compilerArgs << "-Xlint:unchecked" << "-Werror"
 }
+
+// Request bodies stay the domain records, which carry the validation messages
+def generatedDir = layout.buildDirectory.dir('generated/openapi')
+
+openApiGenerate {
+  generatorName = 'spring'
+  cleanupOutput = true
+  inputSpec = layout.projectDirectory.file('infrastructure/apim/specs/api-marketplace.openapi.yml').asFile.path
+  outputDir = generatedDir.get().asFile.path
+  apiPackage = 'uk.gov.hmcts.amp.openapi.api'
+  modelPackage = 'uk.gov.hmcts.amp.openapi.model'
+  generateApiTests = false
+  generateModelTests = false
+  generateApiDocumentation = false
+  generateModelDocumentation = false
+  globalProperties = [apis: '', models: '', supportingFiles: 'false']
+  schemaMappings = [
+    SessionRequest      : 'uk.gov.hmcts.amp.domain.SessionRequest',
+    NewApplication      : 'uk.gov.hmcts.amp.domain.ApplicationRequest',
+    ApiAccess           : 'uk.gov.hmcts.amp.domain.ApiAccess',
+    NewProductionRequest: 'uk.gov.hmcts.amp.domain.ProductionAccessRequest',
+    NewApiSubscription  : 'uk.gov.hmcts.amp.domain.ApiSubscriptionRequest',
+    Error               : 'uk.gov.hmcts.amp.domain.ErrorResponse',
+  ]
+  typeMappings = ['string+local-date-time': 'LocalDateTime']
+  importMappings = [LocalDateTime: 'java.time.LocalDateTime']
+  configOptions = [
+    interfaceOnly        : 'true',
+    skipDefaultInterface : 'true',
+    useSpringBoot3       : 'true',
+    useTags              : 'true',
+    useResponseEntity    : 'false',
+    useBeanValidation    : 'true',
+    performBeanValidation: 'false',
+    documentationProvider: 'none',
+    annotationLibrary    : 'none',
+    openApiNullable      : 'false',
+    sourceFolder         : '',
+  ]
+}
+
+sourceSets.main.java.srcDir(generatedDir)
+tasks.named('compileJava') { dependsOn tasks.openApiGenerate }
+tasks.named('checkstyleMain') { exclude 'uk/gov/hmcts/amp/openapi/**' }
 
 // https://github.com/gradle/gradle/issues/16791
 tasks.withType(JavaExec).configureEach {
@@ -95,6 +140,9 @@ jacocoTestReport {
     csv.getRequired().set(false)
     html.getRequired().set(true)
   }
+  classDirectories.setFrom(files(classDirectories.files.collect {
+    fileTree(dir: it, exclude: 'uk/gov/hmcts/amp/openapi/**')
+  }))
 }
 
 tasks.sonarqube.dependsOn(jacocoTestReport)
@@ -104,7 +152,7 @@ sonarqube {
   properties {
     property "sonar.projectName", "HMCTS :: API Marketplace"
     property "sonar.projectKey", "uk.gov.hmcts.cp:service-api-marketplace"
-    property "sonar.coverage.exclusions", "**/Application.java,**/entity/**,**/exceptions/**"
+    property "sonar.coverage.exclusions", "**/Application.java,**/entity/**,**/exceptions/**,**/openapi/**"
   }
 }
 

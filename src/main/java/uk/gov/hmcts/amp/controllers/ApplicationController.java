@@ -1,21 +1,17 @@
 package uk.gov.hmcts.amp.controllers;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.domain.ApiAccess;
-import uk.gov.hmcts.amp.domain.ApplicationResponse;
 import uk.gov.hmcts.amp.domain.ApplicationRequest;
+import uk.gov.hmcts.amp.mappers.ResponseMapper;
+import uk.gov.hmcts.amp.openapi.api.ApplicationsApi;
+import uk.gov.hmcts.amp.openapi.model.ApiKey;
+import uk.gov.hmcts.amp.openapi.model.Application;
+import uk.gov.hmcts.amp.openapi.model.CreatedApplication;
 import uk.gov.hmcts.amp.services.ApplicationService;
 
 import java.util.List;
@@ -23,48 +19,42 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/applications")
-public class ApplicationController {
-
-    private static final String REQUESTING_USER_ID = "requestingUserId";
+public class ApplicationController implements ApplicationsApi {
 
     private final ApplicationService applications;
+    private final ResponseMapper mapper;
 
-    @GetMapping
-    public List<ApplicationResponse> listApplications(
-        @RequestHeader(REQUESTING_USER_ID) final String requestingUserId) {
+    @Override
+    public List<Application> listApplications(final String requestingUserId) {
         log.info("List applications");
-        return applications.list(requestingUserId);
+        return mapper.toApplications(applications.list(requestingUserId));
     }
 
-    @GetMapping("/{clientId}")
-    public ApplicationResponse getApplication(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId,
-                                              @PathVariable final String clientId) {
+    @Override
+    public Application getApplication(final String requestingUserId, final String clientId) {
         log.info("Read application {}", clientId);
-        return applications.get(requestingUserId, clientId);
+        return mapper.toApplication(applications.get(requestingUserId, clientId));
     }
 
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApplicationResponse createApplication(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId,
-                                                 @Valid @RequestBody final ApplicationRequest request) {
+    @Override
+    public CreatedApplication createApplication(final String requestingUserId, final ApplicationRequest request) {
         log.info("Register application '{}'", request.name());
-        return applications.create(requestingUserId, request);
+        return mapper.toCreatedApplication(applications.create(requestingUserId, request));
     }
 
-    @PostMapping("/{clientId}/roles")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void grantAccess(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId,
-                            @PathVariable final String clientId,
-                            @Valid @RequestBody final ApiAccess request) {
+    @Override
+    public void grantRole(final String requestingUserId, final String clientId, final ApiAccess request) {
         log.info("Grant access to {} for application {}", request.shortCode(), clientId);
         applications.grantAccess(requestingUserId, clientId, request.shortCode());
     }
 
-    @DeleteMapping("/{clientId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteApplication(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId,
-                                  @PathVariable final String clientId) {
+    @Override
+    public ApiKey getSubscriptionKey(final String requestingUserId, final String clientId, final String api) {
+        throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not built yet.");
+    }
+
+    @Override
+    public void deleteApplication(final String requestingUserId, final String clientId) {
         log.info("Delete application {}", clientId);
         applications.delete(requestingUserId, clientId);
     }

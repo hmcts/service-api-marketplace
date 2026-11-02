@@ -4,9 +4,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import uk.gov.hmcts.amp.mappers.ResponseMapper;
+import uk.gov.hmcts.amp.mappers.ResponseMapperImpl;
 import uk.gov.hmcts.amp.domain.SessionRequest;
 import uk.gov.hmcts.amp.domain.UserResponse;
 import uk.gov.hmcts.amp.services.UserService;
@@ -25,6 +28,9 @@ class SessionControllerTest {
     @Mock
     private UserService userService;
 
+    @Spy
+    private final ResponseMapper mapper = new ResponseMapperImpl();
+
     @InjectMocks
     private SessionController sessionController;
 
@@ -37,7 +43,7 @@ class SessionControllerTest {
             now, now);
         when(userService.signIn(request)).thenReturn(response);
 
-        assertThat(sessionController.startSession(request)).isEqualTo(response);
+        assertThat(sessionController.createSession(request)).isEqualTo(mapper.toUser(response));
     }
 
     @Test
@@ -45,7 +51,7 @@ class SessionControllerTest {
         when(userService.signIn(request))
             .thenThrow(new ResponseStatusException(HttpStatus.CONFLICT, "This email address is already used."));
 
-        assertThatThrownBy(() -> sessionController.startSession(request))
+        assertThatThrownBy(() -> sessionController.createSession(request))
             .isInstanceOf(ResponseStatusException.class)
             .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode())
                 .isEqualTo(HttpStatus.CONFLICT));

@@ -4,7 +4,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import uk.gov.hmcts.amp.mappers.ResponseMapper;
+import uk.gov.hmcts.amp.mappers.ResponseMapperImpl;
 import uk.gov.hmcts.amp.domain.UserResponse;
 import uk.gov.hmcts.amp.services.UserService;
 
@@ -22,6 +25,9 @@ class UserControllerTest {
     @Mock
     private UserService users;
 
+    @Spy
+    private final ResponseMapper mapper = new ResponseMapperImpl();
+
     @InjectMocks
     private UserController controller;
 
@@ -32,13 +38,13 @@ class UserControllerTest {
     void listing_should_return_what_the_service_found() {
         when(users.list(OID)).thenReturn(List.of(ada));
 
-        assertThat(controller.listUsers(OID)).containsExactly(ada);
+        assertThat(controller.listUsers(OID)).containsExactly(mapper.toUser(ada));
     }
 
     @Test
     void reading_one_should_pass_the_identifier_through_untouched() {
         when(users.get(OID, "1")).thenReturn(ada);
 
-        assertThat(controller.getUser(OID, "1")).isEqualTo(ada);
+        assertThat(controller.getUser(OID, "1")).isEqualTo(mapper.toUser(ada));
     }
 }

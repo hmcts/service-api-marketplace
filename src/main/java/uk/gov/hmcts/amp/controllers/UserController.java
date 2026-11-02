@@ -2,12 +2,10 @@ package uk.gov.hmcts.amp.controllers;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import uk.gov.hmcts.amp.domain.UserResponse;
+import uk.gov.hmcts.amp.mappers.ResponseMapper;
+import uk.gov.hmcts.amp.openapi.api.UsersApi;
+import uk.gov.hmcts.amp.openapi.model.User;
 import uk.gov.hmcts.amp.services.UserService;
 
 import java.util.List;
@@ -16,23 +14,20 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/users")
-public class UserController {
-
-    private static final String REQUESTING_USER_ID = "requestingUserId";
+public class UserController implements UsersApi {
 
     private final UserService users;
+    private final ResponseMapper mapper;
 
-    @GetMapping
-    public List<UserResponse> listUsers(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId) {
+    @Override
+    public List<User> listUsers(final String requestingUserId) {
         log.info("List marketplace users");
-        return users.list(requestingUserId);
+        return mapper.toUsers(users.list(requestingUserId));
     }
 
-    @GetMapping("/{userId}")
-    public UserResponse getUser(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId,
-                                @PathVariable final String userId) {
+    @Override
+    public User getUser(final String requestingUserId, final String userId) {
         log.info("Read marketplace user {}", userId);
-        return users.get(requestingUserId, userId);
+        return mapper.toUser(users.get(requestingUserId, userId));
     }
 }

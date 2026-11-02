@@ -24,7 +24,7 @@ withNightlyPipeline(type, product, component) {
   env.SecurityRules = params.SecurityRules
   enableSecurityScan()
 
-  // Fortify on Demand, through the library's own runner. The vault holds the FoD credentials;
-  // the library's default, amp-aat, does not exist
+  // Fortify on Demand. The vault holds the FoD scan credentials; the library's default, amp-aat,
+  // is the vault from before the rename
   enableFortifyScan('amp-marketplace-aat')
 }

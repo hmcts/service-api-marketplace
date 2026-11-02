@@ -4,6 +4,10 @@ Twenty operations across fifteen paths. The machine-readable version is
 [`infrastructure/apim/specs/api-marketplace.openapi.yml`](infrastructure/apim/specs/api-marketplace.openapi.yml);
 this is the same thing at a glance.
 
+The spec is the source of truth for the code too: the build generates a Spring interface per tag
+from it, and each controller implements one, so an operation that differs between the two fails to
+compile. `/notify-test` is the exception, temporary and left out of the spec on purpose.
+
 A signed-in person registers an application and receives a Client ID, a Client Secret and one APIM
 subscription key per API, which together get them through the gateway.
 
@@ -18,7 +22,7 @@ subscription key per API, which together get them through the gateway.
 
 | Method | Path | Request | Returns |
 |---|---|---|---|
-| POST | `/session` | `objectId`, `email`, `name` | 200 400 |
+| POST | `/session` | `objectId`, `email`, `name` | 200 400 403 409 |
 
 The only write with no `requestingUserId`, because it is what establishes the user. The web app
 signs the person in against Entra, parses the token and posts the claims; this upserts on the Entra
@@ -45,23 +49,20 @@ Every one carries `requestingUserId` — the caller's Entra object id, in the he
 
 | Method | Path | Returns | |
 |---|---|---|---|
-| GET | `/applications` | 200 404 | The list, from stored data alone |
+| GET | `/applications` | 200 400 404 | The list, from stored data alone |
 | POST | `/applications` | 201 400 404 409 502 503 | 409 is a duplicate appname |
-| GET | `/applications/{clientId}` | 200 404 | |
-| DELETE | `/applications/{clientId}` | 204 404 502 | |
-| POST | `/applications/{clientId}/roles` | 204 400 404 500 502 | One call per API |
-| GET | `/applications/{clientId}/keys/{api}` | 200 404 502 | Reads the key from APIM |
+| GET | `/applications/{clientId}` | 200 400 404 | |
+| DELETE | `/applications/{clientId}` | 204 400 404 502 | |
+| POST | `/applications/{clientId}/roles` | 204 400 404 500 502 503 | One call per API |
+| GET | `/applications/{clientId}/keys/{api}` | 200 400 404 501 502 | Not built: 501 |
 
-**Roles are a second call.** A service principal seconds old is not yet assignable - Entra refuses
-with *"Not a valid reference update"* and can keep refusing for minutes. Folding the grant into
-create meant one request that could block for minutes and then roll a good registration back over a
-lag that only needed waiting out. Split, create returns as fast as Entra allows and the waiting
-belongs to the caller, who is also the only one who can show progress for it.
+**Create grants the roles of the APIs asked for**, and removes the registration again if a grant
+fails. `/roles` grants one more API's role to an existing application, one call per API.
 
 **`clientSecret` appears in exactly one response**, the 201 from create. Entra returns it once and
 has no call that reads it back, so a lost secret means regenerating rather than looking it up. A
-subscription key is the opposite: always recoverable from APIM, which is what the `keys/{api}` call
-does.
+subscription key is the opposite: always recoverable from APIM, through
+`/apim/subscription-keys/{name}/values`.
 
 **404, not 403, for someone else's application.** A 403 confirms it exists and belongs to somebody.
 
@@ -69,7 +70,7 @@ does.
 
 | Method | Path | Returns | |
 |---|---|---|---|
-| POST | `/production-requests` | 201 400 404 409 | One per application; 409 on a second |
+| POST | `/production-requests` | 201 400 404 409 500 | One per application; 409 on a second |
 | GET | `/production-requests` | 200 400 404 | The caller's own, newest first, each naming its application |
 | GET | `/production-requests/{reference}` | 200 400 404 | One request in full, the caller's own only |
 | DELETE | `/production-requests/{reference}` | 204 400 404 | The application it named is untouched |
@@ -115,10 +116,10 @@ reverse: the subscription goes from APIM and the row claiming the application ha
 
 | Method | Path | Returns | |
 |---|---|---|---|
-| GET | `/apim/subscription-keys` | 200 500 502 | Never key values |
+| GET | `/apim/subscription-keys` | 200 400 404 500 502 | Never key values |
 | POST | `/apim/subscription-keys` | 201 400 404 409 500 502 | Subscribes one application to one API |
-| GET | `/apim/subscription-keys/{name}/values` | 200 404 500 502 | |
-| DELETE | `/apim/subscription-keys/{name}` | 204 404 500 502 | Takes the `application_api` row with it |
+| GET | `/apim/subscription-keys/{name}/values` | 200 400 404 500 502 | |
+| DELETE | `/apim/subscription-keys/{name}` | 204 400 404 500 502 | Takes the `application_api` row with it |
 
 **Subscribing twice answers 409.** Azure's own call is a PUT: it would silently re-point an
 existing subscription at a different product and report it as created.
@@ -139,6 +140,7 @@ not if every list quietly returns secrets.
 | 409 | The name is taken |
 | 500 | **The upstream answered and refused.** A missing role assignment or Graph permission. Not retryable |
 | 502 | **The upstream could not be reached.** Retryable; nothing was left half-created |
+| 501 | Specified, not built yet |
 | 503 | This environment is not configured. Should never reach a real user |
 
 The 500 and 502 distinction is the useful one: 500 means someone needs to grant a permission, 502
@@ -148,6 +150,6 @@ means try again.
 
 - `/apim/products` is not built; without it there is no way to discover a `productId`, which
   creating a subscription key requires.
-- `/applications/{clientId}/keys/{api}` is specified and not built. Subscribing writes an
+- `/applications/{clientId}/keys/{api}` is specified and not built; it answers 501. Subscribing writes an
   `application_api` row, so the record of which APIs an application has subscribed to exists, but
   nothing reads it back over the API.

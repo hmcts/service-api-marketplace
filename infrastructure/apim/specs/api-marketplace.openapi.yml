@@ -59,10 +59,15 @@ paths:
               schema:
                 type: string
                 example: Welcome to api-marketplace
+            application/json:
+              schema:
+                type: string
+                example: Welcome to api-marketplace
 
   /api/health:
     get:
       summary: Health
+      description: The service is up. The database is reported by the actuator's /health.
       operationId: getHealth
       tags: [root]
       responses:
@@ -71,11 +76,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: ok
+                $ref: '#/components/schemas/Health'
 
   /session:
     post:
@@ -102,6 +103,18 @@ paths:
                 $ref: '#/components/schemas/User'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '403':
+          description: The account is not active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: The email address is already used by another account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /users:
     get:
@@ -124,6 +137,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/UnknownUser'
 
@@ -152,6 +167,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           description: No user with that row id or Entra object id, or the caller is not known
           content:
@@ -163,9 +180,8 @@ paths:
     get:
       summary: List the caller's applications
       description: >-
-        Rows owned by requestingUserId, joined to their APIs. Renders from
-        stored data alone, with no call to Entra or APIM. Never includes a
-        client secret.
+        Rows owned by requestingUserId. Renders from stored data alone, with
+        no call to Entra or APIM. Never includes a client secret.
       operationId: listApplications
       tags: [applications]
       parameters:
@@ -179,6 +195,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Application'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/UnknownUser'
 
@@ -186,11 +204,9 @@ paths:
       summary: Register an application
       description: >-
         Creates the Entra registration, its service principal and a secret,
-        then one APIM subscription per API, then the rows.
-
-        Roles are **not** granted here. A service principal seconds old is not
-        yet assignable, so granting is a separate call the caller retries - see
-        POST /applications/{clientId}/roles.
+        grants the role of each API asked for, then writes the row. A failed
+        step removes the registration again. APIM subscriptions are separate:
+        POST /apim/subscription-keys, one API per call.
 
         This is the only response that carries clientSecret. Entra returns it
         once and has no call that reads it back.
@@ -206,7 +222,7 @@ paths:
               $ref: '#/components/schemas/NewApplication'
       responses:
         '201':
-          description: Created, with the secret and the full subscription keys
+          description: Created, with the secret
           content:
             application/json:
               schema:
@@ -228,19 +244,22 @@ paths:
 
   /applications/{clientId}:
     parameters:
-      - $ref: '#/components/parameters/ClientId'
       - $ref: '#/components/parameters/RequestingUserId'
+      - $ref: '#/components/parameters/ClientId'
     get:
       summary: Read one application
+      description: The caller's own only, from stored data alone.
       operationId: getApplication
       tags: [applications]
       responses:
         '200':
-          description: The application, with the APIs it holds. Never a secret
+          description: The application. Never a secret
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Application'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotYours'
     delete:
@@ -254,6 +273,8 @@ paths:
       responses:
         '204':
           description: Deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotYours'
         '502':
@@ -274,8 +295,8 @@ paths:
       operationId: grantRole
       tags: [applications]
       parameters:
-        - $ref: '#/components/parameters/ClientId'
         - $ref: '#/components/parameters/RequestingUserId'
+        - $ref: '#/components/parameters/ClientId'
       requestBody:
         description: >-
           One API per call. The role and the resource app it lives on are
@@ -284,23 +305,22 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [shortCode]
-              properties:
-                shortCode:
-                  type: string
-                  example: slc
+              $ref: '#/components/schemas/ApiAccess'
       responses:
         '204':
           description: Granted
         '400':
-          description: No API with that short code, or it offers no such role
+          description: >-
+            requestingUserId or shortCode is missing, no API has that short
+            code, or it offers no such role
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: No service principal yet for that Client ID. Retryable
+          description: >-
+            No user for that requestingUserId, no such application for this
+            caller, or no service principal yet for that Client ID (retryable)
           content:
             application/json:
               schema:
@@ -315,6 +335,8 @@ paths:
                 $ref: '#/components/schemas/Error'
         '502':
           $ref: '#/components/responses/UpstreamUnreachable'
+        '503':
+          $ref: '#/components/responses/NotConfigured'
 
   /applications/{clientId}/keys/{api}:
     get:
@@ -324,11 +346,15 @@ paths:
         access log. Only three characters are stored here, so this is the only
         way to see a whole key after creation. Unlike the client secret, a
         subscription key is always recoverable.
+
+        Not built yet: it answers 501. Until it is, POST /apim/subscription-keys
+        returns the key once and GET /apim/subscription-keys/{name}/values
+        reads it back.
       operationId: getSubscriptionKey
       tags: [applications]
       parameters:
-        - $ref: '#/components/parameters/ClientId'
         - $ref: '#/components/parameters/RequestingUserId'
+        - $ref: '#/components/parameters/ClientId'
         - name: api
           in: path
           required: true
@@ -342,16 +368,17 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  shortCode:
-                    type: string
-                    example: slc
-                  subscriptionKey:
-                    type: string
-                    example: c5212ea63015c827b1a0f713fdbf42d6
+                $ref: '#/components/schemas/ApiKey'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotYours'
+        '501':
+          description: Specified, not built yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '502':
           $ref: '#/components/responses/UpstreamUnreachable'
 
@@ -372,6 +399,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ProductionRequest'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/UnknownUser'
     post:
@@ -420,6 +449,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '500':
+          description: No unused reference could be minted. Retryable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /production-requests/{reference}:
     parameters:
@@ -444,6 +479,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProductionRequestDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           description: >-
             No request with that reference, or it belongs to someone else.
@@ -463,6 +500,8 @@ paths:
       responses:
         '204':
           description: Deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           description: >-
             No request with that reference, or it belongs to someone else.
@@ -516,6 +555,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/SubscriptionKey'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/UnknownUser'
         '500':
@@ -546,15 +587,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [clientId, shortCode]
-              properties:
-                clientId:
-                  type: string
-                  example: 2f3b8c1a-5d47-4e92-8b6f-1c0a7e49d3b2
-                shortCode:
-                  type: string
-                  example: slc
+              $ref: '#/components/schemas/NewApiSubscription'
       responses:
         '201':
           description: Subscribed, with the key
@@ -590,8 +623,8 @@ paths:
       operationId: getSubscriptionKeyValues
       tags: [subscription-keys]
       parameters:
-        - $ref: '#/components/parameters/SubscriptionName'
         - $ref: '#/components/parameters/RequestingUserId'
+        - $ref: '#/components/parameters/SubscriptionName'
       responses:
         '200':
           description: The primary and secondary keys
@@ -599,6 +632,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SubscriptionKey'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           description: >-
             No subscription of that name, one belonging to someone else, or
@@ -625,11 +660,13 @@ paths:
       operationId: deleteSubscriptionKey
       tags: [subscription-keys]
       parameters:
-        - $ref: '#/components/parameters/SubscriptionName'
         - $ref: '#/components/parameters/RequestingUserId'
+        - $ref: '#/components/parameters/SubscriptionName'
       responses:
         '204':
           description: Revoked
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           description: No subscription of that name, or it belongs to someone else
           content:
@@ -709,8 +746,8 @@ components:
             $ref: '#/components/schemas/Error'
     NotConfigured:
       description: >-
-        The onboarding credential is not configured in this environment. Should
-        never reach a real user
+        The onboarding credential, or the resource app of an API asked for, is
+        not configured in this environment. Should never reach a real user
       content:
         application/json:
           schema:
@@ -728,9 +765,11 @@ components:
         email:
           type: string
           format: email
+          maxLength: 254
           example: ada.lovelace@hmcts.net
         name:
           type: string
+          maxLength: 200
           description: The display name from the token
           example: Ada Lovelace
 
@@ -745,6 +784,9 @@ components:
           type: string
           description: Formatted from id. Appears in every Entra and APIM name
           example: user001
+        entraObjectId:
+          type: string
+          example: 7c1d9f2e-4b58-4a31-9f0c-2e6d8a1b3c44
         email:
           type: string
           format: email
@@ -755,10 +797,20 @@ components:
         status:
           type: string
           example: ACTIVE
+        createdAt:
+          type: string
+          format: local-date-time
+          description: Date and time with no offset
+          example: '2026-11-02T10:15:30'
+        lastLoginAt:
+          type: string
+          format: local-date-time
+          description: Date and time with no offset
+          example: '2026-11-02T10:15:30'
 
     NewApplication:
       type: object
-      required: [name, apis]
+      required: [name]
       properties:
         name:
           type: string
@@ -771,14 +823,19 @@ components:
           example: Case Viewer
         apis:
           type: array
-          minItems: 1
+          description: Short codes of the APIs whose roles are granted. Absent means none
           items:
             type: string
           example: [slc]
 
     Application:
       type: object
+      x-class-extra-annotation: '@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)'
       properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
         clientId:
           type: string
           example: 1bf041a2-a57a-4255-b90f-d218736cda1f
@@ -801,37 +858,17 @@ components:
           example: Uc6
         secretExpiresAt:
           type: string
-          format: date-time
+          format: local-date-time
+          description: Date and time with no offset
+          example: '2026-11-02T10:15:30'
         createdAt:
           type: string
-          format: date-time
-        apis:
-          type: array
-          items:
-            $ref: '#/components/schemas/ApplicationApi'
-
-    ApplicationApi:
-      type: object
-      properties:
-        shortCode:
-          type: string
-          example: slc
-        productId:
-          type: string
-          description: Shown as Publisher ID
-          example: cp-crime-schedulingandlisting
-        subscriptionName:
-          type: string
-          example: amp-user001-case-viewer-slc
-        keyHint:
-          type: string
-          description: The first three characters of the subscription key
-          example: a1b
-        subscribedAt:
-          type: string
-          format: date-time
+          format: local-date-time
+          description: Date and time with no offset
+          example: '2026-11-02T10:15:30'
 
     CreatedApplication:
+      x-class-extra-annotation: '@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)'
       allOf:
         - $ref: '#/components/schemas/Application'
         - type: object
@@ -842,21 +879,10 @@ components:
                 Shown once and never again. Entra has no call that reads it
                 back, so a lost secret means regenerating.
               example: Uc6Q~shown-once-never-again
-            subscriptionKeys:
-              type: array
-              items:
-                type: object
-                properties:
-                  shortCode:
-                    type: string
-                    example: slc
-                  subscriptionKey:
-                    type: string
-                    example: c5212ea63015c827b1a0f713fdbf42d6
 
     NewProductionRequest:
       type: object
-      required: [clientId, organisation, goLiveDate, callVolume, dataRequest, proposedOutputs]
+      required: [clientId, organisation, goLiveDate, dataRequest, proposedOutputs]
       properties:
         clientId:
           type: string
@@ -875,15 +901,16 @@ components:
           enum: [low, medium, high]
         dataRequest:
           type: string
-          maxLength: 1000
+          maxLength: 2000
           description: The data being asked for, how it will be used and why it is needed
         proposedOutputs:
           type: string
-          maxLength: 1000
+          maxLength: 2000
           description: What comes out of using the data
 
     ProductionRequest:
       type: object
+      x-class-extra-annotation: '@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)'
       properties:
         reference:
           type: string
@@ -894,7 +921,9 @@ components:
           example: SUBMITTED
         submittedAt:
           type: string
-          format: date-time
+          format: local-date-time
+          description: Date and time with no offset
+          example: '2026-11-02T10:15:30'
         clientId:
           type: string
           description: >-
@@ -926,8 +955,45 @@ components:
             proposedOutputs:
               type: string
 
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+
+    ApiAccess:
+      type: object
+      required: [shortCode]
+      properties:
+        shortCode:
+          type: string
+          example: slc
+
+    NewApiSubscription:
+      type: object
+      required: [clientId, shortCode]
+      properties:
+        clientId:
+          type: string
+          example: 2f3b8c1a-5d47-4e92-8b6f-1c0a7e49d3b2
+        shortCode:
+          type: string
+          example: slc
+
+    ApiKey:
+      type: object
+      properties:
+        shortCode:
+          type: string
+          example: slc
+        subscriptionKey:
+          type: string
+          example: c5212ea63015c827b1a0f713fdbf42d6
+
     ApiProduct:
       type: object
+      x-class-extra-annotation: '@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)'
       properties:
         shortCode:
           type: string
@@ -990,6 +1056,7 @@ components:
 
     SubscriptionKey:
       type: object
+      x-class-extra-annotation: '@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)'
       properties:
         name:
           type: string

@@ -23,6 +23,10 @@ spring:
     import: "optional:configtree:/mnt/secrets/*/"
   application:
     name: service-api-marketplace
+  # Jackson 3 sorts a class's properties by name; the models generated from the spec keep its order
+  jackson:
+    mapper:
+      sort-properties-alphabetically: false
   jpa:
     open-in-view: false
   datasource:

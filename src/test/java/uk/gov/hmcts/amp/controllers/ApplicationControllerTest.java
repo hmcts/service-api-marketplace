@@ -4,7 +4,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import uk.gov.hmcts.amp.mappers.ResponseMapper;
+import uk.gov.hmcts.amp.mappers.ResponseMapperImpl;
 import uk.gov.hmcts.amp.domain.ApiAccess;
 import uk.gov.hmcts.amp.domain.ApplicationRequest;
 import uk.gov.hmcts.amp.domain.ApplicationResponse;
@@ -26,6 +29,9 @@ class ApplicationControllerTest {
     @Mock
     private ApplicationService applications;
 
+    @Spy
+    private final ResponseMapper mapper = new ResponseMapperImpl();
+
     @InjectMocks
     private ApplicationController controller;
 
@@ -36,14 +42,14 @@ class ApplicationControllerTest {
     void listing_should_return_what_the_service_found_for_that_user() {
         when(applications.list(OID)).thenReturn(List.of(response));
 
-        assertThat(controller.listApplications(OID)).containsExactly(response);
+        assertThat(controller.listApplications(OID)).containsExactly(mapper.toApplication(response));
     }
 
     @Test
     void reading_one_should_pass_the_user_and_the_client_id_through() {
         when(applications.get(OID, CLIENT_ID)).thenReturn(response);
 
-        assertThat(controller.getApplication(OID, CLIENT_ID)).isEqualTo(response);
+        assertThat(controller.getApplication(OID, CLIENT_ID)).isEqualTo(mapper.toApplication(response));
     }
 
     @Test
@@ -51,13 +57,13 @@ class ApplicationControllerTest {
         ApplicationRequest request = new ApplicationRequest("Case Viewer", List.of());
         when(applications.create(OID, request)).thenReturn(response.withSecret("shown-once"));
 
-        assertThat(controller.createApplication(OID, request).clientSecret()).isEqualTo("shown-once");
+        assertThat(controller.createApplication(OID, request).getClientSecret()).isEqualTo("shown-once");
         verify(applications).create(OID, request);
     }
 
     @Test
     void granting_access_should_delegate_with_the_short_code() {
-        controller.grantAccess(OID, CLIENT_ID, new ApiAccess("slc"));
+        controller.grantRole(OID, CLIENT_ID, new ApiAccess("slc"));
 
         verify(applications).grantAccess(OID, CLIENT_ID, "slc");
     }

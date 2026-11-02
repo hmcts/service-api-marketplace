@@ -2,11 +2,11 @@ package uk.gov.hmcts.amp.controllers;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import uk.gov.hmcts.amp.config.EntraProperties;
 import uk.gov.hmcts.amp.domain.ApiProduct;
+import uk.gov.hmcts.amp.mappers.ResponseMapper;
+import uk.gov.hmcts.amp.openapi.api.ProductsApi;
 import uk.gov.hmcts.amp.repository.MarketplaceApiRepository;
 
 import java.util.List;
@@ -15,18 +15,18 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/products")
-public class ProductController {
+public class ProductController implements ProductsApi {
 
     private final MarketplaceApiRepository apis;
     private final EntraProperties entra;
+    private final ResponseMapper mapper;
 
-    @GetMapping
-    public List<ApiProduct> listProducts() {
+    @Override
+    public List<uk.gov.hmcts.amp.openapi.model.ApiProduct> listProducts() {
         log.info("List the API catalogue");
-        return apis.findAllByOrderByShortCodeAsc().stream()
+        return mapper.toApiProducts(apis.findAllByOrderByShortCodeAsc().stream()
             .map(api -> ApiProduct.from(api, entra.tenantId(), resourceAppId(api.getShortCode())))
-            .toList();
+            .toList());
     }
 
     /** An API with no resource app in this environment is listed without one, not hidden. */

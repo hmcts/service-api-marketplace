@@ -420,6 +420,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  /production-requests/{reference}:
+    parameters:
+      - $ref: '#/components/parameters/RequestingUserId'
+      - name: reference
+        in: path
+        required: true
+        schema:
+          type: string
+        example: PCR-ABCD2345
+    get:
+      summary: Read one request in full
+      description: >-
+        Everything that was asked for, for the page that shows one request.
+        The list returns only the reference, status and date.
+      operationId: getProductionRequest
+      tags: [production-requests]
+      responses:
+        '200':
+          description: The request, with everything that was asked for
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionRequestDetail'
+        '404':
+          description: >-
+            No request with that reference, or it belongs to someone else.
+            The lookup is keyed on the owner, so the two are indistinguishable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     delete:
       summary: Delete one request
       description: >-
@@ -428,14 +460,6 @@ paths:
         readable.
       operationId: deleteProductionRequest
       tags: [production-requests]
-      parameters:
-        - $ref: '#/components/parameters/RequestingUserId'
-        - name: reference
-          in: path
-          required: true
-          schema:
-            type: string
-          example: PCR-ABCD2345
       responses:
         '204':
           description: Deleted
@@ -881,6 +905,26 @@ components:
           type: string
           description: Stored on the request, so it survives the application
           example: Case Viewer
+
+    ProductionRequestDetail:
+      allOf:
+        - $ref: '#/components/schemas/ProductionRequest'
+        - type: object
+          properties:
+            organisation:
+              type: string
+              example: Example Legal Ltd
+            goLiveDate:
+              type: string
+              format: date
+              example: '2027-03-27'
+            callVolume:
+              type: string
+              enum: [low, medium, high]
+            dataRequest:
+              type: string
+            proposedOutputs:
+              type: string
 
     ApiProduct:
       type: object

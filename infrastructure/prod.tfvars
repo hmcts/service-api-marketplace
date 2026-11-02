@@ -1,3 +1,6 @@
-apim_subscription_id = "890625e2-7a8b-445c-81b4-8044a062cef3" # DTS-SPS-PROD
-apim_resource_group  = "rg-sps-platform-prod"
-apim_service_name    = "sps-api-mgmt-prod"
+# Demo deliberately, not prod. Try It Now is served from the demo instance, and a subscription key
+# only opens the gateway that issued it - so prod issues its keys there too. This makes demo's
+# availability a production concern.
+apim_subscription_id = "058bf954-ac1f-462b-bca4-42a30314bd74" # DTS-SPS-DEMO
+apim_resource_group  = "rg-sps-platform-demo"
+apim_service_name    = "sps-api-mgmt-demo"

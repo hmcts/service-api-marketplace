@@ -1,6 +1,6 @@
 # Marketplace API
 
-Eighteen operations across fourteen paths. The machine-readable version is
+Twenty operations across fifteen paths. The machine-readable version is
 [`infrastructure/apim/specs/api-marketplace.openapi.yml`](infrastructure/apim/specs/api-marketplace.openapi.yml);
 this is the same thing at a glance.
 
@@ -71,6 +71,7 @@ does.
 |---|---|---|---|
 | POST | `/production-requests` | 201 400 404 409 | One per application; 409 on a second |
 | GET | `/production-requests` | 200 400 404 | The caller's own, newest first, each naming its application |
+| GET | `/production-requests/{reference}` | 200 400 404 | One request in full, the caller's own only |
 | DELETE | `/production-requests/{reference}` | 204 400 404 | The application it named is untouched |
 
 **Nothing is issued here.** Client ids, secrets, subscription keys and publisher ids are still

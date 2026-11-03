@@ -1,0 +1,250 @@
+[
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "100000_A Client Error response code was returned by the server_https://amp-marketplace.aat.platform.hmcts.net/apim/subscription-keys/amp-user001-case-viewer-slc_DELETE",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/apim/subscription-keys/amp-user001-case-viewer-slc Method: DELETE",
+    "severity": 1,
+    "detail": "A Client Error response code was returned by the server. Accepted: ZAP calls with the spec's example ids, which do not exist in AAT"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "100000_A Client Error response code was returned by the server_https://amp-marketplace.aat.platform.hmcts.net/applications/1bf041a2-a57a-4255-b90f-d218736cda1f_DELETE",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/applications/1bf041a2-a57a-4255-b90f-d218736cda1f Method: DELETE",
+    "severity": 1,
+    "detail": "A Client Error response code was returned by the server. Accepted: ZAP calls with the spec's example ids, which do not exist in AAT"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "100000_A Client Error response code was returned by the server_https://amp-marketplace.aat.platform.hmcts.net/production-requests/PCR-ABCD2345_DELETE",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/production-requests/PCR-ABCD2345 Method: DELETE",
+    "severity": 1,
+    "detail": "A Client Error response code was returned by the server. Accepted: ZAP calls with the spec's example ids, which do not exist in AAT"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "100000_A Client Error response code was returned by the server_https://amp-marketplace.aat.platform.hmcts.net/apim/subscription-keys/amp-user001-case-viewer-slc/values_GET",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/apim/subscription-keys/amp-user001-case-viewer-slc/values Method: GET",
+    "severity": 1,
+    "detail": "A Client Error response code was returned by the server. Accepted: ZAP calls with the spec's example ids, which do not exist in AAT"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "100000_A Client Error response code was returned by the server_https://amp-marketplace.aat.platform.hmcts.net/applications/1bf041a2-a57a-4255-b90f-d218736cda1f_GET",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/applications/1bf041a2-a57a-4255-b90f-d218736cda1f Method: GET",
+    "severity": 1,
+    "detail": "A Client Error response code was returned by the server. Accepted: ZAP calls with the spec's example ids, which do not exist in AAT"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "100000_A Client Error response code was returned by the server_https://amp-marketplace.aat.platform.hmcts.net/production-requests/PCR-ABCD2345_GET",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/production-requests/PCR-ABCD2345 Method: GET",
+    "severity": 1,
+    "detail": "A Client Error response code was returned by the server. Accepted: ZAP calls with the spec's example ids, which do not exist in AAT"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "100000_A Client Error response code was returned by the server_https://amp-marketplace.aat.platform.hmcts.net/apim/subscription-keys_POST",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/apim/subscription-keys Method: POST",
+    "severity": 1,
+    "detail": "A Client Error response code was returned by the server. Accepted: ZAP calls with the spec's example ids, which do not exist in AAT"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "100000_A Client Error response code was returned by the server_https://amp-marketplace.aat.platform.hmcts.net/applications_POST",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/applications Method: POST",
+    "severity": 1,
+    "detail": "A Client Error response code was returned by the server. Accepted: ZAP calls with the spec's example ids, which do not exist in AAT"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "100000_A Client Error response code was returned by the server_https://amp-marketplace.aat.platform.hmcts.net/applications/1bf041a2-a57a-4255-b90f-d218736cda1f/roles_POST",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/applications/1bf041a2-a57a-4255-b90f-d218736cda1f/roles Method: POST",
+    "severity": 1,
+    "detail": "A Client Error response code was returned by the server. Accepted: ZAP calls with the spec's example ids, which do not exist in AAT"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "100000_A Client Error response code was returned by the server_https://amp-marketplace.aat.platform.hmcts.net/production-requests_POST",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/production-requests Method: POST",
+    "severity": 1,
+    "detail": "A Client Error response code was returned by the server. Accepted: ZAP calls with the spec's example ids, which do not exist in AAT"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "100000_A Server Error response code was returned by the server_https://amp-marketplace.aat.platform.hmcts.net/applications/1bf041a2-a57a-4255-b90f-d218736cda1f/keys/slc_GET",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/applications/1bf041a2-a57a-4255-b90f-d218736cda1f/keys/slc Method: GET",
+    "severity": 1,
+    "detail": "A Server Error response code was returned by the server. Accepted: 501 until the endpoint is built (ApplicationController). Remove this entry when it is"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/_GET",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/ Method: GET",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/api/health_GET",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/api/health Method: GET",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/session_POST",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/session Method: POST",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/users_GET",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/users Method: GET",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/users/7c1d9f2e-4b58-4a31-9f0c-2e6d8a1b3c44_GET",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/users/7c1d9f2e-4b58-4a31-9f0c-2e6d8a1b3c44 Method: GET",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/applications_GET",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/applications Method: GET",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/applications_POST",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/applications Method: POST",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/applications/1bf041a2-a57a-4255-b90f-d218736cda1f_GET",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/applications/1bf041a2-a57a-4255-b90f-d218736cda1f Method: GET",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/applications/1bf041a2-a57a-4255-b90f-d218736cda1f_DELETE",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/applications/1bf041a2-a57a-4255-b90f-d218736cda1f Method: DELETE",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/applications/1bf041a2-a57a-4255-b90f-d218736cda1f/roles_POST",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/applications/1bf041a2-a57a-4255-b90f-d218736cda1f/roles Method: POST",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/applications/1bf041a2-a57a-4255-b90f-d218736cda1f/keys/slc_GET",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/applications/1bf041a2-a57a-4255-b90f-d218736cda1f/keys/slc Method: GET",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/production-requests_GET",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/production-requests Method: GET",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/production-requests_POST",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/production-requests Method: POST",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/production-requests/PCR-ABCD2345_GET",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/production-requests/PCR-ABCD2345 Method: GET",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/production-requests/PCR-ABCD2345_DELETE",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/production-requests/PCR-ABCD2345 Method: DELETE",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/products_GET",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/products Method: GET",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/apim/subscription-keys_GET",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/apim/subscription-keys Method: GET",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/apim/subscription-keys_POST",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/apim/subscription-keys Method: POST",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/apim/subscription-keys/amp-user001-case-viewer-slc/values_GET",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/apim/subscription-keys/amp-user001-case-viewer-slc/values Method: GET",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  },
+  {
+    "task": "OWASP Zaproxy",
+    "appname": "https://amp-marketplace.aat.platform.hmcts.net",
+    "fingerprint": "10049_Non-Storable Content_https://amp-marketplace.aat.platform.hmcts.net/apim/subscription-keys/amp-user001-case-viewer-slc_DELETE",
+    "source": "URI: https://amp-marketplace.aat.platform.hmcts.net/apim/subscription-keys/amp-user001-case-viewer-slc Method: DELETE",
+    "severity": 1,
+    "detail": "Non-Storable Content. Accepted: every response is Cache-Control no-store on purpose"
+  }
+]

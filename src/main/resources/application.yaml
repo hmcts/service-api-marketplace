@@ -8,7 +8,10 @@ server:
 management:
   endpoint:
     health:
-      show-details: "always"
+      # Component statuses only: the smoke test checks db is UP, but the database type, disk path
+      # and free space are nobody else's business
+      show-components: "always"
+      show-details: "never"
       group:
         readiness:
           include: "db"

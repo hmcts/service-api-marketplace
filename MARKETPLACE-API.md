@@ -1,7 +1,7 @@
 # Marketplace API
 
 Twenty operations across fifteen paths. The machine-readable version is
-[`infrastructure/apim/specs/api-marketplace.openapi.yml`](infrastructure/apim/specs/api-marketplace.openapi.yml);
+[`infrastructure/apm/specs/api-marketplace.openapi.yml`](infrastructure/apm/specs/api-marketplace.openapi.yml);
 this is the same thing at a glance.
 
 The spec is the source of truth for the code too: the build generates a Spring interface per tag

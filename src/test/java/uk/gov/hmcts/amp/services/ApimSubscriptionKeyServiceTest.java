@@ -184,6 +184,20 @@ class ApimSubscriptionKeyServiceTest {
             });
     }
 
+    @Test
+    @SuppressWarnings("unchecked") // mock() of the SDK's generic PagedIterable
+    void azure_failing_while_listing_should_be_a_bad_gateway_rather_than_an_unhandled_error() {
+        ManagementException failed = new ManagementException("quota exceeded on " + RESOURCE_GROUP, response(500));
+        PagedIterable<SubscriptionContract> page = mock(PagedIterable.class);
+        when(page.stream()).thenThrow(failed);
+        when(subscriptions.list(RESOURCE_GROUP, SERVICE_NAME)).thenReturn(page);
+
+        assertThatThrownBy(() -> service.list(OID))
+            .isInstanceOfSatisfying(ResponseStatusException.class, e -> {
+                assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+                assertThat(e.getReason()).doesNotContain(RESOURCE_GROUP).doesNotContain("quota");
+            });
+    }
 
     @Test
     void listing_should_leave_out_subscriptions_belonging_to_someone_else() {

@@ -10,6 +10,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestClient;
 
 @Slf4j
 @Configuration
@@ -30,5 +31,12 @@ public class ApimConfig {
             new DefaultAzureCredentialBuilder().build(),
             new AzureProfile(apimProperties.tenantId(), apimProperties.subscriptionId(),
                 AzureEnvironment.AZURE));
+    }
+
+    // Conditional for the same reason: a test points it at WireMock instead.
+    @Bean
+    @ConditionalOnMissingBean
+    public RestClient developerPortal() {
+        return RestClient.builder().baseUrl(apimProperties.portalUrl()).build();
     }
 }

@@ -15,7 +15,7 @@ if ! curl --silent --show-error --fail --max-time 30 "${TEST_URL}/health" > /dev
   exit 1
 fi
 
-zap-api-scan.py -t infrastructure/apm/specs/api-marketplace.openapi.yml -O ${TEST_URL} -f openapi -S -d -u ${SecurityRules} -P 1001 -z "-config rules.cookie.ignorelist=_ga,_gid,_gat,dtCookie,dtLatC,dtPC,dtSa,rxVisitor,rxvt" -l FAIL -r /zap/wrk/api-report.html
+zap-api-scan.py -t infrastructure/amp/specs/api-marketplace.openapi.yml -O ${TEST_URL} -f openapi -S -d -u ${SecurityRules} -P 1001 -z "-config rules.cookie.ignorelist=_ga,_gid,_gat,dtCookie,dtLatC,dtPC,dtSa,rxVisitor,rxvt" -l FAIL -r /zap/wrk/api-report.html
 # ZAP writes no report when it cannot reach the target, and the library would then pass the build
 if [[ ! -f /zap/wrk/api-report.html ]]; then
   echo "ZAP did not scan ${TEST_URL}"

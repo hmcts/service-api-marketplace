@@ -59,7 +59,7 @@ def generatedDir = layout.buildDirectory.dir('generated/openapi')
 openApiGenerate {
   generatorName = 'spring'
   cleanupOutput = true
-  inputSpec = layout.projectDirectory.file('infrastructure/apm/specs/api-marketplace.openapi.yml').asFile.path
+  inputSpec = layout.projectDirectory.file('infrastructure/amp/specs/api-marketplace.openapi.yml').asFile.path
   outputDir = generatedDir.get().asFile.path
   apiPackage = 'uk.gov.hmcts.amp.openapi.api'
   modelPackage = 'uk.gov.hmcts.amp.openapi.model'

@@ -36,9 +36,12 @@ def configureSourceSet(String name) {
   }
 }
 
-['smokeTest', 'integrationTest', 'functionalTest'].each { configureSourceSet(it) }
+['smokeTest', 'integrationTest', 'functionalTest', 'contractTest'].each { configureSourceSet(it) }
 
 configurations {
+  contractTestImplementation.extendsFrom testImplementation
+  contractTestRuntimeOnly.extendsFrom runtimeOnly
+
   functionalTestImplementation.extendsFrom testImplementation
   functionalTestRuntimeOnly.extendsFrom runtimeOnly
 
@@ -131,6 +134,18 @@ tasks.register('smoke', Test) {
   group = "Verification"
   testClassesDirs = sourceSets.smokeTest.output.classesDirs
   classpath = sourceSets.smokeTest.runtimeClasspath
+}
+
+// Run by the Jenkins library with -Ppact.broker.url, -Ppact.provider.version and -Ppact.verifier.publishResults
+tasks.register('runProviderPactVerification', Test) {
+  description = "Verifies the Pact contracts consumers have published for this service"
+  group = "Verification"
+  testClassesDirs = sourceSets.contractTest.output.classesDirs
+  classpath = sourceSets.contractTest.runtimeClasspath
+  systemProperty 'pactbroker.url', findProperty('pact.broker.url') ?: 'https://pact-broker.platform.hmcts.net'
+  systemProperty 'pact.provider.version', findProperty('pact.provider.version') ?: 'local'
+  systemProperty 'pact.provider.branch', System.getenv('PACT_BRANCH_NAME') ?: 'local'
+  systemProperty 'pact.verifier.publishResults', findProperty('pact.verifier.publishResults') ?: 'false'
 }
 
 jacocoTestReport {
@@ -248,6 +263,8 @@ dependencies {
   testImplementation group: 'org.springframework.boot', name: 'spring-boot-starter-test'
   testImplementation group: 'org.springframework.boot', name: 'spring-boot-starter-webmvc-test'
   testImplementation group: 'io.rest-assured', name: 'rest-assured', version: '6.3.0'
+
+  contractTestImplementation group: 'au.com.dius.pact.provider', name: 'junit5', version: '4.7.5'
 }
 
 bootJar {

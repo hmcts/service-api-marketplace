@@ -1,6 +1,8 @@
 package uk.gov.hmcts.amp.controllers;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -15,8 +17,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * The catalogue against the real developer portal.
+ * The catalogue against the real developer portal. It asserts that the APIs carry the text
+ * their specifications should, so it reports on what API Management holds rather than on this
+ * service, and the build agents may have no route to the portal. Macs are the laptops and the
+ * agents are Linux, which is the whole of the distinction being drawn here.
  */
+@EnabledOnOs(OS.MAC)
 @SpringBootTest
 @AutoConfigureMockMvc
 @ContextConfiguration(initializers = {TestContainersInitialise.class})

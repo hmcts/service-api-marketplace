@@ -13,9 +13,9 @@ import java.io.IOException;
 import java.util.Map;
 
 /**
- * Sets the security headers the nightly ZAP scan checks for on every response, error responses
- * included. The service only ever answers JSON, so nothing it returns needs to load content, be
- * framed, be read cross-origin or be cached.
+ * Sets the OWASP-recommended security headers on every response, error responses included. The
+ * service only ever answers JSON, so nothing it returns needs to load content, be framed, be read
+ * cross-origin or be cached.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)

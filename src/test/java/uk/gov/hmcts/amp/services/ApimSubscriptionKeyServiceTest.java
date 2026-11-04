@@ -55,7 +55,8 @@ class ApimSubscriptionKeyServiceTest {
         UserService users = mock(UserService.class);
         lenient().when(users.requireSignedIn(OID)).thenReturn(caller);
         service = new ApimSubscriptionKeyService(apim, users,
-            new ApimProperties("a-tenant", "a-subscription", RESOURCE_GROUP, SERVICE_NAME));
+            new ApimProperties("a-tenant", "a-subscription", RESOURCE_GROUP, SERVICE_NAME,
+                "https://amp-portal.example"));
     }
 
     @Test

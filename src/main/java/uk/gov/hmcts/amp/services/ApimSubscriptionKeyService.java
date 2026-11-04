@@ -32,10 +32,15 @@ public class ApimSubscriptionKeyService {
 
     public List<SubscriptionKey> list(final String requestingUserId) {
         final String prefix = prefixFor(requestingUserId);
-        return apim.subscriptions().list(apimProperties.resourceGroup(), apimProperties.serviceName()).stream()
-            .map(ApimSubscriptionKeyService::asSubscriptionKey)
-            .filter(subscription -> subscription.name().startsWith(prefix))
-            .toList();
+        // The listing is paged lazily, so Azure is only called, and can only fail, inside the stream
+        try {
+            return apim.subscriptions().list(apimProperties.resourceGroup(), apimProperties.serviceName()).stream()
+                .map(ApimSubscriptionKeyService::asSubscriptionKey)
+                .filter(subscription -> subscription.name().startsWith(prefix))
+                .toList();
+        } catch (final ManagementException e) {
+            throw translate(prefix + "*", e);
+        }
     }
 
     public SubscriptionKey create(final String requestingUserId, final String name, final String productId,

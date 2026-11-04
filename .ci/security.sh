@@ -8,6 +8,13 @@ if [[ -z ${SecurityRules} ]]; then
   exit 1
 fi
 
+# Without this, an unrouted host is scanned anyway: the gateway's 404 page raises a page of alerts
+# that look like the app's own
+if ! curl --silent --show-error --fail --max-time 30 "${TEST_URL}/health" > /dev/null; then
+  echo "${TEST_URL}/health is not answering, so there is nothing to scan"
+  exit 1
+fi
+
 zap-api-scan.py -t infrastructure/apim/specs/api-marketplace.openapi.yml -O ${TEST_URL} -f openapi -S -d -u ${SecurityRules} -P 1001 -z "-config rules.cookie.ignorelist=_ga,_gid,_gat,dtCookie,dtLatC,dtPC,dtSa,rxVisitor,rxvt" -l FAIL -r /zap/wrk/api-report.html
 # ZAP writes no report when it cannot reach the target, and the library would then pass the build
 if [[ ! -f /zap/wrk/api-report.html ]]; then

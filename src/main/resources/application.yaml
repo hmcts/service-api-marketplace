@@ -51,6 +51,7 @@ apim:
   subscription-id: ${APIM_SUBSCRIPTION_ID:bd2864ed-4f3e-45ed-9c6a-8d179674bab1}
   resource-group: ${APIM_RESOURCE_GROUP:rg-sps-platform-sbox}
   service-name: ${APIM_SERVICE_NAME:sps-api-mgmt-sbox}
+  portal-url: ${APIM_PORTAL_URL:https://amp-portal.sandbox.api.hmcts.net}
 
 notify:
   api-key: ${NOTIFY_API_KEY:}

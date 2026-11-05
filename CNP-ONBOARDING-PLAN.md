@@ -4,6 +4,23 @@ Service: `service-api-marketplace`
 Product: `apim` · Component: `marketplace`
 Ticket: AMP-944
 
+> **Superseded.** This is the record of the original onboarding under the `apim` product. The
+> service moved to `amp` in AMP-1244, and the `apim` product has since been removed from
+> cnp-flux-config and cnp-jenkins-config; its resource groups, vaults, Postgres servers and
+> managed identities are being retired. The `apim` names below no longer exist. Current names:
+>
+> | What                        | Name                                                                    |
+> | --------------------------- | ----------------------------------------------------------------------- |
+> | Jenkins product / component | `amp` / `marketplace`                                                   |
+> | Kubernetes namespace        | `amp`                                                                   |
+> | Helm chart and release      | `amp-marketplace`                                                       |
+> | Docker image                | `hmctsprod.azurecr.io/amp/marketplace:{tag}`                            |
+> | Flux config path            | `apps/amp/amp-marketplace/`                                             |
+> | Azure resource group        | `amp-marketplace-{env}` (e.g. `amp-marketplace-aat`)                    |
+> | Azure Key Vault             | `amp-marketplace-{env}`; sandbox is `amp-marketplace-sbox`              |
+> | PostgreSQL                  | `amp-flexible-{env}` in `amp-flexible-data-{env}`                       |
+> | Managed Identity            | `amp-{env}-mi` (e.g. `amp-aat-mi`, `amp-sandbox-mi`)                    |
+
 Status badges: ✅ Already done · ⚠️ Check first · ○ To do · 🔄 In progress
 
 ---

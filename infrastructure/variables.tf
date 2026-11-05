@@ -69,3 +69,11 @@ variable "apim_resource_group" {
 variable "apim_service_name" {
   default = ""
 }
+
+# Whichever amp repo applies first in an environment creates the product-wide identity; the rest
+# read it. sandbox, aat and demo were created by amp-try-it-now, so this stays false there. The
+# module creates it when true, and attaches its own access policy with count rather than the
+# for_each that cannot take a principal id created in the same apply.
+variable "create_managed_identity" {
+  default = false
+}

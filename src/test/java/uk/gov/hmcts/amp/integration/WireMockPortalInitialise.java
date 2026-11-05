@@ -16,6 +16,7 @@ public class WireMockPortalInitialise implements ApplicationContextInitializer<C
     public static final String PORTAL = "https://amp-portal.example";
     public static final String SLC = "common-platform-api-scheduling-and-listing-court-schedule";
     public static final String RCC = "common-platform-api-refdata-court-hearing-court-houses";
+    public static final String PCD = "crime-prosecution-case-details";
 
     private static final WireMockServer WIREMOCK_PORTAL = new WireMockServer(wireMockConfig().dynamicPort());
 
@@ -30,6 +31,9 @@ public class WireMockPortalInitialise implements ApplicationContextInitializer<C
             Provides information about court buildings and the rooms within them.
 
             Returns the building name, postal address, and room details for a given court.
+            """);
+        publish(PCD, """
+            Returns the details of a prosecution case for a given case URN.
             """);
     }
 

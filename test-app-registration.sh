@@ -1,22 +1,49 @@
 #!/usr/bin/env bash
 #
-# The whole credential journey against the real sandbox, in one run:
+# The whole credential journey against a real environment, in one run:
 #
 #   sign in -> register -> grant a role -> subscribe -> get a token with the role -> call the API
 #
 # The application and the subscription are both removed at the end, however the run turns out.
 # KEEP=1 leaves them behind.
 #
-# Needs the service running (./gradlew bootRun) with the onboarding secret exported, and the
-# credentials it uses to reach APIM:
+#   ./test-app-registration.sh <sbox|demo> [slc|rcc]
 #
-#   ./test-app-registration.sh          # slc, the default
-#   ./test-app-registration.sh rcc
+#   ./test-app-registration.sh demo         # register through localhost, call demo
+#   ./test-app-registration.sh demo rcc
+#
+# The marketplace is always http://localhost:8080 - either ./gradlew bootRun, or the deployed
+# one port-forwarded:
+#
+#   kubectl --context cft-demo-00-aks port-forward -n amp svc/amp-marketplace-java 8080:80
+#   kubectl --context cft-sbox-00-aks port-forward -n amp svc/amp-marketplace-java 8080:80
+#
+# The environment names the Entra tenant and the APIM gateway instead, since those are reached
+# directly and not through the forward. Both want the HMCTS VPN. BASE_URL overrides the
+# marketplace if you can reach one without forwarding.
 #
 # Optional: CASE_URN, COURTHOUSE_ID, REQUEST_PATH, ROLE, NAME, API_PATH, BASE_URL,
-# GRANT_ATTEMPTS, TOKEN_ATTEMPTS, GATEWAY_ATTEMPTS, KEEP=1,
+# ENTRA_TENANT_ID, APIM_GATEWAY, GRANT_ATTEMPTS, TOKEN_ATTEMPTS, GATEWAY_ATTEMPTS, KEEP=1,
 # REQUESTING_USER_ID to run as somebody else.
 set -euo pipefail
+
+usage () {
+  printf '\nUsage: ./test-app-registration.sh <sbox|demo> [slc|rcc]\n' >&2
+  exit 1
+}
+
+# Sandbox has an Entra tenant of its own and demo shares hmctsextstg, so the tenant and the
+# gateway have to move together: a sandbox token at the demo gateway is refused as though the
+# role were missing, a long way from the cause. The marketplace has to be the one in front of
+# them too - an application registered through a sbox marketplace does not exist in demo.
+ENVIRONMENT=${1:-}
+case "$ENVIRONMENT" in
+  sbox) TENANT_DEFAULT=d44f885c-4fac-47bf-afde-d7d861ec4d7b
+        GATEWAY_DEFAULT=https://sps-api-mgmt.sandbox.api.hmcts.net ;;
+  demo) TENANT_DEFAULT=db827888-77df-4707-b3d9-24a3dfe32889
+        GATEWAY_DEFAULT=https://sps-api-mgmt.demo.api.hmcts.net ;;
+  *)    usage ;;
+esac
 
 BASE_URL=${BASE_URL:-http://localhost:8080}
 APPLICATIONS=$BASE_URL/applications
@@ -24,20 +51,21 @@ SUBSCRIPTION_KEYS=$BASE_URL/apim/subscription-keys
 SESSION=$BASE_URL/session
 # The same object id every run, so the script keeps reusing one marketplace_user row.
 REQUESTING_USER_ID=${REQUESTING_USER_ID:-11111111-2222-3333-4444-555555555555}
-TENANT=${ENTRA_TENANT_ID:-d44f885c-4fac-47bf-afde-d7d861ec4d7b}
-GATEWAY=${APIM_GATEWAY:-https://sps-api-mgmt.sandbox.api.hmcts.net}
+TENANT=${ENTRA_TENANT_ID:-$TENANT_DEFAULT}
+GATEWAY=${APIM_GATEWAY:-$GATEWAY_DEFAULT}
 # Named after whoever ran it: killing the script skips the trap, so orphans happen, and an orphan
 # nobody can be traced to is one nobody will delete.
 NAME=${NAME:-Test App $(whoami | tr -cd '[:alnum:]') $(date +%H%M%S)}
-# The API to exercise, as a positional argument so the common case needs nothing else.
-SHORT_CODE=${1:-${SHORT_CODE:-slc}}
+SHORT_CODE=${2:-slc}
 # Taken from the catalogue rather than assumed. The audience, the role a grant assigns and the
 # gateway path all come from there, and a script guessing any of them waits for a token that is
 # never coming, or calls a path the gateway does not publish.
 # || true so a service that is not running does not kill the script here under pipefail, before
 # the health check below has had the chance to say so.
-PRODUCT=$(curl -sS "$BASE_URL/products" 2>/dev/null \
-  | jq -r --arg s "$SHORT_CODE" 'map(select(.shortCode == $s)) | .[0] // empty' 2>/dev/null || true)
+CATALOGUE_STATUS=$(curl -sS -o /tmp/test-app-registration-products -w '%{http_code}' \
+  "$BASE_URL/products" 2>/dev/null) || CATALOGUE_STATUS=""
+PRODUCT=$(jq -r --arg s "$SHORT_CODE" 'map(select(.shortCode == $s)) | .[0] // empty' \
+  /tmp/test-app-registration-products 2>/dev/null || true)
 ROLE=${ROLE:-$(jq -r '.role // empty' <<<"$PRODUCT")}
 RESOURCE_APP_ID=${ENTRA_RESOURCE_APP_ID:-$(jq -r '.resourceAppId // empty' <<<"$PRODUCT")}
 API_PATH=${API_PATH:-$(jq -r '.gatewayPath // empty' <<<"$PRODUCT")}
@@ -68,11 +96,18 @@ esac
 
 # /api/health rather than one of the endpoints below: those want a caller, and "nothing is
 # running" should not come back looking like a rejected request.
-curl -fsS -o /dev/null "$BASE_URL/api/health" 2>/dev/null \
-  || die "Nothing answering at $BASE_URL. Start it with ./gradlew bootRun (and the onboarding secret exported)."
+if ! curl -fsS -o /dev/null "$BASE_URL/api/health" 2>/dev/null; then
+  die "Nothing answering at $BASE_URL. Either start it with ./gradlew bootRun (with the
+onboarding secret exported), or forward the $ENVIRONMENT one:
+  kubectl --context cft-$ENVIRONMENT-00-aks port-forward -n amp svc/amp-marketplace-java 8080:80"
+fi
 
-[ -n "$RESOURCE_APP_ID" ] || die "No resource app for $SHORT_CODE. Set ENTRA_RESOURCE_APP_ID, or
-configure entra.resource-app-ids.$SHORT_CODE so GET /products publishes it."
+[ -n "$RESOURCE_APP_ID" ] || die "No resource app for $SHORT_CODE.
+   $BASE_URL/products answered HTTP ${CATALOGUE_STATUS:-nothing} and did not publish one, so
+   this environment has no entra.resource-app-ids.$SHORT_CODE configured.
+   Set ENTRA_RESOURCE_APP_ID to the app id of amp-api-$SHORT_CODE to carry on regardless."
+
+echo "Running against $ENVIRONMENT: $BASE_URL, tenant $TENANT, gateway $GATEWAY"
 
 step "1. Sign in as $REQUESTING_USER_ID"
 SESSION_STATUS=$(curl -s -o /tmp/test-app-registration-session -w '%{http_code}' -X POST "$SESSION" \
@@ -211,7 +246,10 @@ for attempt in $(seq 1 "$TOKEN_ATTEMPTS"); do
     TOKEN=""
   fi
 
-  [ "$attempt" = "$TOKEN_ATTEMPTS" ] && die "   Gave up after $TOKEN_ATTEMPTS attempts: $WAITING_FOR"
+  [ "$attempt" = "$TOKEN_ATTEMPTS" ] && die "   Gave up after $TOKEN_ATTEMPTS attempts: $WAITING_FOR
+   The audience came from $BASE_URL/products and the token from tenant $TENANT. An
+   'unauthorized_client' or AADSTS500011 here means the two disagree: the marketplace is
+   publishing a resource app that belongs to another tenant."
   echo "   attempt $attempt: $WAITING_FOR"
   sleep 2
 done
@@ -237,8 +275,8 @@ for attempt in $(seq 1 "$GATEWAY_ATTEMPTS"); do
     -H "X-Correlation-ID: $CORRELATION_ID") || CURL_RC=$?
   if [ -n "${CURL_RC:-}" ]; then
     die "   Could not reach $GATEWAY (curl exit $CURL_RC). Nothing was sent to APIM.
-   The sandbox gateway is reachable from inside the HMCTS network - connect to the VPN and run
-   it again. Steps 1-6 are unaffected."
+   The gateway is reachable from inside the HMCTS network - connect to the VPN and run it
+   again. Steps 1-6 are unaffected."
   fi
   grep -qi "invalid subscription key" /tmp/test-app-registration-body || break
   [ "$attempt" = "$GATEWAY_ATTEMPTS" ] && break
@@ -260,7 +298,14 @@ case "$STATUS" in
    proved API Management has the key, so check the product actually publishes this API." ;;
   200) echo "
    The whole chain worked: registration, role, token, gateway, backend." ;;
-  *)   echo "
+  *)   if jq -e '.activityId' /tmp/test-app-registration-body >/dev/null 2>&1; then
+         echo "
+   statusCode/message/activityId is API Management's own error shape, not the API's, so this
+   did not come from the backend: the gateway accepted the token and the key and then could
+   not route. Check the API's serviceUrl resolves from the gateway's network."
+       else
+         echo "
    Past the gateway - validate-jwt and the subscription key both passed, and this is the
-   backend's own answer. A 404 here usually just means that scenario does not exist." ;;
+   backend's own answer. A 404 here usually just means that scenario does not exist."
+       fi ;;
 esac

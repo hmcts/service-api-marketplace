@@ -535,6 +535,57 @@ paths:
                 items:
                   $ref: '#/components/schemas/ApiProduct'
 
+  /catalogue:
+    get:
+      summary: The APIs this site publishes
+      description: >-
+        Keyed by short code, like /products, but answering a different
+        question: what an API is and who owns it, rather than what subscribing
+        to it needs.
+
+        Only listed APIs appear. Nothing of anyone's in it, so no
+        requestingUserId.
+      operationId: listCatalogue
+      tags: [catalogue]
+      responses:
+        '200':
+          description: Every listed API, by short code
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CatalogueEntry'
+
+  /catalogue/{shortCode}:
+    parameters:
+      - name: shortCode
+        in: path
+        required: true
+        schema:
+          type: string
+        example: slc
+    get:
+      summary: One API in full
+      description: >-
+        Adds the description and the links the list leaves out, which are
+        needed only once a single API is asked for.
+      operationId: getCatalogueEntry
+      tags: [catalogue]
+      responses:
+        '200':
+          description: The API, with its description and links
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogueDetail'
+        '404':
+          description: No API with that short code, or it is not listed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /apim/subscription-keys:
     get:
       summary: List your subscriptions
@@ -754,6 +805,72 @@ components:
             $ref: '#/components/schemas/Error'
 
   schemas:
+
+    CatalogueEntry:
+      type: object
+      x-class-extra-annotation: '@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)'
+      properties:
+        shortCode:
+          type: string
+          description: The key. One API is read by this, not by the repo name
+          example: slc
+        title:
+          type: string
+          example: Scheduling and Listing Court Schedule
+        summary:
+          type: string
+          description: One line. The full text is description, on CatalogueDetail
+          example: Returns the court hearing schedule for a given case.
+        team:
+          type: string
+          description: Who owns the API. Absent where it is not known yet
+          example: api-marketplace
+        domain:
+          type: string
+          description: What the API is about. Published, not derived from its name
+          example: Scheduling and listing
+        platform:
+          type: string
+          description: Which platform publishes it
+          example: Common Platform
+        subscribable:
+          type: boolean
+          description: >-
+            Whether an application can subscribe to it. False for an API that
+            is listed but has no APIM product yet
+          example: true
+
+    CatalogueDetail:
+      x-class-extra-annotation: '@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)'
+      allOf:
+        - $ref: '#/components/schemas/CatalogueEntry'
+        - type: object
+          properties:
+            catalogueName:
+              type: string
+              description: The repo, and what the published catalogue feed lists
+              example: api-cp-crime-schedulingandlisting-courtschedule
+            description:
+              type: string
+              description: The full text, which may run to several paragraphs
+              example: Returns the court hearing schedule for a given case, showing when and where hearings are listed.
+            docsUrl:
+              type: string
+              description: Published rather than derived, so docs can live anywhere
+              example: https://hmcts.github.io/api-cp-crime-schedulingandlisting-courtschedule/
+            repoUrl:
+              type: string
+              example: https://github.com/hmcts/api-cp-crime-schedulingandlisting-courtschedule
+            gatewayPath:
+              type: string
+              description: Where it answers, under the APIM gateway
+              example: amp/try/slc
+            portalUrl:
+              type: string
+              description: >-
+                The API's page in the developer portal, where its operations
+                and schemas are published. Absent where the API has no entry
+              example: https://amp-portal.sandbox.api.hmcts.net/api-details#api=common-platform-api-scheduling-and-listing-court-schedule
     SessionRequest:
       type: object
       required: [objectId, email]

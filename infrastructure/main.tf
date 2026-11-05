@@ -23,8 +23,10 @@ locals {
   )
 }
 
-# Product-wide identity created by try-slc; this repo must not create it.
+# Product-wide identity. Read where another amp repo already created it, created here where
+# nothing has - see create_managed_identity.
 data "azurerm_user_assigned_identity" "amp" {
+  count               = var.create_managed_identity ? 0 : 1
   name                = "${var.product}-${var.env}-mi"
   resource_group_name = "managed-identities-${var.env}-rg"
 }
@@ -116,8 +118,8 @@ module "vault" {
   resource_group_name                  = azurerm_resource_group.rg.name
   product_group_name                   = "DTS API Marketplace"
   common_tags                          = local.tags
-  managed_identity_object_id           = data.azurerm_user_assigned_identity.amp.principal_id
-  create_managed_identity              = false
+  managed_identity_object_id           = var.create_managed_identity ? "" : data.azurerm_user_assigned_identity.amp[0].principal_id
+  create_managed_identity              = var.create_managed_identity
   additional_managed_identities_access = var.additional_managed_identities_access
   jenkins_object_id                    = data.azurerm_user_assigned_identity.jenkins.principal_id
 }

@@ -10,4 +10,6 @@ import java.util.List;
 public interface MarketplaceApiRepository extends JpaRepository<MarketplaceApiEntity, String> {
 
     List<MarketplaceApiEntity> findAllByOrderByShortCodeAsc();
+
+    List<MarketplaceApiEntity> findByListedTrueOrderByTitleAsc();
 }

@@ -8,6 +8,8 @@ import uk.gov.hmcts.amp.domain.ProductionAccessDetail;
 import uk.gov.hmcts.amp.domain.ProductionAccessResponse;
 import uk.gov.hmcts.amp.domain.UserResponse;
 import uk.gov.hmcts.amp.openapi.model.ApiProduct;
+import uk.gov.hmcts.amp.openapi.model.CatalogueDetail;
+import uk.gov.hmcts.amp.openapi.model.CatalogueEntry;
 import uk.gov.hmcts.amp.openapi.model.ApiSubscription;
 import uk.gov.hmcts.amp.openapi.model.Application;
 import uk.gov.hmcts.amp.openapi.model.CreatedApplication;
@@ -41,6 +43,10 @@ public interface ResponseMapper {
     ApiProduct toApiProduct(uk.gov.hmcts.amp.domain.ApiProduct product);
 
     List<ApiProduct> toApiProducts(List<uk.gov.hmcts.amp.domain.ApiProduct> products);
+
+    List<CatalogueEntry> toCatalogueEntries(List<uk.gov.hmcts.amp.domain.CatalogueEntry> entries);
+
+    CatalogueDetail toCatalogueDetail(uk.gov.hmcts.amp.domain.CatalogueDetail detail);
 
     ApiSubscription toApiSubscription(ApiSubscriptionResponse subscription);
 

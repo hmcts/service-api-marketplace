@@ -30,4 +30,18 @@ public class MarketplaceApiEntity {
 
     @Column(name = "role")
     private String role;
+
+    private String team;
+
+    private String domain;
+
+    private String platform;
+
+    private String docsUrl;
+
+    private String repoUrl;
+
+    private boolean listed;
+
+    private String apimApiName;
 }

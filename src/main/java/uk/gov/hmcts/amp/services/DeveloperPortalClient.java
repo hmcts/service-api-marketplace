@@ -39,7 +39,13 @@ public class DeveloperPortalClient {
         if (apimApiName == null || apimApiName.isBlank()) {
             throw unavailable(apimApiName, "it has no API Management name recorded", null);
         }
-        return descriptionIn(specification(apimApiName)).orElse(null);
+        final long started = System.nanoTime();
+        final String description = descriptionIn(specification(apimApiName)).orElse(null);
+        // Not the link itself: it is a signed URL, and anyone holding it can read the document.
+        log.info("Read the specification for {} from the developer portal in {}ms, description {}",
+            apimApiName, (System.nanoTime() - started) / 1_000_000,
+            description == null ? "absent" : "present");
+        return description;
     }
 
     /**

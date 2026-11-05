@@ -42,9 +42,8 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
-    # Preview and AAT share one database, so a PR's preview can record migrations that never
-    # reach master (V1.011-V1.014 from #113). Without this, every later build refuses to start.
-    ignore-migration-patterns: "*:missing"
+    # Pipelines share a single aat database, so a PR's preview can record migrations that never reach master.
+    ignore-migration-patterns: "*:missing,*:future"
 
 apim:
   tenant-id: ${AZURE_TENANT_ID:531ff96d-0ae9-462a-8d2d-bec7c0b42082}

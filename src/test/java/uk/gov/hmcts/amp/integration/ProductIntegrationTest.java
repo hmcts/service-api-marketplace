@@ -65,6 +65,20 @@ class ProductIntegrationTest {
     }
 
     @Test
+    void each_api_should_carry_the_calls_a_consumer_is_shown_in_order() throws Exception {
+        mockMvc.perform(get(PATH))
+            .andExpect(jsonPath("$[1].exampleCalls.length()").value(1))
+            .andExpect(jsonPath("$[1].exampleCalls[0].title").value("Get the court schedule for a case"))
+            .andExpect(jsonPath("$[1].exampleCalls[0].path").value("/case/{case_urn}/courtschedule"))
+            .andExpect(jsonPath("$[0].exampleCalls.length()").value(2))
+            .andExpect(jsonPath("$[0].exampleCalls[0].title").value("Get a court house"))
+            .andExpect(jsonPath("$[0].exampleCalls[0].path").value("/courthouses/{court_id}"))
+            .andExpect(jsonPath("$[0].exampleCalls[1].title").value("Get a courtroom in a court house"))
+            .andExpect(jsonPath("$[0].exampleCalls[1].path")
+                .value("/courthouses/{court_id}/courtrooms/{court_room_id}"));
+    }
+
+    @Test
     void the_role_should_not_name_the_api_because_the_audience_already_does() throws Exception {
         mockMvc.perform(get(PATH))
             .andExpect(jsonPath("$[0].role").value("app.read"))

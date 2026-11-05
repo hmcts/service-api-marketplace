@@ -1151,6 +1151,24 @@ components:
             is the aud the token carries. Absent where this environment has no
             resource app for the API, which is also when a grant is refused
           example: 11111111-1111-1111-1111-111111111111
+        exampleCalls:
+          type: array
+          description: >-
+            The requests a consumer is shown for this API after the token
+            request, in order. Empty where none are held
+          items:
+            $ref: '#/components/schemas/ApiCall'
+
+    ApiCall:
+      type: object
+      properties:
+        title:
+          type: string
+          example: Get a court house
+        path:
+          type: string
+          description: Under the API's gatewayPath, with {placeholders} for the values to fill in
+          example: /courthouses/{court_id}
 
     ApiSubscription:
       type: object

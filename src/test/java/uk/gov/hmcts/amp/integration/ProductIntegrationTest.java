@@ -34,56 +34,57 @@ class ProductIntegrationTest {
     void the_catalogue_should_come_back_keyed_by_short_code_in_order() throws Exception {
         mockMvc.perform(get(PATH))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.length()").value(2))
-            .andExpect(jsonPath("$[0].shortCode").value("rcc"))
-            .andExpect(jsonPath("$[1].shortCode").value("slc"));
+            .andExpect(jsonPath("$.length()").value(3))
+            .andExpect(jsonPath("$[0].shortCode").value("pcd"))
+            .andExpect(jsonPath("$[1].shortCode").value("rcc"))
+            .andExpect(jsonPath("$[2].shortCode").value("slc"));
     }
 
     @Test
     void the_product_id_should_be_the_one_apim_knows_not_the_catalogue_name_stripped() throws Exception {
         mockMvc.perform(get(PATH))
-            .andExpect(jsonPath("$[1].catalogueName").value("api-cp-crime-schedulingandlisting-courtschedule"))
+            .andExpect(jsonPath("$[2].catalogueName").value("api-cp-crime-schedulingandlisting-courtschedule"))
             // Stripping api- off that would give a product APIM answers "Product not found" for.
-            .andExpect(jsonPath("$[1].productId").value("try-it-now-cp-crime-schedulingandlisting"))
-            .andExpect(jsonPath("$[0].productId").value("try-it-now-cp-refdata-courthearing"));
+            .andExpect(jsonPath("$[2].productId").value("try-it-now-cp-crime-schedulingandlisting"))
+            .andExpect(jsonPath("$[1].productId").value("try-it-now-cp-refdata-courthearing"));
     }
 
     @Test
     void each_api_should_carry_its_try_it_now_product() throws Exception {
         mockMvc.perform(get(PATH))
-            .andExpect(jsonPath("$[1].tryItNowProductId")
+            .andExpect(jsonPath("$[2].tryItNowProductId")
                 .value("try-it-now-cp-crime-schedulingandlisting"))
-            .andExpect(jsonPath("$[0].tryItNowProductId")
+            .andExpect(jsonPath("$[1].tryItNowProductId")
                 .value("try-it-now-cp-refdata-courthearing"));
     }
 
     @Test
     void the_gateway_path_should_be_built_from_the_short_code() throws Exception {
         mockMvc.perform(get(PATH))
-            .andExpect(jsonPath("$[1].gatewayPath").value("amp/try/slc"))
-            .andExpect(jsonPath("$[0].gatewayPath").value("amp/try/rcc"));
+            .andExpect(jsonPath("$[2].gatewayPath").value("amp/try/slc"))
+            .andExpect(jsonPath("$[1].gatewayPath").value("amp/try/rcc"));
     }
 
     @Test
     void the_role_should_not_name_the_api_because_the_audience_already_does() throws Exception {
         mockMvc.perform(get(PATH))
-            .andExpect(jsonPath("$[0].role").value("app.read"))
-            .andExpect(jsonPath("$[1].role").value("app.read"));
+            .andExpect(jsonPath("$[1].role").value("app.read"))
+            .andExpect(jsonPath("$[2].role").value("app.read"));
     }
 
     @Test
     void the_catalogue_should_publish_what_a_consumer_cannot_deduce() throws Exception {
         // Without the tenant and the resource app id a consumer cannot build a token request.
         mockMvc.perform(get(PATH))
-            .andExpect(jsonPath("$[1].tenantId").value(TENANT_ID))
-            .andExpect(jsonPath("$[1].resourceAppId").value(SLC_RESOURCE_APP_ID));
+            .andExpect(jsonPath("$[2].tenantId").value(TENANT_ID))
+            .andExpect(jsonPath("$[2].resourceAppId").value(SLC_RESOURCE_APP_ID));
     }
 
     @Test
     void an_api_with_no_resource_app_here_should_be_listed_without_one() throws Exception {
         mockMvc.perform(get(PATH))
-            .andExpect(jsonPath("$[0].shortCode").value("rcc"))
-            .andExpect(jsonPath("$[0].resourceAppId").doesNotExist());
+            .andExpect(jsonPath("$[1].shortCode").value("rcc"))
+            .andExpect(jsonPath("$[1].resourceAppId").doesNotExist());
     }
 
     @Test

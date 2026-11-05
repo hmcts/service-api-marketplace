@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static java.util.Comparator.comparing;
@@ -80,7 +81,11 @@ public class EntraAppRegistrationService {
         try {
             withRetry("create service principal", () -> createServicePrincipal(clientId));
             PasswordCredential secret = withRetry("add password", () -> addPassword(objectId));
-            grants.forEach(grant -> grantApiAccess(clientId, grant.resourceAppId(), grant.role()));
+            grants.forEach(grant -> withRetry("grant " + grant.role() + " on " + grant.shortCode(),
+                () -> {
+                    grantApiAccess(clientId, grant.resourceAppId(), grant.role());
+                    return null;
+                }, EntraAppRegistrationService::permanent));
 
             List<String> apis = grants.stream().map(ApiGrant::shortCode).toList();
             log.info("Registered Entra application {} for '{}' with access to {}",
@@ -228,6 +233,12 @@ public class EntraAppRegistrationService {
     }
 
     /** 500 rather than 503: only a consent grant fixes this, and a 503 invites a client to retry forever. */
+    /** A refusal Graph will keep making: a missing permission, or a role the API does not define. */
+    private static boolean permanent(final RuntimeException failure) {
+        return failure instanceof ResponseStatusException refused
+            && refused.getStatusCode() != HttpStatus.BAD_GATEWAY;
+    }
+
     private ResponseStatusException assignmentRefused(final ApiException cause) {
         log.error("Graph refused the app role assignment with {}: {}",
             cause.getResponseStatusCode(), cause.getMessage(), cause);
@@ -240,11 +251,24 @@ public class EntraAppRegistrationService {
     }
 
     private <T> T withRetry(final String description, final GraphCall<T> call) {
+        return withRetry(description, call, failure -> false);
+    }
+
+    /**
+     * Retries a Graph call that only needs waiting out. permanent says which failures do not:
+     * waiting never grants a missing permission, and the attempts would hold the request open
+     * for no reason.
+     */
+    private <T> T withRetry(final String description, final GraphCall<T> call,
+                            final Predicate<RuntimeException> permanent) {
         RuntimeException lastFailure = null;
         for (int attempt = 1; attempt <= config.maxAttempts(); attempt++) {
             try {
                 return call.call();
             } catch (final RuntimeException e) {
+                if (permanent.test(e)) {
+                    throw e;
+                }
                 lastFailure = e;
                 log.warn("Graph call '{}' failed on attempt {}/{}: {}", description, attempt, config.maxAttempts(),
                     e.getMessage());

@@ -17,6 +17,7 @@ public class WireMockPortalInitialise implements ApplicationContextInitializer<C
     public static final String SLC = "common-platform-api-scheduling-and-listing-court-schedule";
     public static final String RCC = "common-platform-api-refdata-court-hearing-court-houses";
     public static final String PCD = "crime-prosecution-case-details";
+    public static final String DL = "crime-defendant-details-api";
 
     private static final WireMockServer WIREMOCK_PORTAL = new WireMockServer(wireMockConfig().dynamicPort());
 
@@ -34,6 +35,9 @@ public class WireMockPortalInitialise implements ApplicationContextInitializer<C
             """);
         publish(PCD, """
             Returns the details of a prosecution case for a given case URN.
+            """);
+        publish(DL, """
+            Provides read access to defendant details for criminal cases on the Common Platform (CP).
             """);
     }
 

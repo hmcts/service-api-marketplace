@@ -26,30 +26,31 @@ class CatalogueIntegrationTest {
     void the_list_should_carry_what_the_catalogue_pages_show() throws Exception {
         mockMvc.perform(get(PATH))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$[2].shortCode").value("slc"))
-            .andExpect(jsonPath("$[2].title").value("Scheduling and Listing Court Schedule"))
+            .andExpect(jsonPath("$[3].shortCode").value("slc"))
+            .andExpect(jsonPath("$[3].title").value("Scheduling and Listing Court Schedule"))
             // Derived from the published specification, not stored.
-            .andExpect(jsonPath("$[2].summary").value(containsString("court hearing schedule")))
-            .andExpect(jsonPath("$[2].team").value("api-marketplace"))
-            .andExpect(jsonPath("$[2].domain").value("Scheduling and listing"))
-            .andExpect(jsonPath("$[2].platform").value("Common Platform"))
-            .andExpect(jsonPath("$[2].subscribable").value(true));
+            .andExpect(jsonPath("$[3].summary").value(containsString("court hearing schedule")))
+            .andExpect(jsonPath("$[3].team").value("api-marketplace"))
+            .andExpect(jsonPath("$[3].domain").value("Scheduling and listing"))
+            .andExpect(jsonPath("$[3].platform").value("Common Platform"))
+            .andExpect(jsonPath("$[3].subscribable").value(true));
     }
 
     @Test
     void the_list_should_be_ordered_by_title_so_the_page_needs_no_sort() throws Exception {
         mockMvc.perform(get(PATH))
-            .andExpect(jsonPath("$[0].title").value("Crime Prosecution Case Details"))
-            .andExpect(jsonPath("$[1].title").value("Refdata Court Hearing Courthouses"))
-            .andExpect(jsonPath("$[2].title").value("Scheduling and Listing Court Schedule"));
+            .andExpect(jsonPath("$[0].title").value("Crime Defendant Details"))
+            .andExpect(jsonPath("$[1].title").value("Crime Prosecution Case Details"))
+            .andExpect(jsonPath("$[2].title").value("Refdata Court Hearing Courthouses"))
+            .andExpect(jsonPath("$[3].title").value("Scheduling and Listing Court Schedule"));
     }
 
     @Test
     void the_list_should_leave_out_what_the_detail_page_is_for() throws Exception {
         mockMvc.perform(get(PATH))
-            .andExpect(jsonPath("$[2].description").doesNotExist())
-            .andExpect(jsonPath("$[2].docsUrl").doesNotExist())
-            .andExpect(jsonPath("$[2].gatewayPath").doesNotExist());
+            .andExpect(jsonPath("$[3].description").doesNotExist())
+            .andExpect(jsonPath("$[3].docsUrl").doesNotExist())
+            .andExpect(jsonPath("$[3].gatewayPath").doesNotExist());
     }
 
     @Test

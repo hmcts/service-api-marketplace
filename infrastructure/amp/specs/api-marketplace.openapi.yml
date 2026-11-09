@@ -871,6 +871,17 @@ components:
                 The API's page in the developer portal, where its operations
                 and schemas are published. Absent where the API has no entry
               example: https://amp-portal.sandbox.api.hmcts.net/api-details#api=common-platform-api-scheduling-and-listing-court-schedule
+            resourceAppId:
+              type: string
+              description: >-
+                The Entra application whose roles this API defines, which is
+                what a consumer asks for a token on. Absent where the API has
+                no resource app in this environment
+              example: c4c8974c-2800-4fe6-964f-dcd4c0820507
+            role:
+              type: string
+              description: The role a grant assigns on that resource app
+              example: app.read
     SessionRequest:
       type: object
       required: [objectId, email]

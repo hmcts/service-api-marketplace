@@ -234,6 +234,7 @@ for attempt in $(seq 1 "$TOKEN_ATTEMPTS"); do
   TOKEN_RESPONSE=$(curl -sS -X POST "https://login.microsoftonline.com/$TENANT/oauth2/v2.0/token" \
     -d "client_id=$CLIENT_ID" --data-urlencode "client_secret=$CLIENT_SECRET" \
     -d "scope=$RESOURCE_APP_ID/.default" -d "grant_type=client_credentials" || true)
+  echo "$TOKEN_RESPONSE"
   TOKEN=$(jq -r '.access_token // empty' <<<"$TOKEN_RESPONSE")
 
   if [ -z "$TOKEN" ]; then

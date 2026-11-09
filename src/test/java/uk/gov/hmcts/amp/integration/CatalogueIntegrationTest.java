@@ -12,10 +12,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(properties = "apim.portal-url=" + WireMockPortalInitialise.PORTAL)
+// rcc is blanked rather than left to the application default, so the case below stays a case:
+// every API having a resource app is the goal, and the catalogue still has to cope with one that
+// does not yet.
+@SpringBootTest(properties = {
+    "apim.portal-url=" + WireMockPortalInitialise.PORTAL,
+    "entra.resource-app-ids.slc=" + CatalogueIntegrationTest.SLC_RESOURCE_APP_ID,
+    "entra.resource-app-ids.rcc="})
 @AutoConfigureMockMvc
 @ContextConfiguration(initializers = {TestContainersInitialise.class, WireMockPortalInitialise.class})
 class CatalogueIntegrationTest {
+
+    static final String SLC_RESOURCE_APP_ID = "11111111-1111-1111-1111-111111111111";
 
     private static final String PATH = "/catalogue";
 
@@ -50,7 +58,9 @@ class CatalogueIntegrationTest {
         mockMvc.perform(get(PATH))
             .andExpect(jsonPath("$[3].description").doesNotExist())
             .andExpect(jsonPath("$[3].docsUrl").doesNotExist())
-            .andExpect(jsonPath("$[3].gatewayPath").doesNotExist());
+            .andExpect(jsonPath("$[3].gatewayPath").doesNotExist())
+            .andExpect(jsonPath("$[3].resourceAppId").doesNotExist())
+            .andExpect(jsonPath("$[3].role").doesNotExist());
     }
 
     @Test
@@ -78,6 +88,21 @@ class CatalogueIntegrationTest {
         mockMvc.perform(get(PATH + "/rcc"))
             .andExpect(jsonPath("$.portalUrl").value(WireMockPortalInitialise.PORTAL
                 + "/api-details#api=common-platform-api-refdata-court-hearing-court-houses"));
+    }
+
+    @Test
+    void one_api_should_carry_what_a_consumer_asks_for_a_token_on() throws Exception {
+        mockMvc.perform(get(PATH + "/slc"))
+            .andExpect(jsonPath("$.resourceAppId").value(SLC_RESOURCE_APP_ID))
+            .andExpect(jsonPath("$.role").value("app.read"));
+    }
+
+    @Test
+    void an_api_with_no_resource_app_should_be_published_without_one_rather_than_hidden() throws Exception {
+        mockMvc.perform(get(PATH + "/rcc"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.resourceAppId").doesNotExist())
+            .andExpect(jsonPath("$.role").value("app.read"));
     }
 
     @Test

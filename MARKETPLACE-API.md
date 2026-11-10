@@ -86,7 +86,6 @@ the `PCR-` prefix.
 
 | Method | Path | Returns | |
 |---|---|---|---|
-| GET | `/products` | 200 | One entry per API, by short code |
 
 **No `requestingUserId`** — reference data with nothing of anyone's in it, and the web needs it to
 render a picker.

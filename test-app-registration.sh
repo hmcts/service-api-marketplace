@@ -62,13 +62,12 @@ SHORT_CODE=${2:-slc}
 # never coming, or calls a path the gateway does not publish.
 # || true so a service that is not running does not kill the script here under pipefail, before
 # the health check below has had the chance to say so.
-CATALOGUE_STATUS=$(curl -sS -o /tmp/test-app-registration-products -w '%{http_code}' \
-  "$BASE_URL/products" 2>/dev/null) || CATALOGUE_STATUS=""
-PRODUCT=$(jq -r --arg s "$SHORT_CODE" 'map(select(.shortCode == $s)) | .[0] // empty' \
-  /tmp/test-app-registration-products 2>/dev/null || true)
-ROLE=${ROLE:-$(jq -r '.role // empty' <<<"$PRODUCT")}
-RESOURCE_APP_ID=${ENTRA_RESOURCE_APP_ID:-$(jq -r '.resourceAppId // empty' <<<"$PRODUCT")}
-API_PATH=${API_PATH:-$(jq -r '.gatewayPath // empty' <<<"$PRODUCT")}
+CATALOGUE_STATUS=$(curl -sS -o /tmp/test-app-registration-catalogue -w '%{http_code}' \
+  "$BASE_URL/catalogue/$SHORT_CODE" 2>/dev/null) || CATALOGUE_STATUS=""
+API=$(cat /tmp/test-app-registration-catalogue 2>/dev/null || true)
+ROLE=${ROLE:-$(jq -r '.role // empty' <<<"$API" 2>/dev/null)}
+RESOURCE_APP_ID=${ENTRA_RESOURCE_APP_ID:-$(jq -r '.resourceAppId // empty' <<<"$API" 2>/dev/null)}
+API_PATH=${API_PATH:-$(jq -r '.gatewayPath // empty' <<<"$API" 2>/dev/null)}
 
 # The operation to call once the credentials are proven. Every API takes its own shape - one path
 # parameter here, two there, and two of them spell the same concept differently - so there is no
@@ -103,8 +102,9 @@ onboarding secret exported), or forward the $ENVIRONMENT one:
 fi
 
 [ -n "$RESOURCE_APP_ID" ] || die "No resource app for $SHORT_CODE.
-   $BASE_URL/products answered HTTP ${CATALOGUE_STATUS:-nothing} and did not publish one, so
-   this environment has no entra.resource-app-ids.$SHORT_CODE configured.
+   $BASE_URL/catalogue/$SHORT_CODE answered HTTP ${CATALOGUE_STATUS:-nothing}. A 404 means the
+   catalogue does not list $SHORT_CODE; a 200 without one means this environment has no
+   entra.resource-app-ids.$SHORT_CODE configured.
    Set ENTRA_RESOURCE_APP_ID to the app id of amp-api-$SHORT_CODE to carry on regardless."
 
 echo "Running against $ENVIRONMENT: $BASE_URL, tenant $TENANT, gateway $GATEWAY"
@@ -248,7 +248,7 @@ for attempt in $(seq 1 "$TOKEN_ATTEMPTS"); do
   fi
 
   [ "$attempt" = "$TOKEN_ATTEMPTS" ] && die "   Gave up after $TOKEN_ATTEMPTS attempts: $WAITING_FOR
-   The audience came from $BASE_URL/products and the token from tenant $TENANT. An
+   The audience came from $BASE_URL/catalogue/$SHORT_CODE and the token from tenant $TENANT. An
    'unauthorized_client' or AADSTS500011 here means the two disagree: the marketplace is
    publishing a resource app that belongs to another tenant."
   echo "   attempt $attempt: $WAITING_FOR"

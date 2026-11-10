@@ -146,8 +146,17 @@ public class ProductionRequestService {
         entity.setGoLiveDate(request.goLiveDate());
         entity.setCallVolume(request.callVolume());
         entity.setDataRequest(request.dataRequest().trim());
-        entity.setProposedOutputs(request.proposedOutputs().trim());
+        entity.setProposedOutputs(trimmed(request.proposedOutputs()));
+        entity.setOrganisationType(request.organisationType());
+        entity.setDataRecipients(request.dataRecipients());
+        entity.setDataRecipientsExplanation(trimmed(request.dataRecipientsExplanation()));
+        entity.setDataCombined(request.dataCombined());
+        entity.setDataCombinedDescription(trimmed(request.dataCombinedDescription()));
         return entity;
+    }
+
+    private static String trimmed(final String answer) {
+        return answer == null ? null : answer.trim();
     }
 
     /** One request per application: a second is a duplicate ask, not a second thing being asked for. */

@@ -51,7 +51,23 @@ public interface ResponseMapper {
 
     List<SubscriptionKey> toSubscriptionKeys(List<uk.gov.hmcts.amp.domain.SubscriptionKey> keys);
 
+    // The generated enums are named after the Java constant, not the wire value, so MapStruct's
+    // own Enum.valueOf would reject every hyphenated answer. fromValue reads the wire value.
     default ProductionRequestDetail.CallVolumeEnum callVolume(final String callVolume) {
         return callVolume == null ? null : ProductionRequestDetail.CallVolumeEnum.fromValue(callVolume);
+    }
+
+    default ProductionRequestDetail.OrganisationTypeEnum organisationType(final String organisationType) {
+        return organisationType == null ? null
+            : ProductionRequestDetail.OrganisationTypeEnum.fromValue(organisationType);
+    }
+
+    default ProductionRequestDetail.DataCombinedEnum dataCombined(final String dataCombined) {
+        return dataCombined == null ? null : ProductionRequestDetail.DataCombinedEnum.fromValue(dataCombined);
+    }
+
+    default List<ProductionRequestDetail.DataRecipientsEnum> dataRecipients(final List<String> recipients) {
+        return recipients == null ? null
+            : recipients.stream().map(ProductionRequestDetail.DataRecipientsEnum::fromValue).toList();
     }
 }

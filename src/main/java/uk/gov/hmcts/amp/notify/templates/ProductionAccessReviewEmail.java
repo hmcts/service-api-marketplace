@@ -52,6 +52,8 @@ public class ProductionAccessReviewEmail implements NotifyEmail {
             Map.entry("expected_call_volumes", expectedCallVolumes),
             Map.entry("api_list", apis),
             Map.entry("data_request_description", dataRequestDescription),
-            Map.entry("proposed_outputs", proposedOutputs));
+            // Map.entry rejects a null, and the send is best-effort: a request made after the
+            // form dropped this question would lose its reviewer email rather than render blank.
+            Map.entry("proposed_outputs", proposedOutputs == null ? "" : proposedOutputs));
     }
 }

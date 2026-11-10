@@ -986,7 +986,7 @@ components:
 
     NewProductionRequest:
       type: object
-      required: [clientId, organisation, goLiveDate, dataRequest, proposedOutputs]
+      required: [clientId, organisation, goLiveDate, dataRequest]
       properties:
         clientId:
           type: string
@@ -1010,7 +1010,34 @@ components:
         proposedOutputs:
           type: string
           maxLength: 2000
-          description: What comes out of using the data
+          description: >-
+            What comes out of using the data. Asked of requests made before
+            the form replaced it with the triage questions below
+        organisationType:
+          type: string
+          description: Which kind of organisation is asking, for triage
+          enum: [hmcts, moj, other-government, external]
+        dataRecipients:
+          type: array
+          description: >-
+            Who will have access to, or receive, the data. Several at once
+            is normal, and anything beyond the requester's own team is what
+            makes dataRecipientsExplanation necessary
+          items:
+            type: string
+            enum: [own-team, other-hmcts, wider-moj, other-government, supplier, external, public]
+        dataRecipientsExplanation:
+          type: string
+          maxLength: 2000
+          description: Required where a recipient other than own-team is chosen
+        dataCombined:
+          type: string
+          enum: ["no", "yes", "unsure"]
+          description: Whether the API data will be combined or linked with other data
+        dataCombinedDescription:
+          type: string
+          maxLength: 2000
+          description: Required where dataCombined is yes or unsure
 
     ProductionRequest:
       type: object
@@ -1058,6 +1085,31 @@ components:
               type: string
             proposedOutputs:
               type: string
+            organisationType:
+              type: string
+              description: Which kind of organisation is asking, for triage
+              enum: [hmcts, moj, other-government, external]
+            dataRecipients:
+              type: array
+              description: >-
+                Who will have access to, or receive, the data. Several at once
+                is normal, and anything beyond the requester's own team is what
+                makes dataRecipientsExplanation necessary
+              items:
+                type: string
+                enum: [own-team, other-hmcts, wider-moj, other-government, supplier, external, public]
+            dataRecipientsExplanation:
+              type: string
+              maxLength: 2000
+              description: Required where a recipient other than own-team is chosen
+            dataCombined:
+              type: string
+              enum: ["no", "yes", "unsure"]
+              description: Whether the API data will be combined or linked with other data
+            dataCombinedDescription:
+              type: string
+              maxLength: 2000
+              description: Required where dataCombined is yes or unsure
 
     Health:
       type: object

@@ -23,6 +23,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItems;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -297,12 +298,83 @@ class ProductionRequestIntegrationTest {
     }
 
     @Test
-    void missing_proposed_outputs_should_be_rejected_by_the_server() throws Exception {
+    void requests_without_proposed_outputs_should_be_accepted_now_the_form_stopped_asking() throws Exception {
         createApplication(OWNER_OID);
 
         mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(form(CLIENT_ID).replace("A weekly outcomes report.", "")))
+                .content(triageForm(CLIENT_ID)))
+            .andExpect(status().isCreated());
+
+        assertThat(productionRequests.count()).isEqualTo(1);
+    }
+
+    @Test
+    void the_triage_answers_should_be_stored_and_read_back() throws Exception {
+        createApplication(OWNER_OID);
+        final String reference = reference(post(PATH).header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(triageForm(CLIENT_ID)));
+
+        mockMvc.perform(get(PATH + "/" + reference).header("requestingUserId", OWNER_OID))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.organisationType").value("external"))
+            .andExpect(jsonPath("$.dataRecipients").value(hasItems("own-team", "supplier")))
+            .andExpect(jsonPath("$.dataRecipientsExplanation")
+                .value("Our delivery partner builds the case view on our behalf."))
+            .andExpect(jsonPath("$.dataCombined").value("yes"))
+            .andExpect(jsonPath("$.dataCombinedDescription").value("Our own case management records."));
+    }
+
+    @Test
+    void data_leaving_the_requesters_own_team_should_need_an_explanation() throws Exception {
+        createApplication(OWNER_OID);
+
+        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(triageForm(CLIENT_ID)
+                    .replace("Our delivery partner builds the case view on our behalf.", "")))
+            .andExpect(status().isBadRequest());
+
+        assertThat(productionRequests.count()).isZero();
+    }
+
+    @Test
+    void the_requesters_own_team_alone_should_need_no_explanation() throws Exception {
+        createApplication(OWNER_OID);
+
+        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(triageForm(CLIENT_ID)
+                    .replace("\"own-team\",\"supplier\"", "\"own-team\"")
+                    .replace("Our delivery partner builds the case view on our behalf.", "")))
+            .andExpect(status().isCreated());
+    }
+
+    @Test
+    void combining_the_data_should_need_a_description_and_unsure_should_count_as_combining()
+        throws Exception {
+        createApplication(OWNER_OID);
+
+        for (final String answer : new String[] {"yes", "unsure"}) {
+            mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(triageForm(CLIENT_ID)
+                        .replace("\"dataCombined\":\"yes\"", "\"dataCombined\":\"" + answer + "\"")
+                        .replace("Our own case management records.", "")))
+                .andExpect(status().isBadRequest());
+        }
+
+        assertThat(productionRequests.count()).isZero();
+    }
+
+    @Test
+    void an_answer_outside_the_published_list_should_be_rejected() throws Exception {
+        createApplication(OWNER_OID);
+
+        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(triageForm(CLIENT_ID).replace("\"external\",", "\"nonsense\",")))
             .andExpect(status().isBadRequest());
 
         assertThat(productionRequests.count()).isZero();
@@ -437,6 +509,17 @@ class ProductionRequestIntegrationTest {
         subscription.setKeyHint("a1b");
         subscription.setSubscribedAt(LocalDateTime.of(2026, 10, 20, 11, 0));
         applicationApis.save(subscription);
+    }
+
+    /** What the form sends now: the triage answers, and no proposed outputs. */
+    private String triageForm(final String clientId) {
+        return """
+            {"clientId":"%s","organisation":"Example Legal Ltd","goLiveDate":"2027-03-27",
+             "callVolume":"low","dataRequest":"Hearing outcomes for listed cases.",
+             "organisationType":"external","dataRecipients":["own-team","supplier"],
+             "dataRecipientsExplanation":"Our delivery partner builds the case view on our behalf.",
+             "dataCombined":"yes","dataCombinedDescription":"Our own case management records."}"""
+            .formatted(clientId);
     }
 
     private String form(final String clientId) {

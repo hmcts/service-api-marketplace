@@ -258,6 +258,8 @@ class ProductionRequestServiceTest {
 
     private ProductionAccessRequest form() {
         return new ProductionAccessRequest(CLIENT_ID, "Example Legal Ltd", LocalDate.of(2027, 3, 27),
-            "low", "Hearing outcomes for listed cases.", "A weekly outcomes report.");
+            "low", "Hearing outcomes for listed cases.", null,
+            "external", List.of("own-team", "supplier"),
+            "Our delivery partner builds the case view on our behalf.", "no", null);
     }
 }

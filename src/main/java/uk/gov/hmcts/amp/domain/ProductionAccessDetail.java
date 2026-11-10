@@ -4,6 +4,7 @@ import uk.gov.hmcts.amp.entity.ProductionRequestEntity;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * One request in full, for the page that shows what was asked for. The list returns
@@ -16,13 +17,19 @@ import java.time.LocalDateTime;
 public record ProductionAccessDetail(String reference, String status, LocalDateTime submittedAt,
                                      String applicationName, String clientId, String organisation,
                                      LocalDate goLiveDate, String callVolume,
-                                     String dataRequest, String proposedOutputs) {
+                                     String dataRequest, String proposedOutputs,
+                                     String organisationType, List<String> dataRecipients,
+                                     String dataRecipientsExplanation, String dataCombined,
+                                     String dataCombinedDescription) {
 
     public static ProductionAccessDetail from(final ProductionRequestEntity request) {
         return new ProductionAccessDetail(request.getReference(), request.getStatus(),
             request.getSubmittedAt(), request.getApplicationName(),
             request.getApplication() == null ? null : request.getApplication().getClientId(),
             request.getOrganisation(), request.getGoLiveDate(), request.getCallVolume(),
-            request.getDataRequest(), request.getProposedOutputs());
+            request.getDataRequest(), request.getProposedOutputs(),
+            request.getOrganisationType(), request.getDataRecipients(),
+            request.getDataRecipientsExplanation(), request.getDataCombined(),
+            request.getDataCombinedDescription());
     }
 }

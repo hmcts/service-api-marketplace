@@ -12,20 +12,24 @@ public record CatalogueDetail(String shortCode, String title, String summary, St
     private static final String API_DETAILS = "/api-details#api=";
 
     public static CatalogueDetail from(final MarketplaceApiEntity api, final String description,
-                                       final String portalUrl, final String resourceAppId) {
+                                       final String portalUrl, final String tryItNowApi,
+                                       final String resourceAppId) {
         return new CatalogueDetail(api.getShortCode(), api.getTitle(),
             CatalogueEntry.summary(description),
             api.getTeam(), api.getDomain(), api.getPlatform(), CatalogueEntry.subscribable(api),
             api.getCatalogueName(), description, api.getDocsUrl(), api.getRepoUrl(),
-            api.getGatewayPath(), portalPage(api.getApimApiName(), portalUrl),
+            api.getGatewayPath(), portalPage(tryItNowApi, portalUrl),
             resourceAppId, api.getRole());
     }
 
-    /** Absent where either half is unset, rather than a link to the portal's front page. */
-    private static String portalPage(final String apimApiName, final String portalUrl) {
-        if (apimApiName == null || apimApiName.isBlank() || portalUrl == null || portalUrl.isBlank()) {
+    /**
+     * The Try It Now API's page, where a consumer runs the operations with their sandbox credentials.
+     * Absent where either half is unset, rather than a link to the portal's front page.
+     */
+    private static String portalPage(final String tryItNowApi, final String portalUrl) {
+        if (tryItNowApi == null || tryItNowApi.isBlank() || portalUrl == null || portalUrl.isBlank()) {
             return null;
         }
-        return portalUrl.replaceAll("/+$", "") + API_DETAILS + apimApiName;
+        return portalUrl.replaceAll("/+$", "") + API_DETAILS + tryItNowApi;
     }
 }

@@ -14,11 +14,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 // rcc is blanked rather than left to the application default, so the case below stays a case:
 // every API having a resource app is the goal, and the catalogue still has to cope with one that
-// does not yet.
+// does not yet. Its Try It Now API is blanked for the same reason.
 @SpringBootTest(properties = {
     "apim.portal-url=" + WireMockPortalInitialise.PORTAL,
     "entra.resource-app-ids.slc=" + CatalogueIntegrationTest.SLC_RESOURCE_APP_ID,
-    "entra.resource-app-ids.rcc="})
+    "entra.resource-app-ids.rcc=",
+    "apim.try-it-now-apis.rcc="})
 @AutoConfigureMockMvc
 @ContextConfiguration(initializers = {TestContainersInitialise.class, WireMockPortalInitialise.class})
 class CatalogueIntegrationTest {
@@ -79,15 +80,22 @@ class CatalogueIntegrationTest {
 
     @Test
     void one_api_should_link_to_its_page_in_the_developer_portal() throws Exception {
-        // The portal is keyed on the APIM api name, which names the real API rather than
-        // the Try It Now one the marketplace subscribes to.
+        // The Try It Now API, not apim_api_name: that names the real API, which a sandbox
+        // consumer cannot call. slc's name is the one sandbox adopted from try-slc.
         mockMvc.perform(get(PATH + "/slc"))
             .andExpect(jsonPath("$.portalUrl").value(WireMockPortalInitialise.PORTAL
-                + "/api-details#api=common-platform-api-scheduling-and-listing-court-schedule"));
+                + "/api-details#api=try-it-now---public-api"));
 
-        mockMvc.perform(get(PATH + "/rcc"))
+        mockMvc.perform(get(PATH + "/pcd"))
             .andExpect(jsonPath("$.portalUrl").value(WireMockPortalInitialise.PORTAL
-                + "/api-details#api=common-platform-api-refdata-court-hearing-court-houses"));
+                + "/api-details#api=try-it-now-pcd"));
+    }
+
+    @Test
+    void an_api_with_no_try_it_now_api_should_be_published_without_a_portal_link() throws Exception {
+        mockMvc.perform(get(PATH + "/rcc"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.portalUrl").doesNotExist());
     }
 
     @Test

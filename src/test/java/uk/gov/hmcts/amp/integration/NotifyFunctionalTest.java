@@ -58,6 +58,11 @@ class NotifyFunctionalTest {
             List.of("Scheduling and Listing Court Schedule", "Refdata Court Hearing Courthouses"),
             "Hearing outcomes for listed cases, to populate a case tracker.",
             "A weekly outcomes report shared with the instructing solicitor.",
+            "external",
+            List.of("own-team", "supplier"),
+            "Our delivery partner runs the ingest.",
+            "yes",
+            "Joined to our own case tracker to measure turnaround.",
             "PCR-FUNCTEST"
         );
         notifyService.send(template);

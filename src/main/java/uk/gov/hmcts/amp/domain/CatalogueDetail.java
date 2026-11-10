@@ -30,6 +30,10 @@ public record CatalogueDetail(String shortCode, String title, String summary, St
         if (tryItNowApi == null || tryItNowApi.isBlank() || portalUrl == null || portalUrl.isBlank()) {
             return null;
         }
-        return portalUrl.replaceAll("/+$", "") + API_DETAILS + tryItNowApi;
+        String base = portalUrl;
+        while (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        return base + API_DETAILS + tryItNowApi;
     }
 }

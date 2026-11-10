@@ -42,7 +42,8 @@ public class CatalogueController implements CatalogueApi {
         log.info("Read catalogue entry {}", shortCode);
         final MarketplaceApiEntity api = listedApi(shortCode);
         return mapper.toCatalogueDetail(
-            CatalogueDetail.from(api, description(api), apim.portalUrl(), resourceAppId(shortCode)));
+            CatalogueDetail.from(api, description(api), apim.portalUrl(), apim.tryItNowApi(shortCode),
+                resourceAppId(shortCode)));
     }
 
     private String description(final MarketplaceApiEntity api) {

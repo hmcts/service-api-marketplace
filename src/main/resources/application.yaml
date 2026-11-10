@@ -51,6 +51,15 @@ apim:
   resource-group: ${APIM_RESOURCE_GROUP:rg-sps-platform-sbox}
   service-name: ${APIM_SERVICE_NAME:sps-api-mgmt-sbox}
   portal-url: ${DEVELOPER_PORTAL_URL:https://amp-portal.sandbox.api.hmcts.net}
+  # The Try It Now API each catalogue entry links to in the developer portal, as APIM names it
+  # (amp-try-it-now apim/*.tfvars). Not apim_api_name, which is the real API and is only used to
+  # read the description. Names differ between environments: demo's slc is try-it-now-slc. Blank
+  # publishes the API without a portal link.
+  try-it-now-apis:
+    slc: ${APIM_TRY_IT_NOW_API_SLC:try-it-now---public-api}
+    rcc: ${APIM_TRY_IT_NOW_API_RCC:try-it-now-rcc}
+    pcd: ${APIM_TRY_IT_NOW_API_PCD:try-it-now-pcd}
+    dl: ${APIM_TRY_IT_NOW_API_DL:try-it-now-dl}
 
 notify:
   api-key: ${NOTIFY_API_KEY:}

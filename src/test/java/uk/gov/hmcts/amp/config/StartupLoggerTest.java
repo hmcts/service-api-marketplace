@@ -40,7 +40,7 @@ class StartupLoggerTest {
     @Test
     void an_api_with_no_resource_app_here_should_be_visible_as_missing() {
         StartupLogger partial = new StartupLogger(environment(),
-            new ApimProperties("a-tenant", "a-subscription", "rg", "instance", PORTAL),
+            new ApimProperties("a-tenant", "a-subscription", "rg", "instance", PORTAL, Map.of()),
             new EntraProperties("entra-tenant", "a-client", "a-secret", Map.of(), 1, 1),
             new NotifyProperties(KEY, "https://notify.example", List.of()));
 
@@ -59,7 +59,7 @@ class StartupLoggerTest {
     @Test
     void an_unset_secret_should_be_said_out_loud_rather_than_left_blank() {
         StartupLogger unconfigured = new StartupLogger(environment(),
-            new ApimProperties("a-tenant", "a-subscription", "rg", "instance", PORTAL),
+            new ApimProperties("a-tenant", "a-subscription", "rg", "instance", PORTAL, Map.of()),
             new EntraProperties("entra-tenant", "a-client", "", Map.of("slc", "an-api"), 1, 1),
             new NotifyProperties("", "https://notify.example", List.of()));
 
@@ -72,7 +72,7 @@ class StartupLoggerTest {
     void the_placeholder_value_should_count_as_unset_rather_than_as_a_secret() {
         // A vault that is mounted but empty resolves to NOT_SET, which is not a secret.
         StartupLogger placeholder = new StartupLogger(environment(),
-            new ApimProperties("a-tenant", "a-subscription", "rg", "instance", PORTAL),
+            new ApimProperties("a-tenant", "a-subscription", "rg", "instance", PORTAL, Map.of()),
             new EntraProperties("entra-tenant", "a-client", "NOT_SET", Map.of("slc", "an-api"), 1, 1),
             new NotifyProperties(KEY, "https://notify.example", List.of()));
 
@@ -82,7 +82,7 @@ class StartupLoggerTest {
     private StartupLogger logger() {
         return new StartupLogger(environment(),
             new ApimProperties("a-tenant", "a-subscription", "rg-sps-platform-sbox",
-                "sps-api-mgmt-sbox", PORTAL),
+                "sps-api-mgmt-sbox", PORTAL, Map.of()),
             new EntraProperties("entra-tenant", "an-onboarding-client", "an-onboarding-secret",
                 Map.of("slc", "slc-app", "rcc", "rcc-app"), 20, 500),
             new NotifyProperties(KEY, "https://notify.example",

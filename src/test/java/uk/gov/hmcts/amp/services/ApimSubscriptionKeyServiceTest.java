@@ -19,6 +19,7 @@ import uk.gov.hmcts.amp.domain.SubscriptionKey;
 import uk.gov.hmcts.amp.entity.UserEntity;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,7 +57,7 @@ class ApimSubscriptionKeyServiceTest {
         lenient().when(users.requireSignedIn(OID)).thenReturn(caller);
         service = new ApimSubscriptionKeyService(apim, users,
             new ApimProperties("a-tenant", "a-subscription", RESOURCE_GROUP, SERVICE_NAME,
-                "https://amp-portal.example"));
+                "https://amp-portal.example", Map.of()));
     }
 
     @Test

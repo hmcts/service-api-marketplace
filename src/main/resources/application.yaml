@@ -64,7 +64,9 @@ apim:
 notify:
   api-key: ${NOTIFY_API_KEY:}
   base-url: ${NOTIFY_BASE_URL:https://api.notifications.service.gov.uk}
-  review-inboxes: ${NOTIFY_REVIEW_INBOXES:APIMarketplace@hmcts.net}
+  review-inboxes: DataAccessPanel@justice.gov.uk
+  amp-team-inboxes: APIMarketplace@hmcts.net
+  environment-name: ${ENVIRONMENT_NAME:UNKNOWN}
 
 entra:
   max-attempts: ${ENTRA_MAX_ATTEMPTS:20}

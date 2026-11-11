@@ -45,6 +45,7 @@ class ProductionRequestServiceTest {
     private static final String CLIENT_ID = "22222222-2222-2222-2222-222222222222";
     private static final List<String> REVIEWERS =
         List.of("panel@justice.gov.uk", "owner@justice.gov.uk", "team@hmcts.net");
+    private static final List<String> AMP_TEAM = List.of("APIMarketplace@hmcts.net");
 
     @Mock
     private ProductionRequestRepository requests;
@@ -162,7 +163,7 @@ class ProductionRequestServiceTest {
     }
 
     @Test
-    void both_the_requester_and_the_panel_should_be_emailed() {
+    void the_requester_the_panel_and_the_marketplace_team_should_each_be_emailed() {
         UserEntity user = signedIn();
         givenRequestWillBeRecorded(user);
 
@@ -171,7 +172,42 @@ class ProductionRequestServiceTest {
         verify(notifyMapper).toRequesterEmail(any(), any(), any());
         REVIEWERS.forEach(reviewer ->
             verify(notifyMapper).toReviewEmail(any(), any(), any(), eq(reviewer)));
-        verify(notify, times(REVIEWERS.size() + 1)).send(any());
+        AMP_TEAM.forEach(inbox ->
+            verify(notifyMapper).toTeamEmail(any(), any(), any(), eq(inbox)));
+        verify(notify, times(REVIEWERS.size() + AMP_TEAM.size() + 1)).send(any());
+    }
+
+    @Test
+    void outside_production_both_emails_should_go_to_whoever_made_the_request() {
+        // The templates still get exercised; the Data Access and Marketplace teams do not.
+        UserEntity user = signedIn();
+        givenRequestWillBeRecorded(user);
+        when(notifyProperties.redirectingToRequester()).thenReturn(true);
+
+        service.create(OID, form());
+
+        verify(notifyMapper).toReviewEmail(any(), any(), any(), eq(user.getEmail()));
+        verify(notifyMapper).toTeamEmail(any(), any(), any(), eq(user.getEmail()));
+        REVIEWERS.forEach(reviewer ->
+            verify(notifyMapper, never()).toReviewEmail(any(), any(), any(), eq(reviewer)));
+        // One copy each, however many addresses are configured, plus the requester's own.
+        verify(notify, times(3)).send(any());
+    }
+
+    @Test
+    void redirecting_should_change_where_a_mail_goes_and_not_whether_one_is_sent() {
+        UserEntity user = signedIn();
+        givenRequestWillBeRecorded(user);
+        // Never consulted: an environment with no inboxes stays silent, redirecting or not.
+        lenient().when(notifyProperties.redirectingToRequester()).thenReturn(true);
+        when(notifyProperties.reviewers()).thenReturn(List.of());
+        when(notifyProperties.ampTeam()).thenReturn(List.of());
+
+        service.create(OID, form());
+
+        verify(notifyMapper, never()).toReviewEmail(any(), any(), any(), any());
+        verify(notifyMapper, never()).toTeamEmail(any(), any(), any(), any());
+        verify(notify).send(any());
     }
 
     @Test
@@ -179,10 +215,12 @@ class ProductionRequestServiceTest {
         UserEntity user = signedIn();
         givenRequestWillBeRecorded(user);
         when(notifyProperties.reviewers()).thenReturn(List.of());
+        when(notifyProperties.ampTeam()).thenReturn(List.of());
 
         service.create(OID, form());
 
         verify(notifyMapper, never()).toReviewEmail(any(), any(), any(), any());
+        verify(notifyMapper, never()).toTeamEmail(any(), any(), any(), any());
         verify(notifyMapper).toRequesterEmail(any(), any(), any());
         verify(notify).send(any());
     }
@@ -197,12 +235,13 @@ class ProductionRequestServiceTest {
 
         verify(requests).saveAndFlush(any());
         // Notify has no CC, so one reviewer's address failing must not cost the others theirs.
-        verify(notify, times(REVIEWERS.size() + 1)).send(any());
+        verify(notify, times(REVIEWERS.size() + AMP_TEAM.size() + 1)).send(any());
     }
 
     private void givenRequestWillBeRecorded(final UserEntity user) {
         // Field mapping is NotifyMapperTest's job; what matters here is which template is asked for.
         lenient().when(notifyProperties.reviewers()).thenReturn(REVIEWERS);
+        lenient().when(notifyProperties.ampTeam()).thenReturn(AMP_TEAM);
         when(users.requireSignedIn(OID)).thenReturn(user);
         when(applications.findByClientId(CLIENT_ID)).thenReturn(Optional.of(owned(user)));
         when(clockService.now()).thenReturn(Instant.parse("2026-10-20T11:00:00Z"));

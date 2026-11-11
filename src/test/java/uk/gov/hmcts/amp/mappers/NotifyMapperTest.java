@@ -5,6 +5,7 @@ import uk.gov.hmcts.amp.entity.ProductionRequestEntity;
 import uk.gov.hmcts.amp.entity.UserEntity;
 import uk.gov.hmcts.amp.notify.templates.ProductionAccessRequestEmail;
 import uk.gov.hmcts.amp.notify.templates.ProductionAccessReviewEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionAccessTeamEmail;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -122,6 +123,35 @@ class NotifyMapperTest {
     }
 
     @Test
+    void the_team_email_should_fill_every_placeholder_its_notify_template_prints() {
+        // These names belong to the Notify template, not to us. A placeholder the sender leaves
+        // out fails the whole send with a 400.
+        ProductionAccessTeamEmail email = notifyMapper.toTeamEmail(request(), user(), APIS, INBOX);
+
+        assertThat(email.getEmailAddress()).isEqualTo(INBOX);
+        assertThat(email.getTemplateId()).isEqualTo(ProductionAccessTeamEmail.TEMPLATE_ID);
+        assertThat(email.getPersonalisation()).containsOnly(
+            Map.entry("application_name", "Case Viewer"),
+            Map.entry("submitted_date", "19 October 2026"),
+            Map.entry("submitted_time", "2:30pm"),
+            Map.entry("consumer_name", "Ada Lovelace"),
+            Map.entry("consumer_email_address", "ada.lovelace@hmcts.net"),
+            Map.entry("organisation_type", "Other external organisation"),
+            Map.entry("consumer_team", "Example Legal Ltd"),
+            Map.entry("go_live_date", "27 March 2027"),
+            Map.entry("expected_call_volumes", "Low (under 1,000 calls per day)"),
+            Map.entry("api_list", APIS));
+    }
+
+    @Test
+    void the_team_email_should_carry_no_triage_answers_because_it_does_not_print_them() {
+        // The Data Access Team decide the outcome. This one is a prompt to expect one.
+        assertThat(notifyMapper.toTeamEmail(request(), user(), APIS, INBOX).getPersonalisation())
+            .doesNotContainKeys("data_recipient_list", "data_recipients_explanation",
+                "data_combined", "data_combined_description", "data_request_description");
+    }
+
+    @Test
     void the_requester_should_never_be_copied_on_the_review_email() {
         ProductionAccessReviewEmail email =
             notifyMapper.toReviewEmail(request(), user(), APIS, INBOX);
@@ -160,7 +190,8 @@ class NotifyMapperTest {
         // Notify matches a placeholder literally, so ((application name)) and ((application_name))
         // are two fields and the one nobody fills fails the whole send with a 400.
         Stream.of(notifyMapper.toRequesterEmail(request(), user(), APIS),
-                notifyMapper.toReviewEmail(request(), user(), APIS, INBOX))
+                notifyMapper.toReviewEmail(request(), user(), APIS, INBOX),
+                notifyMapper.toTeamEmail(request(), user(), APIS, INBOX))
             .flatMap(email -> email.getPersonalisation().keySet().stream())
             .forEach(key -> assertThat(key).matches("[a-z][a-z0-9_]*"));
     }

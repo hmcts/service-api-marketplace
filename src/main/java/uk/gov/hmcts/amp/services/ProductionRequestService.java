@@ -87,6 +87,7 @@ public class ProductionRequestService {
         final List<String> subscribed = subscribedApis(application);
         sendEmailToRequestor(user, saved, subscribed);
         sendEmailToReviewers(user, saved, subscribed);
+        sendEmailToTeam(user, saved, subscribed);
         return ProductionAccessResponse.from(saved);
     }
 
@@ -117,7 +118,7 @@ public class ProductionRequestService {
 
     private void sendEmailToReviewers(final UserEntity user, final ProductionRequestEntity saved,
                                       final List<String> subscribed) {
-        final List<String> reviewers = notifyProperties.reviewers();
+        final List<String> reviewers = recipients(notifyProperties.reviewers(), user);
         if (reviewers.isEmpty()) {
             log.info("Production request {} was recorded; no reviewers are configured",
                 saved.getReference());
@@ -131,6 +132,42 @@ public class ProductionRequestService {
                     saved.getReference(), notSent);
             }
         });
+    }
+
+    /**
+     * The API Marketplace Team are told a request arrived; the Data Access Team are asked to decide
+     * it. Separate inboxes because they are separate jobs, even where one address is configured for
+     * both today.
+     */
+    private void sendEmailToTeam(final UserEntity user, final ProductionRequestEntity saved,
+                                 final List<String> subscribed) {
+        final List<String> ampTeam = recipients(notifyProperties.ampTeam(), user);
+        if (ampTeam.isEmpty()) {
+            log.info("Production request {} was recorded; no team inboxes are configured",
+                saved.getReference());
+            return;
+        }
+        ampTeam.forEach(inbox -> {
+            try {
+                notify.send(notifyMapper.toTeamEmail(saved, user, subscribed, inbox));
+            } catch (final RuntimeException notSent) {
+                log.error("Production request {} was recorded but a team email was not sent",
+                    saved.getReference(), notSent);
+            }
+        });
+    }
+
+    /**
+     * Outside production both emails go to the requester instead of the real inboxes, so a test
+     * submission exercises the templates without troubling the Data Access or Marketplace teams.
+     * The configured addresses still decide whether anything is sent at all, so an environment
+     * with none stays silent.
+     */
+    private List<String> recipients(final List<String> configured, final UserEntity user) {
+        if (configured.isEmpty() || !notifyProperties.redirectingToRequester()) {
+            return configured;
+        }
+        return List.of(user.getEmail());
     }
 
     private ProductionRequestEntity record(final UserEntity user, final ApplicationEntity application,

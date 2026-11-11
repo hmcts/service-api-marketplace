@@ -11,6 +11,7 @@ import uk.gov.hmcts.amp.domain.DataRecipient;
 import uk.gov.hmcts.amp.domain.OrganisationType;
 import uk.gov.hmcts.amp.notify.templates.ProductionAccessRequestEmail;
 import uk.gov.hmcts.amp.notify.templates.ProductionAccessReviewEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionAccessTeamEmail;
 import uk.gov.hmcts.amp.services.NotifyService;
 
 import java.time.LocalDate;
@@ -69,6 +70,24 @@ class NotifyFunctionalTest {
             "Our delivery partner runs the ingest.",
             DataCombined.YES,
             "Joined to our own case tracker to measure turnaround.",
+            "PCR-FUNCTEST"
+        );
+        notifyService.send(template);
+    }
+
+    @Test
+    void notify_should_send_email_to_the_marketplace_team() {
+        ProductionAccessTeamEmail template = new ProductionAccessTeamEmail(
+            TEST_EMAIL,
+            "Case Viewer",
+            LocalDateTime.of(2026, 10, 20, 14, 30),
+            "Functional Test",
+            TEST_EMAIL,
+            OrganisationType.EXTERNAL,
+            "Example Legal Ltd",
+            LocalDate.of(2027, 3, 27),
+            CallVolume.LOW,
+            List.of("Scheduling and Listing Court Schedule", "Refdata Court Hearing Courthouses"),
             "PCR-FUNCTEST"
         );
         notifyService.send(template);

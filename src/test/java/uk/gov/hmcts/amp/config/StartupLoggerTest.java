@@ -42,7 +42,7 @@ class StartupLoggerTest {
         StartupLogger partial = new StartupLogger(environment(),
             new ApimProperties("a-tenant", "a-subscription", "rg", "instance", PORTAL, Map.of()),
             new EntraProperties("entra-tenant", "a-client", "a-secret", Map.of(), 1, 1),
-            new NotifyProperties(KEY, "https://notify.example", List.of()));
+            new NotifyProperties(KEY, "https://notify.example", List.of(), List.of(), "PROD"));
 
         assertThat(partial.entraSettings()).endsWith("resource apps {}");
     }
@@ -50,10 +50,11 @@ class StartupLoggerTest {
     @Test
     void the_notify_line_should_mask_every_reviewer_and_never_print_the_key() {
         assertThat(logger().notifySettings())
-            .isEqualTo("api key set, base url https://notify.example, production requests "
-                + "reviewed by [D@justice.gov.uk, C.R@justice.gov.uk]")
+            .isEqualTo("api key set, base url https://notify.example, environment PROD, "
+                + "review emails to [D@justice.gov.uk], team emails to [A@hmcts.net]")
             .doesNotContain(KEY)
-            .doesNotContain("DataAccessPanel");
+            .doesNotContain("DataAccessPanel")
+            .doesNotContain("APIMarketplace");
     }
 
     @Test
@@ -61,11 +62,11 @@ class StartupLoggerTest {
         StartupLogger unconfigured = new StartupLogger(environment(),
             new ApimProperties("a-tenant", "a-subscription", "rg", "instance", PORTAL, Map.of()),
             new EntraProperties("entra-tenant", "a-client", "", Map.of("slc", "an-api"), 1, 1),
-            new NotifyProperties("", "https://notify.example", List.of()));
+            new NotifyProperties("", "https://notify.example", List.of(), List.of(), "PROD"));
 
         assertThat(unconfigured.entraSettings()).contains("onboarding secret NOT SET");
         assertThat(unconfigured.notifySettings()).contains("api key NOT SET")
-            .contains("reviewed by []");
+            .contains("review emails to []");
     }
 
     @Test
@@ -74,7 +75,7 @@ class StartupLoggerTest {
         StartupLogger placeholder = new StartupLogger(environment(),
             new ApimProperties("a-tenant", "a-subscription", "rg", "instance", PORTAL, Map.of()),
             new EntraProperties("entra-tenant", "a-client", "NOT_SET", Map.of("slc", "an-api"), 1, 1),
-            new NotifyProperties(KEY, "https://notify.example", List.of()));
+            new NotifyProperties(KEY, "https://notify.example", List.of(), List.of(), "PROD"));
 
         assertThat(placeholder.entraSettings()).contains("onboarding secret NOT SET");
     }
@@ -86,7 +87,8 @@ class StartupLoggerTest {
             new EntraProperties("entra-tenant", "an-onboarding-client", "an-onboarding-secret",
                 Map.of("slc", "slc-app", "rcc", "rcc-app"), 20, 500),
             new NotifyProperties(KEY, "https://notify.example",
-                List.of("DataAccessPanel@justice.gov.uk", "Craig.Robb@justice.gov.uk")));
+                List.of("DataAccessPanel@justice.gov.uk"),
+                List.of("APIMarketplace@hmcts.net"), "PROD"));
     }
 
     private MockEnvironment environment() {

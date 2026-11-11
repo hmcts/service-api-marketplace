@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import uk.gov.hmcts.amp.notify.templates.ProductionAccessReviewEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionAccessTeamEmail;
 import uk.gov.hmcts.amp.entity.ApplicationApiEntity;
 import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
@@ -35,6 +36,7 @@ import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubRegistrat
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubRegistrationAs;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.wireMockGraph;
 import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.REVIEW_INBOX;
+import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.TEAM_INBOX;
 import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.SEND_EMAIL;
 import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.stubAccepted;
 import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.stubRefused;
@@ -48,7 +50,10 @@ import static uk.gov.hmcts.amp.integration.WireMockNotifyInitialise.wireMockNoti
     "entra.max-attempts=2",
     "entra.retry-delay-millis=1",
     "notify.api-key=amptest-00000000-0000-0000-0000-000000000000-11111111-1111-1111-1111-111111111111",
-    "notify.review-inboxes=" + REVIEW_INBOX})
+    "notify.review-inboxes=" + REVIEW_INBOX,
+    "notify.amp-team-inboxes=" + TEAM_INBOX,
+    // Production, so these tests assert the addresses the real inboxes would receive.
+    "notify.environment-name=PROD"})
 @AutoConfigureMockMvc
 @ContextConfiguration(initializers = {TestContainersInitialise.class, WireMockGraphInitialise.class,
     WireMockNotifyInitialise.class})
@@ -210,13 +215,30 @@ class ProductionRequestIntegrationTest {
     }
 
     @Test
-    void submitting_should_send_the_requester_and_the_panel_one_email_each() throws Exception {
+    void submitting_should_send_the_requester_the_panel_and_the_team_one_email_each() throws Exception {
         createApplication(OWNER_OID);
 
         mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
 
-        wireMockNotify().verify(2, postRequestedFor(urlPathEqualTo(SEND_EMAIL)));
+        wireMockNotify().verify(3, postRequestedFor(urlPathEqualTo(SEND_EMAIL)));
+    }
+
+    @Test
+    void the_team_email_should_go_to_the_team_inbox_and_say_a_request_arrived() throws Exception {
+        createApplication(OWNER_OID);
+
+        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content(triageForm(CLIENT_ID)));
+
+        wireMockNotify().verify(postRequestedFor(urlPathEqualTo(SEND_EMAIL))
+            .withRequestBody(equalToJson("""
+                {"email_address":"%s","template_id":"%s",
+                 "personalisation":{"application_name":"Case Viewer",
+                  "organisation_type":"Other external organisation",
+                  "consumer_team":"Example Legal Ltd",
+                  "expected_call_volumes":"Low (under 1,000 calls per day)"}}"""
+                .formatted(TEAM_INBOX, ProductionAccessTeamEmail.TEMPLATE_ID), true, true)));
     }
 
     @Test

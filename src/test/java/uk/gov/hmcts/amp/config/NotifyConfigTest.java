@@ -24,11 +24,11 @@ class NotifyConfigTest {
 
     @Test
     void null_key_should_be_treated_the_same_as_a_blank_one() {
-        assertThat(new NotifyProperties(null, "https://notify.example", null).configured()).isFalse();
+        assertThat(new NotifyProperties(null, "https://notify.example", null, null, "PROD").configured()).isFalse();
     }
 
     private NotifyConfig notifyConfig(final String apiKey) {
-        return new NotifyConfig(new NotifyProperties(apiKey, "https://notify.example", null));
+        return new NotifyConfig(new NotifyProperties(apiKey, "https://notify.example", null, null, "PROD"));
     }
 
 }

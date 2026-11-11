@@ -11,6 +11,7 @@ import uk.gov.hmcts.amp.entity.ProductionRequestEntity;
 import uk.gov.hmcts.amp.entity.UserEntity;
 import uk.gov.hmcts.amp.notify.templates.ProductionAccessRequestEmail;
 import uk.gov.hmcts.amp.notify.templates.ProductionAccessReviewEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionAccessTeamEmail;
 
 import java.util.List;
 
@@ -46,6 +47,21 @@ public interface NotifyMapper {
     @Mapping(target = "personalisation", ignore = true)
     ProductionAccessReviewEmail toReviewEmail(ProductionRequestEntity request, UserEntity user,
                                               List<String> apis, String inbox);
+
+    @Mapping(source = "inbox", target = "emailAddress")
+    @Mapping(source = "request.applicationName", target = "applicationName")
+    @Mapping(source = "request.submittedAt", target = "submittedAt")
+    @Mapping(target = "consumerName", expression = "java(displayName(user))")
+    @Mapping(source = "user.email", target = "consumerEmailAddress")
+    @Mapping(source = "request.organisationType", target = "organisationType")
+    @Mapping(source = "request.organisation", target = "consumerTeam")
+    @Mapping(source = "request.goLiveDate", target = "goLiveDate")
+    @Mapping(source = "request.callVolume", target = "expectedCallVolumes")
+    @Mapping(source = "apis", target = "apis")
+    @Mapping(source = "request.reference", target = "reference")
+    @Mapping(target = "personalisation", ignore = true)
+    ProductionAccessTeamEmail toTeamEmail(ProductionRequestEntity request, UserEntity user,
+                                          List<String> apis, String inbox);
 
     // Without these MapStruct reaches for Enum.valueOf, which is named after the Java constant
     // and so rejects every slug we actually store: valueOf("other-government") throws.

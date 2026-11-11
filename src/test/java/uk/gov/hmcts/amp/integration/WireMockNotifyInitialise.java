@@ -17,6 +17,8 @@ public class WireMockNotifyInitialise implements ApplicationContextInitializer<C
 
     public static final String SEND_EMAIL = "/v2/notifications/email";
     public static final String TEMPLATE_ID = ProductionAccessRequestEmail.TEMPLATE_ID;
+    public static final String TEAM_INBOX = "APIMarketplace@hmcts.net";
+
     public static final String REVIEW_INBOX = "api-marketplace-panel@hmcts.net";
 
     // Notify parses the service id and secret out of the key by position, so it has to be shaped

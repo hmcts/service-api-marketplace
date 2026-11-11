@@ -17,10 +17,14 @@ class NotifyPropertiesIntegrationTest {
     private NotifyProperties notifyProperties;
 
     @Test
-    void the_reviewers_should_default_to_the_marketplace_mailbox_alone() {
-        // A typo here sends nowhere and says nothing, so the default is pinned rather than trusted.
-        // Production widens this to the panel and the asset owner through the helm values.
-        assertThat(notifyProperties.reviewers()).containsExactly("APIMarketplace@hmcts.net");
+    void each_inbox_should_be_the_one_address_production_sends_to() {
+        assertThat(notifyProperties.reviewers()).containsExactly("DataAccessPanel@justice.gov.uk");
+        assertThat(notifyProperties.ampTeam()).containsExactly("APIMarketplace@hmcts.net");
+    }
+
+    @Test
+    void an_environment_that_does_not_name_itself_should_email_the_requester_instead() {
+        assertThat(notifyProperties.redirectingToRequester()).isTrue();
     }
 
     @Test

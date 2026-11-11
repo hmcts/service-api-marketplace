@@ -8,6 +8,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import uk.gov.hmcts.amp.notify.EmailMask;
 
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -49,9 +50,22 @@ public class StartupLogger {
     }
 
     String notifySettings() {
-        return "api key %s, base url %s, production requests reviewed by %s".formatted(
+        return "api key %s, base url %s, environment %s, %s".formatted(
             whetherSet(notifyProperties.apiKey()), notifyProperties.baseUrl(),
-            notifyProperties.reviewers().stream().map(EmailMask::masked).toList());
+            notifyProperties.environmentName(), recipients());
+    }
+
+    /** Naming inboxes that are not being written to reads as though they are. */
+    private String recipients() {
+        if (notifyProperties.redirectingToRequester()) {
+            return "review and team emails to the requester";
+        }
+        return "review emails to %s, team emails to %s".formatted(
+            masked(notifyProperties.reviewers()), masked(notifyProperties.ampTeam()));
+    }
+
+    private static List<String> masked(final List<String> inboxes) {
+        return inboxes.stream().map(EmailMask::masked).toList();
     }
 
     private String resourceApps() {

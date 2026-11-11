@@ -1,9 +1,14 @@
 package uk.gov.hmcts.amp.integration;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import uk.gov.hmcts.amp.domain.CallVolume;
+import uk.gov.hmcts.amp.domain.DataCombined;
+import uk.gov.hmcts.amp.domain.DataRecipient;
+import uk.gov.hmcts.amp.domain.OrganisationType;
 import uk.gov.hmcts.amp.notify.templates.ProductionAccessRequestEmail;
 import uk.gov.hmcts.amp.notify.templates.ProductionAccessReviewEmail;
 import uk.gov.hmcts.amp.services.NotifyService;
@@ -17,14 +22,14 @@ import java.util.List;
  * accepts our personalisation: the integration test proves what goes on the wire, not that
  * Notify is happy with it.
  *
- * <p>Comment out the @Disabled to run it locally.
+ * <p>Runs on a Mac only, so it stays out of CI.
  *
  * <p>Only NOTIFY_API_KEY comes from the environment; the context is built from application.yaml,
  * so the base url is the same default the service uses. Without a key NotifyService answers 503
  * rather than quietly sending nothing.
  *
  */
-@Disabled("Sends a real email - comment this out to run it")
+@EnabledOnOs(OS.MAC)
 @SpringBootTest
 class NotifyFunctionalTest {
 
@@ -54,14 +59,15 @@ class NotifyFunctionalTest {
             TEST_EMAIL,
             "Example Legal Ltd",
             LocalDate.of(2027, 3, 27),
-            "Fewer than 1,000 calls a day",
+            CallVolume.LOW,
             List.of("Scheduling and Listing Court Schedule", "Refdata Court Hearing Courthouses"),
             "Hearing outcomes for listed cases, to populate a case tracker.",
-            "A weekly outcomes report shared with the instructing solicitor.",
-            "external",
-            List.of("own-team", "supplier"),
+            // The form stopped asking this, so a request made now carries no answer.
+            null,
+            OrganisationType.EXTERNAL,
+            List.of(DataRecipient.OWN_TEAM, DataRecipient.SUPPLIER),
             "Our delivery partner runs the ingest.",
-            "yes",
+            DataCombined.YES,
             "Joined to our own case tracker to measure turnaround.",
             "PCR-FUNCTEST"
         );

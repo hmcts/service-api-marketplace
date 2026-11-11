@@ -20,7 +20,7 @@ public record ProductionAccessRequest(
     @NotNull(message = "Enter a go live date.")
     LocalDate goLiveDate,
 
-    @Pattern(regexp = "low|medium|high", message = "Call volume must be low, medium or high.")
+    @Pattern(regexp = CALL_VOLUMES, message = "Call volume must be low, medium or high.")
     String callVolume,
 
     @NotBlank(message = "Describe the data request, how you plan to use it and why you need it.")
@@ -30,21 +30,28 @@ public record ProductionAccessRequest(
     @Size(max = 2000, message = "Proposed outputs must be 2000 characters or fewer.")
     String proposedOutputs,
 
-    @Pattern(regexp = "hmcts|moj|other-government|external",
+    @Pattern(regexp = ORGANISATION_TYPES,
         message = "Organisation type must be hmcts, moj, other-government or external.")
     String organisationType,
 
-    List<@Pattern(regexp = "own-team|other-hmcts|wider-moj|other-government|supplier|external|public",
+    List<@Pattern(regexp = DATA_RECIPIENTS,
         message = "Data recipients must be from the published list.") String> dataRecipients,
 
     @Size(max = 2000, message = "Data recipients explanation must be 2000 characters or fewer.")
     String dataRecipientsExplanation,
 
-    @Pattern(regexp = "no|yes|unsure", message = "Data combined must be no, yes or unsure.")
+    @Pattern(regexp = DATA_COMBINED, message = "Data combined must be no, yes or unsure.")
     String dataCombined,
 
     @Size(max = 2000, message = "Data combined description must be 2000 characters or fewer.")
     String dataCombinedDescription) {
+
+    // Each pattern is the enum's own slugs. AnswerTest fails if the two ever drift apart.
+    public static final String CALL_VOLUMES = "low|medium|high";
+    public static final String ORGANISATION_TYPES = "hmcts|moj|other-government|external";
+    public static final String DATA_RECIPIENTS =
+        "own-team|other-hmcts|wider-moj|other-government|supplier|external|public";
+    public static final String DATA_COMBINED = "no|yes|unsure";
 
     private static final String OWN_TEAM_ONLY = "own-team";
 

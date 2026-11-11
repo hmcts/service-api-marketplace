@@ -58,7 +58,7 @@ class NotifyMapperTest {
             Map.entry("organisation_type", "Other external organisation"),
             Map.entry("consumer_team", "Example Legal Ltd"),
             Map.entry("go_live_date", "27 March 2027"),
-            Map.entry("expected_call_volumes", "low"),
+            Map.entry("expected_call_volumes", "Low (under 1,000 calls per day)"),
             Map.entry("api_list", APIS),
             Map.entry("data_request_description", "Hearing outcomes for listed cases."),
             Map.entry("proposed_outputs", "A weekly outcomes report."),
@@ -119,18 +119,6 @@ class NotifyMapperTest {
         assertThat(personalisation).containsEntry("data_recipients_explanation", "");
         assertThat(personalisation).containsEntry("data_combined", "");
         assertThat(personalisation).containsEntry("data_combined_description", "");
-    }
-
-    @Test
-    void an_answer_with_no_wording_yet_should_reach_the_reviewer_as_the_slug_itself() {
-        // Better a reviewer reads "farm-animals" than that the answer vanishes from the email.
-        ProductionRequestEntity ahead = request();
-        ahead.setDataRecipients(List.of("own-team", "farm-animals"));
-
-        assertThat(notifyMapper.toReviewEmail(ahead, user(), APIS, INBOX)
-            .getPersonalisation().get("data_recipient_list"))
-            .asInstanceOf(list(String.class))
-            .containsExactly("Me/my immediate team only", "farm-animals");
     }
 
     @Test

@@ -182,7 +182,7 @@ class ProductionRequestIntegrationTest {
                   "consumer_email_address":"ada.lovelace@hmcts.net",
                   "organisation_type":"","consumer_team":"Example Legal Ltd",
                   "go_live_date":"27 March 2027",
-                  "expected_call_volumes":"low",
+                  "expected_call_volumes":"Low (under 1,000 calls per day)",
                   "api_list":["Scheduling and Listing Court Schedule"],
                   "data_request_description":"Hearing outcomes for listed cases.",
                   "proposed_outputs":"A weekly outcomes report."}}"""

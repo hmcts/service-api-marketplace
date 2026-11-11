@@ -3,6 +3,10 @@ package uk.gov.hmcts.amp.mappers;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
+import uk.gov.hmcts.amp.domain.CallVolume;
+import uk.gov.hmcts.amp.domain.DataCombined;
+import uk.gov.hmcts.amp.domain.DataRecipient;
+import uk.gov.hmcts.amp.domain.OrganisationType;
 import uk.gov.hmcts.amp.entity.ProductionRequestEntity;
 import uk.gov.hmcts.amp.entity.UserEntity;
 import uk.gov.hmcts.amp.notify.templates.ProductionAccessRequestEmail;
@@ -42,6 +46,24 @@ public interface NotifyMapper {
     @Mapping(target = "personalisation", ignore = true)
     ProductionAccessReviewEmail toReviewEmail(ProductionRequestEntity request, UserEntity user,
                                               List<String> apis, String inbox);
+
+    // Without these MapStruct reaches for Enum.valueOf, which is named after the Java constant
+    // and so rejects every slug we actually store: valueOf("other-government") throws.
+    default CallVolume callVolume(final String slug) {
+        return CallVolume.fromSlug(slug);
+    }
+
+    default OrganisationType organisationType(final String slug) {
+        return OrganisationType.fromSlug(slug);
+    }
+
+    default DataCombined dataCombined(final String slug) {
+        return DataCombined.fromSlug(slug);
+    }
+
+    default DataRecipient dataRecipient(final String slug) {
+        return DataRecipient.fromSlug(slug);
+    }
 
     default String displayName(final UserEntity user) {
         if (user == null) {

@@ -9,9 +9,9 @@ import uk.gov.hmcts.amp.domain.CallVolume;
 import uk.gov.hmcts.amp.domain.DataCombined;
 import uk.gov.hmcts.amp.domain.DataRecipient;
 import uk.gov.hmcts.amp.domain.OrganisationType;
-import uk.gov.hmcts.amp.notify.templates.ProductionAccessRequestEmail;
-import uk.gov.hmcts.amp.notify.templates.ProductionAccessReviewEmail;
-import uk.gov.hmcts.amp.notify.templates.ProductionAccessTeamEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionRequestConsumerEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionRequestPanelEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionRequestMarketplaceEmail;
 import uk.gov.hmcts.amp.services.NotifyService;
 
 import java.time.LocalDate;
@@ -41,7 +41,7 @@ class NotifyFunctionalTest {
 
     @Test
     void notify_should_send_email_to_requestor() {
-        ProductionAccessRequestEmail template = new ProductionAccessRequestEmail(
+        ProductionRequestConsumerEmail template = new ProductionRequestConsumerEmail(
             TEST_EMAIL, "Functional Test",
             "Case Viewer",
             List.of("Scheduling and Listing Court Schedule", "Refdata Court Hearing Courthouses"),
@@ -52,7 +52,7 @@ class NotifyFunctionalTest {
 
     @Test
     void notify_should_send_email_to_reviewers() {
-        ProductionAccessReviewEmail template = new ProductionAccessReviewEmail(
+        ProductionRequestPanelEmail template = new ProductionRequestPanelEmail(
             TEST_EMAIL,
             "Case Viewer",
             LocalDateTime.of(2026, 10, 20, 14, 30),
@@ -77,7 +77,7 @@ class NotifyFunctionalTest {
 
     @Test
     void notify_should_send_email_to_the_marketplace_team() {
-        ProductionAccessTeamEmail template = new ProductionAccessTeamEmail(
+        ProductionRequestMarketplaceEmail template = new ProductionRequestMarketplaceEmail(
             TEST_EMAIL,
             "Case Viewer",
             LocalDateTime.of(2026, 10, 20, 14, 30),

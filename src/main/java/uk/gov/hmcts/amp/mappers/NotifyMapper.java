@@ -9,9 +9,9 @@ import uk.gov.hmcts.amp.domain.DataRecipient;
 import uk.gov.hmcts.amp.domain.OrganisationType;
 import uk.gov.hmcts.amp.entity.ProductionRequestEntity;
 import uk.gov.hmcts.amp.entity.UserEntity;
-import uk.gov.hmcts.amp.notify.templates.ProductionAccessRequestEmail;
-import uk.gov.hmcts.amp.notify.templates.ProductionAccessReviewEmail;
-import uk.gov.hmcts.amp.notify.templates.ProductionAccessTeamEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionRequestConsumerEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionRequestPanelEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionRequestMarketplaceEmail;
 
 import java.util.List;
 
@@ -24,7 +24,7 @@ public interface NotifyMapper {
     @Mapping(source = "apis", target = "apis")
     @Mapping(source = "request.reference", target = "reference")
     @Mapping(target = "personalisation", ignore = true)
-    ProductionAccessRequestEmail toRequesterEmail(ProductionRequestEntity request, UserEntity user,
+    ProductionRequestConsumerEmail toConsumerEmail(ProductionRequestEntity request, UserEntity user,
                                                   List<String> apis);
 
     @Mapping(source = "inbox", target = "emailAddress")
@@ -45,7 +45,7 @@ public interface NotifyMapper {
     @Mapping(source = "request.dataCombinedDescription", target = "dataCombinedDescription")
     @Mapping(source = "request.reference", target = "reference")
     @Mapping(target = "personalisation", ignore = true)
-    ProductionAccessReviewEmail toReviewEmail(ProductionRequestEntity request, UserEntity user,
+    ProductionRequestPanelEmail toPanelEmail(ProductionRequestEntity request, UserEntity user,
                                               List<String> apis, String inbox);
 
     @Mapping(source = "inbox", target = "emailAddress")
@@ -60,7 +60,7 @@ public interface NotifyMapper {
     @Mapping(source = "apis", target = "apis")
     @Mapping(source = "request.reference", target = "reference")
     @Mapping(target = "personalisation", ignore = true)
-    ProductionAccessTeamEmail toTeamEmail(ProductionRequestEntity request, UserEntity user,
+    ProductionRequestMarketplaceEmail toMarketplaceEmail(ProductionRequestEntity request, UserEntity user,
                                           List<String> apis, String inbox);
 
     // Without these MapStruct reaches for Enum.valueOf, which is named after the Java constant

@@ -85,9 +85,9 @@ public class ProductionRequestService {
             saved.getReference(), application.getClientId(), user.getId());
 
         final List<String> subscribed = subscribedApis(application);
-        sendEmailToRequestor(user, saved, subscribed);
-        sendEmailToReviewers(user, saved, subscribed);
-        sendEmailToTeam(user, saved, subscribed);
+        sendEmailToConsumer(user, saved, subscribed);
+        sendEmailToPanel(user, saved, subscribed);
+        sendEmailToMarketplace(user, saved, subscribed);
         return ProductionAccessResponse.from(saved);
     }
 
@@ -96,10 +96,10 @@ public class ProductionRequestService {
      * and failing the call would invite a retry that submits it twice. Sending synchronously
      * means a failed send is only logged; making one recoverable needs a queue.
      */
-    private void sendEmailToRequestor(final UserEntity user, final ProductionRequestEntity saved,
+    private void sendEmailToConsumer(final UserEntity user, final ProductionRequestEntity saved,
                                       final List<String> subscribed) {
         try {
-            notify.send(notifyMapper.toRequesterEmail(saved, user, subscribed));
+            notify.send(notifyMapper.toConsumerEmail(saved, user, subscribed));
         } catch (final RuntimeException notSent) {
             log.error("Production request {} was recorded but its email was not sent",
                 saved.getReference(), notSent);
@@ -116,7 +116,7 @@ public class ProductionRequestService {
             .toList();
     }
 
-    private void sendEmailToReviewers(final UserEntity user, final ProductionRequestEntity saved,
+    private void sendEmailToPanel(final UserEntity user, final ProductionRequestEntity saved,
                                       final List<String> subscribed) {
         final List<String> reviewers = recipients(notifyProperties.reviewers(), user);
         if (reviewers.isEmpty()) {
@@ -126,7 +126,7 @@ public class ProductionRequestService {
         }
         reviewers.forEach(reviewer -> {
             try {
-                notify.send(notifyMapper.toReviewEmail(saved, user, subscribed, reviewer));
+                notify.send(notifyMapper.toPanelEmail(saved, user, subscribed, reviewer));
             } catch (final RuntimeException notSent) {
                 log.error("Production request {} was recorded but a review email was not sent",
                     saved.getReference(), notSent);
@@ -139,7 +139,7 @@ public class ProductionRequestService {
      * it. Separate inboxes because they are separate jobs, even where one address is configured for
      * both today.
      */
-    private void sendEmailToTeam(final UserEntity user, final ProductionRequestEntity saved,
+    private void sendEmailToMarketplace(final UserEntity user, final ProductionRequestEntity saved,
                                  final List<String> subscribed) {
         final List<String> ampTeam = recipients(notifyProperties.ampTeam(), user);
         if (ampTeam.isEmpty()) {
@@ -149,7 +149,7 @@ public class ProductionRequestService {
         }
         ampTeam.forEach(inbox -> {
             try {
-                notify.send(notifyMapper.toTeamEmail(saved, user, subscribed, inbox));
+                notify.send(notifyMapper.toMarketplaceEmail(saved, user, subscribed, inbox));
             } catch (final RuntimeException notSent) {
                 log.error("Production request {} was recorded but a team email was not sent",
                     saved.getReference(), notSent);

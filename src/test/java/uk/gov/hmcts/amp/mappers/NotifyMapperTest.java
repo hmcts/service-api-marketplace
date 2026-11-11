@@ -3,9 +3,9 @@ package uk.gov.hmcts.amp.mappers;
 import org.junit.jupiter.api.Test;
 import uk.gov.hmcts.amp.entity.ProductionRequestEntity;
 import uk.gov.hmcts.amp.entity.UserEntity;
-import uk.gov.hmcts.amp.notify.templates.ProductionAccessRequestEmail;
-import uk.gov.hmcts.amp.notify.templates.ProductionAccessReviewEmail;
-import uk.gov.hmcts.amp.notify.templates.ProductionAccessTeamEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionRequestConsumerEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionRequestPanelEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionRequestMarketplaceEmail;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -30,12 +30,12 @@ class NotifyMapperTest {
 
     @Test
     void the_requester_email_should_go_to_the_requester_with_their_own_details() {
-        ProductionAccessRequestEmail email =
-            notifyMapper.toRequesterEmail(request(), user(), APIS);
+        ProductionRequestConsumerEmail email =
+            notifyMapper.toConsumerEmail(request(), user(), APIS);
 
         assertThat(email.getEmailAddress()).isEqualTo("ada.lovelace@hmcts.net");
         assertThat(email.getReference()).isEqualTo("PCR-ABCD2345");
-        assertThat(email.getTemplateId()).isEqualTo(ProductionAccessRequestEmail.TEMPLATE_ID);
+        assertThat(email.getTemplateId()).isEqualTo(ProductionRequestConsumerEmail.TEMPLATE_ID);
         assertThat(email.getPersonalisation()).containsOnly(
             Map.entry("consumer_name", "Ada Lovelace"),
             Map.entry("application_name", "Case Viewer"),
@@ -44,12 +44,12 @@ class NotifyMapperTest {
 
     @Test
     void the_review_email_should_go_to_the_inbox_and_carry_every_answer() {
-        ProductionAccessReviewEmail email =
-            notifyMapper.toReviewEmail(request(), user(), APIS, INBOX);
+        ProductionRequestPanelEmail email =
+            notifyMapper.toPanelEmail(request(), user(), APIS, INBOX);
 
         assertThat(email.getEmailAddress()).isEqualTo(INBOX);
         assertThat(email.getReference()).isEqualTo("PCR-ABCD2345");
-        assertThat(email.getTemplateId()).isEqualTo(ProductionAccessReviewEmail.TEMPLATE_ID);
+        assertThat(email.getTemplateId()).isEqualTo(ProductionRequestPanelEmail.TEMPLATE_ID);
         assertThat(email.getPersonalisation()).containsOnly(
             Map.entry("application_name", "Case Viewer"),
             Map.entry("submitted_date", "19 October 2026"),
@@ -75,7 +75,7 @@ class NotifyMapperTest {
         // These names belong to the Notify template, not to us. Notify fails the whole send
         // with a 400 when a template prints a placeholder the sender left out, so a rename
         // in the template is a breaking change until this list follows it.
-        assertThat(notifyMapper.toReviewEmail(request(), user(), APIS, INBOX).getPersonalisation())
+        assertThat(notifyMapper.toPanelEmail(request(), user(), APIS, INBOX).getPersonalisation())
             .containsKeys("application_name", "submitted_date", "submitted_time", "consumer_name",
                 "consumer_email_address", "organisation_type", "consumer_team", "go_live_date",
                 "expected_call_volumes", "api_list", "data_request_description", "data_recipient_list",
@@ -86,7 +86,7 @@ class NotifyMapperTest {
     void the_triage_answers_should_reach_the_reviewer_as_wording_and_not_as_slugs() {
         // The reviewer reads this email. own-team tells them nothing the form's own words do not.
         Map<String, Object> personalisation =
-            notifyMapper.toReviewEmail(request(), user(), APIS, INBOX).getPersonalisation();
+            notifyMapper.toPanelEmail(request(), user(), APIS, INBOX).getPersonalisation();
 
         assertThat(personalisation).containsEntry("organisation_type", "Other external organisation");
         assertThat(personalisation).containsEntry("data_combined", "Yes");
@@ -97,7 +97,7 @@ class NotifyMapperTest {
 
     @Test
     void the_recipient_list_should_stay_a_list_so_notify_renders_it_as_bullets() {
-        assertThat(notifyMapper.toReviewEmail(request(), user(), APIS, INBOX)
+        assertThat(notifyMapper.toPanelEmail(request(), user(), APIS, INBOX)
             .getPersonalisation().get("data_recipient_list")).isInstanceOf(List.class);
     }
 
@@ -113,7 +113,7 @@ class NotifyMapperTest {
         older.setDataCombinedDescription(null);
 
         Map<String, Object> personalisation =
-            notifyMapper.toReviewEmail(older, user(), APIS, INBOX).getPersonalisation();
+            notifyMapper.toPanelEmail(older, user(), APIS, INBOX).getPersonalisation();
 
         assertThat(personalisation).containsEntry("organisation_type", "");
         assertThat(personalisation).containsEntry("data_recipient_list", List.of());
@@ -126,10 +126,10 @@ class NotifyMapperTest {
     void the_team_email_should_fill_every_placeholder_its_notify_template_prints() {
         // These names belong to the Notify template, not to us. A placeholder the sender leaves
         // out fails the whole send with a 400.
-        ProductionAccessTeamEmail email = notifyMapper.toTeamEmail(request(), user(), APIS, INBOX);
+        ProductionRequestMarketplaceEmail email = notifyMapper.toMarketplaceEmail(request(), user(), APIS, INBOX);
 
         assertThat(email.getEmailAddress()).isEqualTo(INBOX);
-        assertThat(email.getTemplateId()).isEqualTo(ProductionAccessTeamEmail.TEMPLATE_ID);
+        assertThat(email.getTemplateId()).isEqualTo(ProductionRequestMarketplaceEmail.TEMPLATE_ID);
         assertThat(email.getPersonalisation()).containsOnly(
             Map.entry("application_name", "Case Viewer"),
             Map.entry("submitted_date", "19 October 2026"),
@@ -146,15 +146,15 @@ class NotifyMapperTest {
     @Test
     void the_team_email_should_carry_no_triage_answers_because_it_does_not_print_them() {
         // The Data Access Team decide the outcome. This one is a prompt to expect one.
-        assertThat(notifyMapper.toTeamEmail(request(), user(), APIS, INBOX).getPersonalisation())
+        assertThat(notifyMapper.toMarketplaceEmail(request(), user(), APIS, INBOX).getPersonalisation())
             .doesNotContainKeys("data_recipient_list", "data_recipients_explanation",
                 "data_combined", "data_combined_description", "data_request_description");
     }
 
     @Test
     void the_requester_should_never_be_copied_on_the_review_email() {
-        ProductionAccessReviewEmail email =
-            notifyMapper.toReviewEmail(request(), user(), APIS, INBOX);
+        ProductionRequestPanelEmail email =
+            notifyMapper.toPanelEmail(request(), user(), APIS, INBOX);
 
         assertThat(email.getEmailAddress()).isNotEqualTo(user().getEmail());
     }
@@ -162,9 +162,9 @@ class NotifyMapperTest {
     @Test
     void the_api_list_should_stay_a_list_so_notify_renders_it_as_bullets() {
         // A joined String reaches Notify as one line of prose instead of bullet points.
-        assertThat(notifyMapper.toRequesterEmail(request(), user(), APIS)
+        assertThat(notifyMapper.toConsumerEmail(request(), user(), APIS)
             .getPersonalisation().get("api_list")).isInstanceOf(List.class);
-        assertThat(notifyMapper.toReviewEmail(request(), user(), APIS, INBOX)
+        assertThat(notifyMapper.toPanelEmail(request(), user(), APIS, INBOX)
             .getPersonalisation().get("api_list")).isInstanceOf(List.class);
     }
 
@@ -173,15 +173,15 @@ class NotifyMapperTest {
         UserEntity partial = user();
         partial.setLastName(null);
 
-        assertThat(notifyMapper.toRequesterEmail(request(), partial, APIS)
+        assertThat(notifyMapper.toConsumerEmail(request(), partial, APIS)
             .getPersonalisation()).containsEntry("consumer_name", "Ada");
     }
 
     @Test
     void an_application_with_no_subscriptions_should_map_to_an_empty_list_not_a_missing_key() {
-        assertThat(notifyMapper.toRequesterEmail(request(), user(), List.of())
+        assertThat(notifyMapper.toConsumerEmail(request(), user(), List.of())
             .getPersonalisation()).containsEntry("api_list", List.of());
-        assertThat(notifyMapper.toReviewEmail(request(), user(), List.of(), INBOX)
+        assertThat(notifyMapper.toPanelEmail(request(), user(), List.of(), INBOX)
             .getPersonalisation()).containsEntry("api_list", List.of());
     }
 
@@ -189,9 +189,9 @@ class NotifyMapperTest {
     void every_personalisation_key_should_be_snake_case_as_the_templates_spell_them() {
         // Notify matches a placeholder literally, so ((application name)) and ((application_name))
         // are two fields and the one nobody fills fails the whole send with a 400.
-        Stream.of(notifyMapper.toRequesterEmail(request(), user(), APIS),
-                notifyMapper.toReviewEmail(request(), user(), APIS, INBOX),
-                notifyMapper.toTeamEmail(request(), user(), APIS, INBOX))
+        Stream.of(notifyMapper.toConsumerEmail(request(), user(), APIS),
+                notifyMapper.toPanelEmail(request(), user(), APIS, INBOX),
+                notifyMapper.toMarketplaceEmail(request(), user(), APIS, INBOX))
             .flatMap(email -> email.getPersonalisation().keySet().stream())
             .forEach(key -> assertThat(key).matches("[a-z][a-z0-9_]*"));
     }

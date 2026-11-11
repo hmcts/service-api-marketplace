@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import uk.gov.hmcts.amp.domain.NotifyTestRequest;
-import uk.gov.hmcts.amp.notify.templates.ProductionAccessRequestEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionRequestConsumerEmail;
 import uk.gov.hmcts.amp.entity.UserEntity;
 import uk.gov.hmcts.amp.services.NotifyService;
 import uk.gov.hmcts.amp.services.UserService;
@@ -40,7 +40,7 @@ public class NotifyTestController {
     public Map<String, Object> sendToMyself(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId,
                                             @RequestBody(required = false) final NotifyTestRequest request) {
         final UserEntity caller = users.requireSignedIn(requestingUserId);
-        final ProductionAccessRequestEmail email = new ProductionAccessRequestEmail(
+        final ProductionRequestConsumerEmail email = new ProductionRequestConsumerEmail(
             caller.getEmail(),
             orElse(request == null ? null : request.consumerName(), displayName(caller)),
             orElse(request == null ? null : request.applicationName(), "Case Viewer"),

@@ -7,7 +7,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.web.server.ResponseStatusException;
-import uk.gov.hmcts.amp.notify.templates.ProductionAccessRequestEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionRequestConsumerEmail;
 import uk.gov.hmcts.amp.services.NotifyService;
 
 import java.util.List;
@@ -61,8 +61,8 @@ class NotifyIntegrationTest {
             });
     }
 
-    private ProductionAccessRequestEmail request() {
-        return new ProductionAccessRequestEmail("ada.lovelace@hmcts.net", "Ada Lovelace", "Case Viewer",
+    private ProductionRequestConsumerEmail request() {
+        return new ProductionRequestConsumerEmail("ada.lovelace@hmcts.net", "Ada Lovelace", "Case Viewer",
             List.of("Court Schedule", "Hearing Results"), "case-viewer");
     }
 }

@@ -9,7 +9,7 @@ import java.util.Map;
 
 @Getter
 @RequiredArgsConstructor
-public class ProductionAccessRequestEmail implements NotifyEmail {
+public class ProductionRequestConsumerEmail implements NotifyEmail {
 
     public static final String TEMPLATE_ID = "9a21b7c6-d108-4d63-81bd-0bd52a2f511a";
 

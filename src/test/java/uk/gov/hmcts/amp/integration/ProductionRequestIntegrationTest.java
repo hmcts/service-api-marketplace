@@ -9,8 +9,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
-import uk.gov.hmcts.amp.notify.templates.ProductionAccessReviewEmail;
-import uk.gov.hmcts.amp.notify.templates.ProductionAccessTeamEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionRequestPanelEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionRequestMarketplaceEmail;
 import uk.gov.hmcts.amp.entity.ApplicationApiEntity;
 import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
@@ -191,7 +191,7 @@ class ProductionRequestIntegrationTest {
                   "api_list":["Scheduling and Listing Court Schedule"],
                   "data_request_description":"Hearing outcomes for listed cases.",
                   "proposed_outputs":"A weekly outcomes report."}}"""
-                .formatted(REVIEW_INBOX, ProductionAccessReviewEmail.TEMPLATE_ID), true, true)));
+                .formatted(REVIEW_INBOX, ProductionRequestPanelEmail.TEMPLATE_ID), true, true)));
     }
 
     @Test
@@ -211,7 +211,7 @@ class ProductionRequestIntegrationTest {
                   "data_recipients_explanation":"Our delivery partner builds the case view on our behalf.",
                   "data_combined":"Yes",
                   "data_combined_description":"Our own case management records."}}"""
-                .formatted(REVIEW_INBOX, ProductionAccessReviewEmail.TEMPLATE_ID), false, true)));
+                .formatted(REVIEW_INBOX, ProductionRequestPanelEmail.TEMPLATE_ID), false, true)));
     }
 
     @Test
@@ -238,7 +238,7 @@ class ProductionRequestIntegrationTest {
                   "organisation_type":"Other external organisation",
                   "consumer_team":"Example Legal Ltd",
                   "expected_call_volumes":"Low (under 1,000 calls per day)"}}"""
-                .formatted(TEAM_INBOX, ProductionAccessTeamEmail.TEMPLATE_ID), true, true)));
+                .formatted(TEAM_INBOX, ProductionRequestMarketplaceEmail.TEMPLATE_ID), true, true)));
     }
 
     @Test

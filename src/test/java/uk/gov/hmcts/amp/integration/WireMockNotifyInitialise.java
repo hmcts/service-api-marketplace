@@ -2,7 +2,7 @@ package uk.gov.hmcts.amp.integration;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import org.springframework.context.ApplicationContextInitializer;
-import uk.gov.hmcts.amp.notify.templates.ProductionAccessRequestEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionRequestConsumerEmail;
 import org.springframework.context.ConfigurableApplicationContext;
 import uk.gov.service.notify.NotificationClient;
 import uk.gov.service.notify.NotificationClientApi;
@@ -16,7 +16,7 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
 public class WireMockNotifyInitialise implements ApplicationContextInitializer<ConfigurableApplicationContext> {
 
     public static final String SEND_EMAIL = "/v2/notifications/email";
-    public static final String TEMPLATE_ID = ProductionAccessRequestEmail.TEMPLATE_ID;
+    public static final String TEMPLATE_ID = ProductionRequestConsumerEmail.TEMPLATE_ID;
     public static final String TEAM_INBOX = "APIMarketplace@hmcts.net";
 
     public static final String REVIEW_INBOX = "api-marketplace-panel@hmcts.net";

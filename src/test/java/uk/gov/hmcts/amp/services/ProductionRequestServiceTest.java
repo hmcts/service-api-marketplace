@@ -147,7 +147,7 @@ class ProductionRequestServiceTest {
 
         service.create(OID, form());
 
-        verify(notifyMapper).toRequesterEmail(any(), any(),
+        verify(notifyMapper).toConsumerEmail(any(), any(),
             eq(List.of("Refdata Court Hearing Courthouses", "Scheduling and Listing Court Schedule")));
     }
 
@@ -159,7 +159,7 @@ class ProductionRequestServiceTest {
 
         service.create(OID, form());
 
-        verify(notifyMapper).toRequesterEmail(any(), any(), eq(List.of("slc")));
+        verify(notifyMapper).toConsumerEmail(any(), any(), eq(List.of("slc")));
     }
 
     @Test
@@ -169,11 +169,11 @@ class ProductionRequestServiceTest {
 
         service.create(OID, form());
 
-        verify(notifyMapper).toRequesterEmail(any(), any(), any());
+        verify(notifyMapper).toConsumerEmail(any(), any(), any());
         REVIEWERS.forEach(reviewer ->
-            verify(notifyMapper).toReviewEmail(any(), any(), any(), eq(reviewer)));
+            verify(notifyMapper).toPanelEmail(any(), any(), any(), eq(reviewer)));
         AMP_TEAM.forEach(inbox ->
-            verify(notifyMapper).toTeamEmail(any(), any(), any(), eq(inbox)));
+            verify(notifyMapper).toMarketplaceEmail(any(), any(), any(), eq(inbox)));
         verify(notify, times(REVIEWERS.size() + AMP_TEAM.size() + 1)).send(any());
     }
 
@@ -186,10 +186,10 @@ class ProductionRequestServiceTest {
 
         service.create(OID, form());
 
-        verify(notifyMapper).toReviewEmail(any(), any(), any(), eq(user.getEmail()));
-        verify(notifyMapper).toTeamEmail(any(), any(), any(), eq(user.getEmail()));
+        verify(notifyMapper).toPanelEmail(any(), any(), any(), eq(user.getEmail()));
+        verify(notifyMapper).toMarketplaceEmail(any(), any(), any(), eq(user.getEmail()));
         REVIEWERS.forEach(reviewer ->
-            verify(notifyMapper, never()).toReviewEmail(any(), any(), any(), eq(reviewer)));
+            verify(notifyMapper, never()).toPanelEmail(any(), any(), any(), eq(reviewer)));
         // One copy each, however many addresses are configured, plus the requester's own.
         verify(notify, times(3)).send(any());
     }
@@ -205,8 +205,8 @@ class ProductionRequestServiceTest {
 
         service.create(OID, form());
 
-        verify(notifyMapper, never()).toReviewEmail(any(), any(), any(), any());
-        verify(notifyMapper, never()).toTeamEmail(any(), any(), any(), any());
+        verify(notifyMapper, never()).toPanelEmail(any(), any(), any(), any());
+        verify(notifyMapper, never()).toMarketplaceEmail(any(), any(), any(), any());
         verify(notify).send(any());
     }
 
@@ -219,9 +219,9 @@ class ProductionRequestServiceTest {
 
         service.create(OID, form());
 
-        verify(notifyMapper, never()).toReviewEmail(any(), any(), any(), any());
-        verify(notifyMapper, never()).toTeamEmail(any(), any(), any(), any());
-        verify(notifyMapper).toRequesterEmail(any(), any(), any());
+        verify(notifyMapper, never()).toPanelEmail(any(), any(), any(), any());
+        verify(notifyMapper, never()).toMarketplaceEmail(any(), any(), any(), any());
+        verify(notifyMapper).toConsumerEmail(any(), any(), any());
         verify(notify).send(any());
     }
 

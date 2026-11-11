@@ -9,7 +9,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.config.NotifyProperties;
-import uk.gov.hmcts.amp.notify.templates.ProductionAccessRequestEmail;
+import uk.gov.hmcts.amp.notify.templates.ProductionRequestConsumerEmail;
 import uk.gov.service.notify.NotificationClientApi;
 import uk.gov.service.notify.NotificationClientException;
 import uk.gov.service.notify.SendEmailResponse;
@@ -29,7 +29,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class NotifyServiceTest {
 
-    private static final String TEMPLATE = ProductionAccessRequestEmail.TEMPLATE_ID;
+    private static final String TEMPLATE = ProductionRequestConsumerEmail.TEMPLATE_ID;
 
     @Mock
     private NotifyProperties config;
@@ -102,8 +102,8 @@ class NotifyServiceTest {
         when(clientProvider.getIfAvailable()).thenReturn(notifyClient);
     }
 
-    private ProductionAccessRequestEmail request() {
-        return new ProductionAccessRequestEmail("ada.lovelace@hmcts.net", "Ada Lovelace", "Case Viewer",
+    private ProductionRequestConsumerEmail request() {
+        return new ProductionRequestConsumerEmail("ada.lovelace@hmcts.net", "Ada Lovelace", "Case Viewer",
             List.of("Court Schedule", "Hearing Results"), "case-viewer");
     }
 }

@@ -846,7 +846,7 @@ components:
                 The API's Try It Now page in the developer portal, where its
                 operations can be run with sandbox credentials. Absent where
                 no Try It Now API is configured for it
-              example: https://amp-portal.sandbox.api.hmcts.net/api-details#api=try-it-now---public-api
+              example: https://amp-portal.sandbox.api.hmcts.net/api-details#api=try-it-now-slc
             resourceAppId:
               type: string
               description: >-

@@ -15,8 +15,8 @@ class ApimPropertiesTest {
 
     @Test
     void configured_try_it_now_api_should_be_returned_by_short_code() {
-        assertThat(withTryItNowApis(Map.of("slc", "try-it-now---public-api")).tryItNowApi("slc"))
-            .isEqualTo("try-it-now---public-api");
+        assertThat(withTryItNowApis(Map.of("slc", "try-it-now-slc")).tryItNowApi("slc"))
+            .isEqualTo("try-it-now-slc");
     }
 
     @Test

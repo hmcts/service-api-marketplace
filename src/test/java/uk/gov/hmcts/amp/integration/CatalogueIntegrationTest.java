@@ -8,6 +8,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -27,6 +28,8 @@ class CatalogueIntegrationTest {
     static final String SLC_RESOURCE_APP_ID = "11111111-1111-1111-1111-111111111111";
 
     private static final String PATH = "/catalogue";
+    /** Pinned rather than read from the controller: this is wording a consumer reads. */
+    private static final String NOT_PUBLISHED = "No description has been published for this API yet.";
 
     @Autowired
     private MockMvc mockMvc;
@@ -111,6 +114,31 @@ class CatalogueIntegrationTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.resourceAppId").doesNotExist())
             .andExpect(jsonPath("$.role").value("app.read"));
+    }
+
+    @Test
+    void an_api_with_no_published_specification_should_still_be_listed() throws Exception {
+        WireMockPortalInitialise.unpublish(WireMockPortalInitialise.SLC);
+        try {
+            mockMvc.perform(get(PATH))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.shortCode == 'slc')].summary")
+                    .value(hasItem(NOT_PUBLISHED)));
+        } finally {
+            WireMockPortalInitialise.republish(WireMockPortalInitialise.SLC);
+        }
+    }
+
+    @Test
+    void an_api_with_no_published_specification_should_say_so_on_its_own_page() throws Exception {
+        WireMockPortalInitialise.unpublish(WireMockPortalInitialise.SLC);
+        try {
+            mockMvc.perform(get(PATH + "/slc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.description").value(NOT_PUBLISHED));
+        } finally {
+            WireMockPortalInitialise.republish(WireMockPortalInitialise.SLC);
+        }
     }
 
     @Test

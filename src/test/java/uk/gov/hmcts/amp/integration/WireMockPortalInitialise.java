@@ -1,6 +1,9 @@
 package uk.gov.hmcts.amp.integration;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
+
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.web.client.RestClient;
@@ -20,6 +23,7 @@ public class WireMockPortalInitialise implements ApplicationContextInitializer<C
     public static final String DL = "crime-defendant-details-api";
 
     private static final WireMockServer WIREMOCK_PORTAL = new WireMockServer(wireMockConfig().dynamicPort());
+    private static final Map<String, String> PUBLISHED = new HashMap<>();
 
     static {
         WIREMOCK_PORTAL.start();
@@ -47,7 +51,19 @@ public class WireMockPortalInitialise implements ApplicationContextInitializer<C
             RestClient.builder().baseUrl(WIREMOCK_PORTAL.baseUrl()).build());
     }
 
+    /** The portal answering for an API nobody has published a specification for. */
+    public static void unpublish(final String apimApiName) {
+        WIREMOCK_PORTAL.stubFor(get(urlPathEqualTo("/developer/apis/" + apimApiName))
+            .willReturn(aResponse().withStatus(404)));
+    }
+
+    /** Puts back what unpublish took away, so one test does not decide another's answer. */
+    public static void republish(final String apimApiName) {
+        publish(apimApiName, PUBLISHED.get(apimApiName));
+    }
+
     private static void publish(final String apimApiName, final String description) {
+        PUBLISHED.put(apimApiName, description);
         final String specPath = "/api-export/" + apimApiName;
         WIREMOCK_PORTAL.stubFor(get(urlPathEqualTo("/developer/apis/" + apimApiName))
             .willReturn(aResponse().withStatus(200)

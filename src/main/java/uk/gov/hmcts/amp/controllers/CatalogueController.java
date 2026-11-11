@@ -23,6 +23,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class CatalogueController implements CatalogueApi {
 
+    static final String NOT_PUBLISHED = "No description has been published for this API yet.";
+
     private final MarketplaceApiRepository apis;
     private final ApimProperties apim;
     private final EntraProperties entra;
@@ -47,7 +49,17 @@ public class CatalogueController implements CatalogueApi {
     }
 
     private String description(final MarketplaceApiEntity api) {
-        return developerPortal.description(api.getApimApiName());
+        final String published = publishedDescription(api);
+        return published == null || published.isBlank() ? NOT_PUBLISHED : published;
+    }
+
+    /** Null where the portal could not be read, which the client has already said why. */
+    private String publishedDescription(final MarketplaceApiEntity api) {
+        try {
+            return developerPortal.description(api.getApimApiName());
+        } catch (final RuntimeException notRead) {
+            return null;
+        }
     }
 
     /** An API with no resource app in this environment is listed without one, not hidden. */

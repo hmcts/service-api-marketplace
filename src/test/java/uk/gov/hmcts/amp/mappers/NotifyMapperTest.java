@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.InstanceOfAssertFactories.list;
 
 /**
  * The service tests mock this away, so every field a template carries is pinned here, by the
@@ -54,12 +55,70 @@ class NotifyMapperTest {
             Map.entry("submitted_time", "2:30pm"),
             Map.entry("consumer_name", "Ada Lovelace"),
             Map.entry("consumer_email_address", "ada.lovelace@hmcts.net"),
-            Map.entry("consumer_organisation", "Example Legal Ltd"),
+            Map.entry("organisation_type", "Other external organisation"),
+            Map.entry("consumer_team", "Example Legal Ltd"),
             Map.entry("go_live_date", "27 March 2027"),
-            Map.entry("expected_call_volumes", "low"),
+            Map.entry("expected_call_volumes", "Low (under 1,000 calls per day)"),
             Map.entry("api_list", APIS),
             Map.entry("data_request_description", "Hearing outcomes for listed cases."),
-            Map.entry("proposed_outputs", "A weekly outcomes report."));
+            Map.entry("proposed_outputs", "A weekly outcomes report."),
+            Map.entry("data_recipient_list",
+                List.of("Me/my immediate team only", "Supplier/contract/delivery partner")),
+            Map.entry("data_recipients_explanation", "Our delivery partner runs the ingest."),
+            Map.entry("data_combined", "Yes"),
+            Map.entry("data_combined_description", "Joined to our case tracker."));
+    }
+
+    @Test
+    void the_review_email_should_fill_every_placeholder_the_notify_template_prints() {
+        // These names belong to the Notify template, not to us. Notify fails the whole send
+        // with a 400 when a template prints a placeholder the sender left out, so a rename
+        // in the template is a breaking change until this list follows it.
+        assertThat(notifyMapper.toReviewEmail(request(), user(), APIS, INBOX).getPersonalisation())
+            .containsKeys("application_name", "submitted_date", "submitted_time", "consumer_name",
+                "consumer_email_address", "organisation_type", "consumer_team", "go_live_date",
+                "expected_call_volumes", "api_list", "data_request_description", "data_recipient_list",
+                "data_recipients_explanation", "data_combined", "data_combined_description");
+    }
+
+    @Test
+    void the_triage_answers_should_reach_the_reviewer_as_wording_and_not_as_slugs() {
+        // The reviewer reads this email. own-team tells them nothing the form's own words do not.
+        Map<String, Object> personalisation =
+            notifyMapper.toReviewEmail(request(), user(), APIS, INBOX).getPersonalisation();
+
+        assertThat(personalisation).containsEntry("organisation_type", "Other external organisation");
+        assertThat(personalisation).containsEntry("data_combined", "Yes");
+        assertThat(personalisation.get("data_recipient_list"))
+            .asInstanceOf(list(String.class))
+            .containsExactly("Me/my immediate team only", "Supplier/contract/delivery partner");
+    }
+
+    @Test
+    void the_recipient_list_should_stay_a_list_so_notify_renders_it_as_bullets() {
+        assertThat(notifyMapper.toReviewEmail(request(), user(), APIS, INBOX)
+            .getPersonalisation().get("data_recipient_list")).isInstanceOf(List.class);
+    }
+
+    @Test
+    void requests_made_before_the_triage_questions_should_send_empty_answers_not_fail() {
+        // Map.ofEntries rejects a null outright, so an unanswered question would lose the
+        // reviewer their whole email rather than one line of it.
+        ProductionRequestEntity older = request();
+        older.setOrganisationType(null);
+        older.setDataRecipients(null);
+        older.setDataRecipientsExplanation(null);
+        older.setDataCombined(null);
+        older.setDataCombinedDescription(null);
+
+        Map<String, Object> personalisation =
+            notifyMapper.toReviewEmail(older, user(), APIS, INBOX).getPersonalisation();
+
+        assertThat(personalisation).containsEntry("organisation_type", "");
+        assertThat(personalisation).containsEntry("data_recipient_list", List.of());
+        assertThat(personalisation).containsEntry("data_recipients_explanation", "");
+        assertThat(personalisation).containsEntry("data_combined", "");
+        assertThat(personalisation).containsEntry("data_combined_description", "");
     }
 
     @Test
@@ -124,6 +183,11 @@ class NotifyMapperTest {
         request.setCallVolume("low");
         request.setDataRequest("Hearing outcomes for listed cases.");
         request.setProposedOutputs("A weekly outcomes report.");
+        request.setOrganisationType("external");
+        request.setDataRecipients(List.of("own-team", "supplier"));
+        request.setDataRecipientsExplanation("Our delivery partner runs the ingest.");
+        request.setDataCombined("yes");
+        request.setDataCombinedDescription("Joined to our case tracker.");
         return request;
     }
 }

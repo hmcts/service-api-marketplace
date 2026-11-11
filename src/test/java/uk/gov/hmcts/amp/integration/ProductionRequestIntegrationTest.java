@@ -180,12 +180,33 @@ class ProductionRequestIntegrationTest {
                 {"email_address":"%s","template_id":"%s",
                  "personalisation":{"application_name":"Case Viewer","consumer_name":"Ada Lovelace",
                   "consumer_email_address":"ada.lovelace@hmcts.net",
-                  "consumer_organisation":"Example Legal Ltd","go_live_date":"27 March 2027",
-                  "expected_call_volumes":"low",
+                  "organisation_type":"","consumer_team":"Example Legal Ltd",
+                  "go_live_date":"27 March 2027",
+                  "expected_call_volumes":"Low (under 1,000 calls per day)",
                   "api_list":["Scheduling and Listing Court Schedule"],
                   "data_request_description":"Hearing outcomes for listed cases.",
                   "proposed_outputs":"A weekly outcomes report."}}"""
                 .formatted(REVIEW_INBOX, ProductionAccessReviewEmail.TEMPLATE_ID), true, true)));
+    }
+
+    @Test
+    void the_review_email_should_carry_the_triage_answers_as_wording_not_as_slugs() throws Exception {
+        createApplication(OWNER_OID);
+
+        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content(triageForm(CLIENT_ID)));
+
+        wireMockNotify().verify(postRequestedFor(urlPathEqualTo(SEND_EMAIL))
+            .withRequestBody(equalToJson("""
+                {"email_address":"%s","template_id":"%s",
+                 "personalisation":{
+                  "organisation_type":"Other external organisation",
+                  "consumer_team":"Example Legal Ltd",
+                  "data_recipient_list":["Me/my immediate team only","Supplier/contract/delivery partner"],
+                  "data_recipients_explanation":"Our delivery partner builds the case view on our behalf.",
+                  "data_combined":"Yes",
+                  "data_combined_description":"Our own case management records."}}"""
+                .formatted(REVIEW_INBOX, ProductionAccessReviewEmail.TEMPLATE_ID), false, true)));
     }
 
     @Test

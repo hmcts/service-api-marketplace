@@ -10,4 +10,9 @@ properties([
 // sandbox has its own subscription; every other environment here is nonprod.
 def subscription = params.ENVIRONMENT == 'sandbox' ? 'sandbox' : 'nonprod'
 
-withParameterizedPipeline('java', 'amp', 'marketplace', params.ENVIRONMENT, subscription) {}
+withParameterizedPipeline('java', 'amp', 'marketplace', params.ENVIRONMENT, subscription) {
+  // AMP sandbox is a long-lived environment, so keep its infrastructure out of the sandbox cleardown.
+  // The expiresAfter tag is only applied in sandbox.
+  // https://hmcts.github.io/cloud-native-platform/standards/environments/sandbox-cleardown.html
+  expires("3000-01-01")
+}

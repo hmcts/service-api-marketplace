@@ -53,10 +53,11 @@ apim:
   portal-url: ${DEVELOPER_PORTAL_URL:https://amp-portal.sandbox.api.hmcts.net}
   # The Try It Now API each catalogue entry links to in the developer portal, as APIM names it
   # (amp-try-it-now apim/*.tfvars). Not apim_api_name, which is the real API and is only used to
-  # read the description. Names differ between environments: demo's slc is try-it-now-slc. Blank
-  # publishes the API without a portal link.
+  # read the description. Every environment names them try-it-now-<short code> (amp-try-it-now
+  # renamed sandbox's slc from try-slc's try-it-now---public-api). Blank publishes the API without
+  # a portal link.
   try-it-now-apis:
-    slc: ${APIM_TRY_IT_NOW_API_SLC:try-it-now---public-api}
+    slc: ${APIM_TRY_IT_NOW_API_SLC:try-it-now-slc}
     rcc: ${APIM_TRY_IT_NOW_API_RCC:try-it-now-rcc}
     pcd: ${APIM_TRY_IT_NOW_API_PCD:try-it-now-pcd}
     dl: ${APIM_TRY_IT_NOW_API_DL:try-it-now-dl}

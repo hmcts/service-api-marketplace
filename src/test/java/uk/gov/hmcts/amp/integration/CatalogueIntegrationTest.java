@@ -84,10 +84,10 @@ class CatalogueIntegrationTest {
     @Test
     void one_api_should_link_to_its_page_in_the_developer_portal() throws Exception {
         // The Try It Now API, not apim_api_name: that names the real API, which a sandbox
-        // consumer cannot call. slc's name is the one sandbox adopted from try-slc.
+        // consumer cannot call.
         mockMvc.perform(get(PATH + "/slc"))
             .andExpect(jsonPath("$.portalUrl").value(WireMockPortalInitialise.PORTAL
-                + "/api-details#api=try-it-now---public-api"));
+                + "/api-details#api=try-it-now-slc"));
 
         mockMvc.perform(get(PATH + "/pcd"))
             .andExpect(jsonPath("$.portalUrl").value(WireMockPortalInitialise.PORTAL

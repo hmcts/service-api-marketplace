@@ -12,9 +12,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.config.ApimProperties;
+import uk.gov.hmcts.amp.domain.ConsumerNames;
 import uk.gov.hmcts.amp.domain.SubscriptionKey;
+import uk.gov.hmcts.amp.entity.ApplicationApiEntity;
+import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
+import uk.gov.hmcts.amp.repository.ApplicationRepository;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -26,30 +32,26 @@ public class ApimSubscriptionKeyService {
 
     private final ApiManagementManager apim;
     private final UserService users;
+    private final ApplicationRepository applications;
+    private final ApplicationApiRepository applicationApis;
     private final ApimProperties apimProperties;
 
-
-
     public List<SubscriptionKey> list(final String requestingUserId) {
-        final String prefix = prefixFor(requestingUserId);
+        final Set<String> owned = ownedNames(requestingUserId);
         // The listing is paged lazily, so Azure is only called, and can only fail, inside the stream
         try {
             return apim.subscriptions().list(apimProperties.resourceGroup(), apimProperties.serviceName()).stream()
                 .map(ApimSubscriptionKeyService::asSubscriptionKey)
-                .filter(subscription -> subscription.name().startsWith(prefix))
+                .filter(subscription -> owned.contains(subscription.name()))
                 .toList();
         } catch (final ManagementException e) {
-            throw translate(prefix + "*", e);
+            throw translate("*", e);
         }
     }
 
     public SubscriptionKey create(final String requestingUserId, final String name, final String productId,
                                   final String displayName) {
-        final String prefix = prefixFor(requestingUserId);
-        if (!name.startsWith(prefix)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "A subscription name must start with " + prefix + ".");
-        }
+        requireBuiltFromOwnApplication(requestingUserId, name);
         // Azure's createOrUpdate is a PUT, so without this a second create silently re-points an
         // existing key at a different product and reports it as created.
         if (exists(name)) {
@@ -97,13 +99,39 @@ public class ApimSubscriptionKeyService {
         }
     }
 
-    private String prefixFor(final String requestingUserId) {
-        return UserService.namePrefix(users.requireSignedIn(requestingUserId));
+    /** Only for a subscription this service has just created and could not record, so it has no owner yet. */
+    public void discard(final String name) {
+        try {
+            apim.subscriptions().delete(apimProperties.resourceGroup(),
+                apimProperties.serviceName(), name, MATCH_ANY_STATE);
+        } catch (final ManagementException e) {
+            throw translate(name, e);
+        }
+    }
+
+    // API short codes contain no hyphen, so a name cannot match another application's prefix.
+    protected void requireBuiltFromOwnApplication(final String requestingUserId, final String name) {
+        final Long userId = users.requireSignedIn(requestingUserId).getId();
+        final boolean own = applications.findByUserIdOrderByCreatedAtAsc(userId).stream()
+            .map(application -> ConsumerNames.subscription(application.getAppname(), ""))
+            .anyMatch(prefix -> name.length() > prefix.length() && name.startsWith(prefix)
+                && name.indexOf('-', prefix.length()) < 0);
+        if (!own) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "A subscription name must be built from one of your applications.");
+        }
+    }
+
+    protected Set<String> ownedNames(final String requestingUserId) {
+        final Long userId = users.requireSignedIn(requestingUserId).getId();
+        return applicationApis.findByApplicationUserId(userId).stream()
+            .map(ApplicationApiEntity::getSubscriptionName)
+            .collect(Collectors.toSet());
     }
 
     /** 404 rather than 403, so a name outside the caller's own reads the same as one that does not exist. */
-    private void requireOwned(final String requestingUserId, final String name) {
-        if (!name.startsWith(prefixFor(requestingUserId))) {
+    protected void requireOwned(final String requestingUserId, final String name) {
+        if (!ownedNames(requestingUserId).contains(name)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No subscription named " + name + ".");
         }
     }

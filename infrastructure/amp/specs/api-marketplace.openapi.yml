@@ -13,10 +13,9 @@ info:
     no session of its own.
 
     /apim/subscription-keys is where subscriptions are created, read and
-    revoked. A subscription belongs to whoever created it: the name carries
-    that person's prefix, amp-user001- say, and the instance is shared with
-    SPS, so listing shows only their own and naming someone else's reads as
-    though it is not there.
+    revoked. A subscription belongs to whoever owns the application it was
+    created for, and the instance is shared with SPS, so listing shows only
+    their own and naming someone else's reads as though it is not there.
   version: 1.0.0
   contact:
     email: no-reply@hmcts.com
@@ -567,7 +566,7 @@ paths:
       description: >-
         Names, scopes and state. Never key values: Azure does not return them
         from a list, and asking per subscription would be a call each. Only
-        the caller's own, matched on the amp-user001- prefix in the name.
+        the caller's own: those recorded against their applications.
       operationId: listSubscriptionKeys
       tags: [subscription-keys]
       parameters:
@@ -595,7 +594,7 @@ paths:
         One API per call, so a UI looping over several can show progress and
         report the ones that failed. The short code resolves to a product
         through the catalogue, the subscription is named
-        amp-userNNN-<appname>-<shortCode>, and the row recording it against
+        amp-consumer-<appname>-<shortCode>, and the row recording it against
         the application is written here. The key is in this response and
         nowhere else; reading it back is a call to APIM.
 
@@ -724,7 +723,7 @@ components:
       description: APIM's own subscription name, as returned by create
       schema:
         type: string
-        example: amp-user001-case-viewer-slc
+        example: amp-consumer-case-viewer-slc
 
     ClientId:
       name: clientId
@@ -1161,7 +1160,7 @@ components:
           example: cp-crime-schedulingandlisting
         subscriptionName:
           type: string
-          example: amp-user001-case-viewer-slc
+          example: amp-consumer-case-viewer-slc
         subscriptionKey:
           type: string
           description: Returned here and nowhere else; read it back from APIM
@@ -1173,7 +1172,7 @@ components:
         name:
           type: string
           description: APIM's subscription name, and the id for the other calls
-          example: amp-user001-case-viewer-slc
+          example: amp-consumer-case-viewer-slc
         displayName:
           type: string
           example: Case Viewer

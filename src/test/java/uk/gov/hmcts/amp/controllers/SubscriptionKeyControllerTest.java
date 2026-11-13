@@ -52,7 +52,7 @@ class SubscriptionKeyControllerTest {
     void creating_a_key_should_pass_the_application_and_short_code_through() {
         ApiSubscriptionRequest request = new ApiSubscriptionRequest(CLIENT_ID, "slc");
         ApiSubscriptionResponse subscribed = new ApiSubscriptionResponse("slc", "Court Schedule",
-            "cp-crime-schedulingandlisting", "amp-user001-case-viewer-slc", "a-key");
+            "cp-crime-schedulingandlisting", "amp-consumer-case-viewer-slc", "a-key");
         when(applications.subscribe(OID, CLIENT_ID, "slc")).thenReturn(subscribed);
 
         assertThat(controller.createSubscriptionKey(OID, request)).isEqualTo(mapper.toApiSubscription(subscribed));

@@ -18,7 +18,7 @@ class LocalEntraAppRegistrationServiceTest {
 
     @Test
     void registering_should_come_back_with_made_up_credentials() {
-        AppRegistration registered = service.register("amp-user001-case-viewer",
+        AppRegistration registered = service.register("amp-consumer-case-viewer",
             List.of(new ApiGrant("slc", "a-resource-app", "app.read")));
 
         assertThat(registered.clientId()).isNotBlank();
@@ -30,19 +30,19 @@ class LocalEntraAppRegistrationServiceTest {
 
     @Test
     void reading_one_back_should_carry_the_roles_granted_since() {
-        String clientId = service.register("amp-user001-case-viewer", List.of()).clientId();
+        String clientId = service.register("amp-consumer-case-viewer", List.of()).clientId();
 
         service.grantApiAccess(clientId, "a-resource-app", "app.read");
 
         AppRegistration found = service.get(clientId);
-        assertThat(found.displayName()).isEqualTo("amp-user001-case-viewer");
+        assertThat(found.displayName()).isEqualTo("amp-consumer-case-viewer");
         assertThat(found.roles()).containsExactly("app.read");
     }
 
     @Test
     void listing_should_return_every_registration_it_holds() {
-        String first = service.register("amp-user001-first", List.of()).clientId();
-        String second = service.register("amp-user001-second", List.of()).clientId();
+        String first = service.register("amp-consumer-first", List.of()).clientId();
+        String second = service.register("amp-consumer-second", List.of()).clientId();
 
         // In any order: two made in the same instant have equal created times.
         assertThat(service.list()).extracting(AppRegistration::clientId).containsExactlyInAnyOrder(first, second);
@@ -57,7 +57,7 @@ class LocalEntraAppRegistrationServiceTest {
 
     @Test
     void deleting_should_forget_it_and_deleting_again_should_not_fail() {
-        String clientId = service.register("amp-user001-case-viewer", List.of()).clientId();
+        String clientId = service.register("amp-consumer-case-viewer", List.of()).clientId();
 
         service.delete(clientId);
         service.delete(clientId);

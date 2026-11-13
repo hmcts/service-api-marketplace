@@ -2,6 +2,7 @@ package uk.gov.hmcts.amp.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -11,6 +12,7 @@ import uk.gov.hmcts.amp.domain.ApiSubscriptionResponse;
 import uk.gov.hmcts.amp.domain.AppRegistration;
 import uk.gov.hmcts.amp.domain.ApplicationRequest;
 import uk.gov.hmcts.amp.domain.ApplicationResponse;
+import uk.gov.hmcts.amp.domain.ConsumerNames;
 import uk.gov.hmcts.amp.domain.SubscriptionKey;
 import uk.gov.hmcts.amp.entity.ApplicationApiEntity;
 import uk.gov.hmcts.amp.entity.ApplicationEntity;
@@ -32,6 +34,8 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ApplicationService {
+
+    private static final String APPNAME_INDEX = "application_appname_idx";
 
     private static final int HINT_LENGTH = 3;
 
@@ -62,21 +66,18 @@ public class ApplicationService {
     public ApplicationResponse create(final String requestingUserId, final ApplicationRequest request) {
         final UserEntity user = users.requireSignedIn(requestingUserId);
         final String appname = request.appname();
-        if (applications.existsByUserIdAndAppname(user.getId(), appname)) {
-            throw new ResponseStatusException(
-                HttpStatus.CONFLICT,
-                "You already have an application called " + request.name() + "."
-            );
+        if (applications.existsByAppname(appname)) {
+            throw nameTaken(request);
         }
 
         final AppRegistration registered =
-            registrations.register(UserService.namePrefix(user) + appname, grantsFor(request.apis()));
+            registrations.register(ConsumerNames.appRegistration(appname), grantsFor(request.apis()));
         try {
             return response(save(user, request, appname, registered))
                 .withSecret(registered.clientSecret());
         } catch (final RuntimeException couldNotSave) {
             removeOrphan(registered, couldNotSave);
-            throw couldNotSave;
+            throw isAppnameClash(couldNotSave) ? nameTaken(request) : couldNotSave;
         }
     }
 
@@ -87,14 +88,18 @@ public class ApplicationService {
         final MarketplaceApiEntity api = requireKnownApi(shortCode);
         requireNotAlreadySubscribed(application, api);
 
-        final String name = UserService.namePrefix(user) + application.getAppname()
-            + "-" + api.getShortCode();
+        final String name = ConsumerNames.subscription(application.getAppname(), api.getShortCode());
         final SubscriptionKey created = subscriptionKeys.create(
             requestingUserId, name,
             api.getProductId(), application.getName()
         );
 
-        record(application, api, name, created.primaryKey());
+        try {
+            record(application, api, name, created.primaryKey());
+        } catch (final RuntimeException couldNotRecord) {
+            discardSubscription(name, couldNotRecord);
+            throw couldNotRecord;
+        }
         log.info("Subscribed application {} to {} as {}", clientId, api.getShortCode(), name);
         return new ApiSubscriptionResponse(
             api.getShortCode(), api.getTitle(), api.getProductId(),
@@ -196,6 +201,29 @@ public class ApplicationService {
                 registered.clientId(), cleanupFailed
             );
         }
+    }
+
+    // Ownership comes from the row, so an unrecorded subscription could never be deleted by its owner.
+    private void discardSubscription(final String name, final RuntimeException cause) {
+        try {
+            subscriptionKeys.discard(name);
+            log.warn("Could not record subscription {}; removed it from API Management", name);
+        } catch (final RuntimeException cleanupFailed) {
+            cause.addSuppressed(cleanupFailed);
+            log.error("Could not record subscription {} and could not remove it either", name, cleanupFailed);
+        }
+    }
+
+    private static boolean isAppnameClash(final RuntimeException cause) {
+        return cause instanceof DataIntegrityViolationException clash
+            && String.valueOf(clash.getMostSpecificCause().getMessage()).contains(APPNAME_INDEX);
+    }
+
+    private static ResponseStatusException nameTaken(final ApplicationRequest request) {
+        return new ResponseStatusException(
+            HttpStatus.CONFLICT,
+            "An application called " + request.name() + " already exists. Choose another name."
+        );
     }
 
     private ApplicationResponse response(final ApplicationEntity application) {

@@ -6,10 +6,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.config.ApimProperties;
 import uk.gov.hmcts.amp.domain.SubscriptionKey;
+import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
+import uk.gov.hmcts.amp.repository.ApplicationRepository;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -24,31 +27,27 @@ public class LocalApimSubscriptionKeyService extends ApimSubscriptionKeyService 
     private static final String PRODUCTS = "/products/";
     private static final String ACTIVE = "active";
 
-    private final UserService users;
     private final Map<String, SubscriptionKey> subscriptions = new ConcurrentHashMap<>();
 
     public LocalApimSubscriptionKeyService(final ApiManagementManager apim, final UserService users,
+                                           final ApplicationRepository applications,
+                                           final ApplicationApiRepository applicationApis,
                                            final ApimProperties apimProperties) {
-        super(apim, users, apimProperties);
-        this.users = users;
+        super(apim, users, applications, applicationApis, apimProperties);
     }
 
     @Override
     public List<SubscriptionKey> list(final String requestingUserId) {
-        final String prefix = callerPrefix(requestingUserId);
+        final Set<String> owned = ownedNames(requestingUserId);
         return subscriptions.values().stream()
-            .filter(subscription -> subscription.name().startsWith(prefix))
+            .filter(subscription -> owned.contains(subscription.name()))
             .toList();
     }
 
     @Override
     public SubscriptionKey create(final String requestingUserId, final String name, final String productId,
                                   final String displayName) {
-        final String prefix = callerPrefix(requestingUserId);
-        if (!name.startsWith(prefix)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "A subscription name must start with " + prefix + ".");
-        }
+        requireBuiltFromOwnApplication(requestingUserId, name);
         final SubscriptionKey created = new SubscriptionKey(name, displayName, PRODUCTS + productId, productId,
             ACTIVE, null, null);
         if (subscriptions.putIfAbsent(name, created) != null) {
@@ -61,25 +60,20 @@ public class LocalApimSubscriptionKeyService extends ApimSubscriptionKeyService 
 
     @Override
     public SubscriptionKey keyValues(final String requestingUserId, final String name) {
-        requireCallerOwns(requestingUserId, name);
+        requireOwned(requestingUserId, name);
         return SubscriptionKey.keysOnly(name, key(name, "primary"), key(name, "secondary"));
     }
 
     @Override
     public void delete(final String requestingUserId, final String name) {
-        requireCallerOwns(requestingUserId, name);
+        requireOwned(requestingUserId, name);
         subscriptions.remove(name);
         log.warn("ENTRA_BYPASS: forgot APIM subscription {}", name);
     }
 
-    private String callerPrefix(final String requestingUserId) {
-        return UserService.namePrefix(users.requireSignedIn(requestingUserId));
-    }
-
-    private void requireCallerOwns(final String requestingUserId, final String name) {
-        if (!name.startsWith(callerPrefix(requestingUserId))) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No subscription named " + name + ".");
-        }
+    @Override
+    public void discard(final String name) {
+        subscriptions.remove(name);
     }
 
     private static String key(final String name, final String which) {

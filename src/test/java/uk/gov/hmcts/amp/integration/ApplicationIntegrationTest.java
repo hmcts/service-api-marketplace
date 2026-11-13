@@ -30,7 +30,6 @@ import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubApplicati
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubApplicationList;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubNoApplications;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubRegistration;
-import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.stubRegistrationAs;
 import static uk.gov.hmcts.amp.integration.WireMockGraphInitialise.wireMockGraph;
 
 /** /applications against WireMock, with the ownership boundary the -new endpoints do not have. */
@@ -185,17 +184,17 @@ class ApplicationIntegrationTest {
     }
 
     @Test
-    void two_users_should_be_able_to_use_the_same_name() throws Exception {
+    void name_another_user_has_taken_should_conflict() throws Exception {
         create(OWNER_OID, "Case Viewer");
-        stubRegistrationAs("77777777-7777-7777-7777-777777777777", "client-other");
 
         mockMvc.perform(post(PATH).header("requestingUserId", OTHER_OID)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Case Viewer\"}"))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.appname").value("case-viewer"));
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error")
+                .value("An application called Case Viewer already exists. Choose another name."));
 
         mockMvc.perform(get(PATH).header("requestingUserId", OTHER_OID))
-            .andExpect(jsonPath("$[0].clientId").value("client-other"));
+            .andExpect(jsonPath("$").isEmpty());
     }
 
     @Test

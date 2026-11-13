@@ -1,6 +1,5 @@
 package uk.gov.hmcts.amp.integration;
 
-import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,9 +8,13 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
+import uk.gov.hmcts.amp.entity.ApplicationApiEntity;
+import uk.gov.hmcts.amp.entity.ApplicationEntity;
 import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
+
+import java.time.LocalDateTime;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.deleteRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
@@ -34,7 +37,8 @@ class ApimSubscriptionKeyIntegrationTest {
 
     private static final String PATH = "/apim/subscription-keys";
     private static final String OWNER_OID = "aaaaaaaa-1111-2222-3333-444444444444";
-    private static final String SOMEONE_ELSES = "amp-user999-team-beta";
+    private static final String SOMEONE_ELSES = "amp-consumer-team-beta-slc";
+    private static final String NEVER_CREATED = "amp-consumer-team-alpha-pcd";
 
     @Autowired
     private MockMvc mockMvc;
@@ -56,7 +60,11 @@ class ApimSubscriptionKeyIntegrationTest {
         applicationApis.deleteAll();
         applications.deleteAll();
         users.deleteAll();
-        mine = prefixOf(OWNER_OID) + "team-alpha";
+        mine = "amp-consumer-team-alpha-slc";
+        signIn(OWNER_OID);
+        ApplicationEntity application = applications.save(teamAlpha());
+        applicationApis.save(subscribed(application, "slc", mine));
+        applicationApis.save(subscribed(application, "pcd", NEVER_CREATED));
     }
 
     @Test
@@ -142,21 +150,43 @@ class ApimSubscriptionKeyIntegrationTest {
 
     @Test
     void deleting_a_key_that_is_not_there_should_be_a_not_found() throws Exception {
-        String neverCreated = prefixOf(OWNER_OID) + "never-created";
-        stubSubscriptionLifecycle(neverCreated);
+        stubSubscriptionLifecycle(NEVER_CREATED);
 
         // Azure answers this with success, which would not tell you whether anything was revoked.
-        mockMvc.perform(delete(PATH + "/" + neverCreated).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(delete(PATH + "/" + NEVER_CREATED).header("requestingUserId", OWNER_OID))
             .andExpect(status().isNotFound());
     }
 
-    /** The reference is the row id, so it has to come back from the sign in rather than be assumed. */
-    private String prefixOf(final String oid) throws Exception {
-        String body = mockMvc.perform(post("/session").contentType(MediaType.APPLICATION_JSON)
+    private void signIn(final String oid) throws Exception {
+        mockMvc.perform(post("/session").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"objectId\":\"" + oid + "\",\"email\":\"ada.lovelace@hmcts.net\","
                     + "\"name\":\"Ada Lovelace\"}"))
-            .andExpect(status().isOk())
-            .andReturn().getResponse().getContentAsString();
-        return "amp-" + JsonPath.<String>read(body, "$.userReference") + "-";
+            .andExpect(status().isOk());
+    }
+
+    private ApplicationEntity teamAlpha() {
+        ApplicationEntity entity = new ApplicationEntity();
+        entity.setUser(users.findByEntraObjectId(OWNER_OID).orElseThrow());
+        entity.setName("Team Alpha");
+        entity.setAppname("team-alpha");
+        entity.setClientId("client-team-alpha");
+        entity.setObjectId("object-team-alpha");
+        entity.setSecretHint("Uc6");
+        entity.setSecretKeyId("key-team-alpha");
+        entity.setSecretExpiresAt(LocalDateTime.of(2028, 1, 1, 0, 0));
+        entity.setCreatedAt(LocalDateTime.of(2026, 1, 1, 0, 0));
+        return entity;
+    }
+
+    private static ApplicationApiEntity subscribed(final ApplicationEntity application, final String shortCode,
+                                                   final String name) {
+        ApplicationApiEntity entity = new ApplicationApiEntity();
+        entity.setApplication(application);
+        entity.setShortCode(shortCode);
+        entity.setProductId("cp-crime-schedulingandlisting");
+        entity.setSubscriptionName(name);
+        entity.setKeyHint("a1b");
+        entity.setSubscribedAt(LocalDateTime.of(2026, 1, 1, 0, 0));
+        return entity;
     }
 }

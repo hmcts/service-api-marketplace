@@ -102,15 +102,15 @@ Seeded with `slc` and `rcc`; the rest go in as each is confirmed against the ins
 
 ## APIM
 
-`requestingUserId` as well. A subscription belongs to whoever created it, and ownership is carried
-by the name rather than a row of ours: it starts with the caller's prefix, `amp-user001-`. Listing
-shows only their own, and naming someone else's reads as 404 rather than 403 - the instance is
-shared with SPS, and a 403 would confirm the subscription exists.
+`requestingUserId` as well. A subscription belongs to whoever owns the application it was created
+for, as recorded in `application_api`. Listing shows only their own, and naming someone else's
+reads as 404 rather than 403 - the instance is shared with SPS, and a 403 would confirm the
+subscription exists.
 
 Creating takes a `clientId` and a short code, one API per call so a UI looping over several can
 show progress and report the ones that failed. The name is derived as
-`amp-userNNN-<appname>-<shortCode>` rather than supplied, which is what keeps it inside the
-caller's prefix, and the product comes from the catalogue. Revoking is the same endpoint in
+`amp-consumer-<appname>-<shortCode>` rather than supplied, and the product comes from the
+catalogue. Revoking is the same endpoint in
 reverse: the subscription goes from APIM and the row claiming the application has it goes too.
 
 | Method | Path | Returns | |

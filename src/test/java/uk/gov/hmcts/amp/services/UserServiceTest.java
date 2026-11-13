@@ -128,14 +128,6 @@ class UserServiceTest {
     }
 
     @Test
-    void the_name_prefix_should_pad_the_user_id_to_three_digits() {
-        UserEntity user = new UserEntity();
-        user.setId(7L);
-
-        assertThat(UserService.namePrefix(user)).isEqualTo("amp-user007-");
-    }
-
-    @Test
     void first_sign_in_should_create_an_active_user() {
         when(clockService.now()).thenReturn(NOW);
         when(userRepository.findByEmail("joe@example.com")).thenReturn(Optional.empty());

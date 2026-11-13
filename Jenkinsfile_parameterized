@@ -11,5 +11,5 @@ properties([
 def subscription = params.ENVIRONMENT == 'sandbox' ? 'sandbox' : 'nonprod'
 
 withParameterizedPipeline('java', 'amp', 'marketplace', params.ENVIRONMENT, subscription) {
-  expires("3000-01-01")
+  expires("2099-12-31")
 }

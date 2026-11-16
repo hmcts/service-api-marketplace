@@ -30,7 +30,7 @@ class MarketplaceAdminMigrationIntegrationTest {
     }
 
     @Test
-    void a_grant_should_be_stamped_with_the_time_it_was_made() {
+    void grant_should_be_stamped_with_the_time_it_was_made() {
         jdbc.update(INSERT, OID);
 
         LocalDateTime grantedAt = jdbc.queryForObject(
@@ -39,7 +39,7 @@ class MarketplaceAdminMigrationIntegrationTest {
     }
 
     @Test
-    void a_grant_should_not_need_the_person_to_have_signed_in() {
+    void grant_should_not_need_the_person_to_have_signed_in() {
         jdbc.update(INSERT, OID);
 
         Integer matched = jdbc.queryForObject(

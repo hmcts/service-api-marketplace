@@ -44,6 +44,10 @@ spring:
     baseline-on-migrate: true
     # Pipelines share a single aat database, so a PR's preview can record migrations that never reach master.
     ignore-migration-patterns: "*:missing,*:future"
+    # Lets a migration act in one environment only. Preview reports UNKNOWN, so it never touches
+    # the aat database it shares.
+    placeholders:
+      environment_name: ${ENVIRONMENT_NAME:UNKNOWN}
 
 apim:
   tenant-id: ${AZURE_TENANT_ID:531ff96d-0ae9-462a-8d2d-bec7c0b42082}

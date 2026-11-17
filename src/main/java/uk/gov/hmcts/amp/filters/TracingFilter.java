@@ -15,13 +15,13 @@ import java.util.UUID;
 public class TracingFilter extends OncePerRequestFilter {
 
     public static final String CORRELATION_ID_HEADER = "X-Correlation-Id";
-    public static final String MDC_CORRELATION_ID = "correlationId";
+    public static final String MDC_CORRELATION_ID = CORRELATION_ID_HEADER;
 
     @Override
     protected void doFilterInternal(final HttpServletRequest request,
                                     final HttpServletResponse response,
                                     final FilterChain filterChain) throws ServletException, IOException {
-        final String correlationId = resolveCorrelationId(request);
+        final String correlationId = getCorrelationId(request);
         MDC.put(MDC_CORRELATION_ID, correlationId);
         response.setHeader(CORRELATION_ID_HEADER, correlationId);
         try {
@@ -40,7 +40,7 @@ public class TracingFilter extends OncePerRequestFilter {
             || path.startsWith("/prometheus");
     }
 
-    private static String resolveCorrelationId(final HttpServletRequest request) {
+    private String getCorrelationId(final HttpServletRequest request) {
         final String inbound = request.getHeader(CORRELATION_ID_HEADER);
         return inbound == null || inbound.isBlank() ? UUID.randomUUID().toString() : inbound;
     }

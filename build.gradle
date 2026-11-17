@@ -228,7 +228,7 @@ dependencies {
 
   testImplementation 'org.wiremock:wiremock-standalone:3.13.2'
 
-  implementation group: 'com.github.hmcts.java-logging', name: 'logging', version: '8.0.0'
+  implementation 'net.logstash.logback:logstash-logback-encoder:9.0'
 
   implementation 'org.apache.logging.log4j:log4j-to-slf4j'
   implementation 'ch.qos.logback:logback-classic'

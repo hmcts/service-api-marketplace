@@ -66,6 +66,7 @@ class UserEndpointIntegrationTest {
             .andExpect(jsonPath("$[0].userReference").value("user%03d".formatted(adaId)))
             .andExpect(jsonPath("$[0].name").value("Ada Lovelace"))
             .andExpect(jsonPath("$[0].status").value("ACTIVE"))
+            .andExpect(jsonPath("$[0].role").value("USER"))
             .andExpect(jsonPath("$[0].lastLoginAt").isNotEmpty());
     }
 

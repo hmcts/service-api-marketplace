@@ -1,6 +1,8 @@
 package uk.gov.hmcts.amp.entity;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -29,6 +31,10 @@ public class UserEntity {
     private String firstName;
     private String lastName;
     private String status;
+
+    @Enumerated(EnumType.STRING)
+    private UserRole role = UserRole.USER;
+
     private LocalDateTime createdAt;
     private LocalDateTime lastLoginAt;
 }

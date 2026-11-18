@@ -16,6 +16,10 @@ import uk.gov.hmcts.amp.repository.UserRepository;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+import java.util.regex.MatchResult;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -24,10 +28,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class GrantAdminsMigrationIntegrationTest {
 
     private static final String MIGRATION = "db/migration/V1.032__grant_admins.sql";
-    private static final String ADMIN_OID = "9ff246b4-11c4-47bf-824f-fc0a31db789a";
-    private static final String LAST_ADMIN_OID = "47787cdd-9942-4266-845c-1841c5dc5929";
-    private static final String OTHER_OID = "cccccccc-1111-2222-3333-444444444444";
-    private static final String TEST_SCRIPT_OID = "11111111-2222-3333-4444-555555555555";
+    private static final Pattern OBJECT_ID =
+        Pattern.compile("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
 
     @Autowired
     private UserRepository userRepository;
@@ -49,29 +51,32 @@ class GrantAdminsMigrationIntegrationTest {
     }
 
     @Test
-    void listed_object_ids_should_become_admin() throws IOException {
-        save(ADMIN_OID, "first@example.com");
-        save(LAST_ADMIN_OID, "last@example.com");
+    void every_object_id_in_the_migration_should_become_admin() throws IOException {
+        List<String> adminOids = OBJECT_ID.matcher(migrationSql()).results().map(MatchResult::group).toList();
+        assertThat(adminOids).isNotEmpty();
+        adminOids.forEach(oid -> save(oid, oid + "@example.com"));
 
         runMigration();
 
-        assertThat(roleOf(ADMIN_OID)).isEqualTo(UserRole.ADMIN);
-        assertThat(roleOf(LAST_ADMIN_OID)).isEqualTo(UserRole.ADMIN);
+        assertThat(adminOids).allSatisfy(oid -> assertThat(roleOf(oid)).isEqualTo(UserRole.ADMIN));
     }
 
     @Test
     void everyone_else_should_stay_a_user() throws IOException {
-        save(OTHER_OID, "other@example.com");
-        save(TEST_SCRIPT_OID, "script@example.com");
+        String otherOid = UUID.randomUUID().toString();
+        save(otherOid, "other@example.com");
 
         runMigration();
 
-        assertThat(roleOf(OTHER_OID)).isEqualTo(UserRole.USER);
-        assertThat(roleOf(TEST_SCRIPT_OID)).isEqualTo(UserRole.USER);
+        assertThat(roleOf(otherOid)).isEqualTo(UserRole.USER);
+    }
+
+    private static String migrationSql() throws IOException {
+        return new ClassPathResource(MIGRATION).getContentAsString(StandardCharsets.UTF_8);
     }
 
     private void runMigration() throws IOException {
-        jdbc.execute(new ClassPathResource(MIGRATION).getContentAsString(StandardCharsets.UTF_8));
+        jdbc.execute(migrationSql());
     }
 
     private UserRole roleOf(final String oid) {

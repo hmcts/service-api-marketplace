@@ -77,3 +77,15 @@ variable "apim_service_name" {
 variable "create_managed_identity" {
   default = false
 }
+
+variable "log_analytics_retention_days" {
+  default = 30
+}
+
+variable "log_analytics_daily_quota_gb" {
+  default = 1
+}
+
+variable "audit_retention_days" {
+  default = 30
+}

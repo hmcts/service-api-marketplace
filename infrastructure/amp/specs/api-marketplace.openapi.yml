@@ -901,6 +901,13 @@ components:
         status:
           type: string
           example: ACTIVE
+        role:
+          type: string
+          enum: [USER, ADMIN]
+          description: >-
+            USER for everyone by default. ADMIN may see every user, application
+            and production request, and is granted only by a migration.
+          example: USER
         createdAt:
           type: string
           format: local-date-time

@@ -12,6 +12,7 @@ import uk.gov.hmcts.amp.mappers.ResponseMapper;
 import uk.gov.hmcts.amp.mappers.ResponseMapperImpl;
 import uk.gov.hmcts.amp.domain.SessionRequest;
 import uk.gov.hmcts.amp.domain.UserResponse;
+import uk.gov.hmcts.amp.entity.UserRole;
 import uk.gov.hmcts.amp.services.UserService;
 
 import java.time.LocalDateTime;
@@ -40,7 +41,7 @@ class SessionControllerTest {
     void starting_a_session_should_return_the_user_from_the_service() {
         LocalDateTime now = LocalDateTime.of(2026, 10, 15, 9, 0);
         UserResponse response = new UserResponse(1L, "user001", OID, "joe@example.com", "Joe Bloggs", "ACTIVE",
-            now, now);
+            UserRole.USER, now, now);
         when(userService.signIn(request)).thenReturn(response);
 
         assertThat(sessionController.createSession(request)).isEqualTo(mapper.toUser(response));

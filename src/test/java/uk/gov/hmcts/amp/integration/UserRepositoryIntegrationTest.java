@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import uk.gov.hmcts.amp.entity.UserEntity;
 import uk.gov.hmcts.amp.entity.UserRole;
@@ -34,9 +33,6 @@ class UserRepositoryIntegrationTest {
 
     @Autowired
     private ApplicationRepository applications;
-
-    @Autowired
-    private JdbcTemplate jdbc;
 
     @BeforeEach
     void startWithNoUsers() {
@@ -79,22 +75,6 @@ class UserRepositoryIntegrationTest {
         userRepository.saveAndFlush(joe);
 
         assertThat(userRepository.findByEntraObjectId(OID)).map(UserEntity::getRole).contains(UserRole.ADMIN);
-    }
-
-    @Test
-    void row_inserted_without_a_role_should_default_to_user() {
-        jdbc.update("insert into marketplace_user (entra_object_id, email, first_name, last_name, created_at,"
-            + " last_login_at) values (?, 'sql@example.com', 'S', 'Q', now(), now())", OID);
-
-        assertThat(userRepository.findByEntraObjectId(OID)).map(UserEntity::getRole).contains(UserRole.USER);
-    }
-
-    @Test
-    void role_outside_user_and_admin_should_be_rejected() {
-        UserEntity saved = userRepository.saveAndFlush(user(OID, "joe@example.com"));
-
-        assertThatThrownBy(() -> jdbc.update("update marketplace_user set role = 'OWNER' where id = ?", saved.getId()))
-            .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test

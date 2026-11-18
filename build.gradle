@@ -208,7 +208,7 @@ dependencies {
   implementation 'org.springframework.boot:spring-boot-starter-validation'
 
   // Admin endpoints only. The service verifies the caller's Entra token itself and reads the
-  // web_admin app role from it; every other path keeps the behaviour it has today.
+  // api_marketplace_admin app role from it; every other path keeps the behaviour it has today.
   implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
   testImplementation 'org.springframework.security:spring-security-test'
 

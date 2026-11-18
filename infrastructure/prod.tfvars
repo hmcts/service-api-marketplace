@@ -8,3 +8,7 @@ create_managed_identity = true
 apim_subscription_id = "890625e2-7a8b-445c-81b4-8044a062cef3" # DTS-SPS-PROD
 apim_resource_group  = "rg-sps-platform-prod"
 apim_service_name    = "sps-api-mgmt-prod"
+
+log_analytics_retention_days = 90
+log_analytics_daily_quota_gb = 5
+audit_retention_days         = 2190

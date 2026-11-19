@@ -3,6 +3,8 @@ package uk.gov.hmcts.amp.controllers;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.RestController;
+import uk.gov.hmcts.amp.audit.AuditAction;
+import uk.gov.hmcts.amp.audit.LogAudit;
 import uk.gov.hmcts.amp.domain.ApiSubscriptionRequest;
 import uk.gov.hmcts.amp.mappers.ResponseMapper;
 import uk.gov.hmcts.amp.openapi.api.SubscriptionKeysApi;
@@ -29,6 +31,8 @@ public class SubscriptionKeyController implements SubscriptionKeysApi {
     }
 
     @Override
+    @LogAudit(action = AuditAction.CONSUMER_SUBSCRIPTION_KEY_CREATED, target = "#result?.subscriptionName",
+        api = "#request.shortCode()")
     public ApiSubscription createSubscriptionKey(final String requestingUserId,
                                                          final ApiSubscriptionRequest request) {
         log.info("Subscribe application {} to {}", request.clientId(), request.shortCode());
@@ -37,12 +41,14 @@ public class SubscriptionKeyController implements SubscriptionKeysApi {
     }
 
     @Override
+    @LogAudit(action = AuditAction.CONSUMER_SUBSCRIPTION_KEY_VALUE_READ, target = "#name")
     public SubscriptionKey getSubscriptionKeyValues(final String requestingUserId, final String name) {
         log.info("Read APIM subscription key values for {}", name);
         return mapper.toSubscriptionKey(subscriptionKeys.keyValues(requestingUserId, name));
     }
 
     @Override
+    @LogAudit(action = AuditAction.CONSUMER_SUBSCRIPTION_KEY_DELETED, target = "#name")
     public void deleteSubscriptionKey(final String requestingUserId, final String name) {
         log.info("Delete APIM subscription key {}", name);
         subscriptionKeys.delete(requestingUserId, name);

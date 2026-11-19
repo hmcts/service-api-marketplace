@@ -7,15 +7,20 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import uk.gov.hmcts.amp.domain.AdminUserDetail;
 import uk.gov.hmcts.amp.domain.AdminUserSummary;
+import uk.gov.hmcts.amp.entity.ProductionRequestEntity;
 import uk.gov.hmcts.amp.entity.UserEntity;
 import uk.gov.hmcts.amp.entity.UserRole;
+import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository.UserApplicationCount;
+import uk.gov.hmcts.amp.repository.ProductionRequestRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,8 +42,67 @@ class AdminServiceTest {
     @Mock
     private ApplicationRepository applicationRepository;
 
+    @Mock
+    private ApplicationApiRepository applicationApiRepository;
+
+    @Mock
+    private ProductionRequestRepository productionRequestRepository;
+
     @InjectMocks
     private AdminService service;
+
+    @Test
+    void organisation_should_come_from_the_latest_production_request() {
+        when(userService.requireSignedIn(ADMIN_OID)).thenReturn(user(1L, "Ada", "Lovelace", UserRole.ADMIN));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(user(2L, "Grace", "Hopper", UserRole.USER)));
+        when(applicationRepository.findByUserIdOrderByCreatedAtAsc(2L)).thenReturn(List.of());
+        when(productionRequestRepository.findByUserIdOrderBySubmittedAtDesc(2L))
+            .thenReturn(List.of(request("PCR-NEWER001", "Example Legal Ltd"), request("PCR-OLDER001", "Old Org")));
+
+        final AdminUserDetail user = service.getUser(ADMIN_OID, 2L);
+
+        assertThat(user.organisation()).isEqualTo("Example Legal Ltd");
+        assertThat(user.productionRequests()).extracting(AdminUserDetail.ProductionRequest::reference)
+            .containsExactly("PCR-NEWER001", "PCR-OLDER001");
+    }
+
+    @Test
+    void organisation_should_be_null_without_a_production_request() {
+        when(userService.requireSignedIn(ADMIN_OID)).thenReturn(user(1L, "Ada", "Lovelace", UserRole.ADMIN));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(user(2L, "Grace", "Hopper", UserRole.USER)));
+        when(applicationRepository.findByUserIdOrderByCreatedAtAsc(2L)).thenReturn(List.of());
+        when(productionRequestRepository.findByUserIdOrderBySubmittedAtDesc(2L)).thenReturn(List.of());
+
+        assertThat(service.getUser(ADMIN_OID, 2L).organisation()).isNull();
+    }
+
+    @Test
+    void unknown_user_should_be_not_found() {
+        when(userService.requireSignedIn(ADMIN_OID)).thenReturn(user(1L, "Ada", "Lovelace", UserRole.ADMIN));
+        when(userRepository.findById(9L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getUser(ADMIN_OID, 9L))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+    }
+
+    @Test
+    void one_user_should_be_refused_before_anything_is_read() {
+        when(userService.requireSignedIn(USER_OID)).thenReturn(user(2L, "Grace", "Hopper", UserRole.USER));
+
+        assertThatThrownBy(() -> service.getUser(USER_OID, 1L)).isInstanceOf(ResponseStatusException.class);
+        verifyNoInteractions(userRepository, applicationRepository, productionRequestRepository);
+    }
+
+    private static ProductionRequestEntity request(final String reference, final String organisation) {
+        final ProductionRequestEntity request = new ProductionRequestEntity();
+        request.setReference(reference);
+        request.setOrganisation(organisation);
+        request.setApplicationName("Case Viewer");
+        request.setStatus("SUBMITTED");
+        request.setSubmittedAt(LocalDateTime.of(2026, 11, 2, 10, 0));
+        return request;
+    }
 
     @Test
     void an_admin_should_be_let_through() {

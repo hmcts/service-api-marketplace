@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RestController;
 import uk.gov.hmcts.amp.mappers.ResponseMapper;
 import uk.gov.hmcts.amp.openapi.api.AdminApi;
 import uk.gov.hmcts.amp.openapi.model.AdminUser;
+import uk.gov.hmcts.amp.openapi.model.AdminUserDetail;
 import uk.gov.hmcts.amp.services.AdminService;
 
 import java.util.List;
@@ -23,5 +24,11 @@ public class AdminController implements AdminApi {
     public List<AdminUser> listAdminUsers(final String requestingUserId) {
         log.info("List users for an admin");
         return mapper.toAdminUsers(admin.listUsers(requestingUserId));
+    }
+
+    @Override
+    public AdminUserDetail getAdminUser(final String requestingUserId, final Long userId) {
+        log.info("Read user {} for an admin", userId);
+        return mapper.toAdminUserDetail(admin.getUser(requestingUserId, userId));
     }
 }

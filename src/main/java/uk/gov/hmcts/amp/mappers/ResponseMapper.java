@@ -8,6 +8,8 @@ import uk.gov.hmcts.amp.domain.ApplicationResponse;
 import uk.gov.hmcts.amp.domain.ProductionAccessDetail;
 import uk.gov.hmcts.amp.domain.ProductionAccessResponse;
 import uk.gov.hmcts.amp.domain.UserResponse;
+import uk.gov.hmcts.amp.openapi.model.AdminApplication;
+import uk.gov.hmcts.amp.openapi.model.AdminProductionRequest;
 import uk.gov.hmcts.amp.openapi.model.AdminUser;
 import uk.gov.hmcts.amp.openapi.model.CatalogueDetail;
 import uk.gov.hmcts.amp.openapi.model.CatalogueEntry;
@@ -32,6 +34,13 @@ public interface ResponseMapper {
     AdminUser toAdminUser(AdminUserSummary user);
 
     List<AdminUser> toAdminUsers(List<AdminUserSummary> users);
+
+    uk.gov.hmcts.amp.openapi.model.AdminUserDetail toAdminUserDetail(uk.gov.hmcts.amp.domain.AdminUserDetail user);
+
+    AdminApplication toAdminApplication(uk.gov.hmcts.amp.domain.AdminUserDetail.Application application);
+
+    AdminProductionRequest toAdminProductionRequest(
+        uk.gov.hmcts.amp.domain.AdminUserDetail.ProductionRequest request);
 
     Application toApplication(ApplicationResponse application);
 

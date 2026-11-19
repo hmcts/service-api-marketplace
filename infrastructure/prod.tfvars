@@ -11,4 +11,4 @@ apim_service_name    = "sps-api-mgmt-prod"
 
 log_analytics_retention_days = 90
 log_analytics_daily_quota_gb = 5
-audit_retention_days         = 2190
+audit_retention_days         = 2191

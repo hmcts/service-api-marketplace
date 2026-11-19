@@ -45,3 +45,11 @@ resource "azurerm_key_vault_secret" "app_insights_config" {
   key_vault_id = module.vault.key_vault_id
   depends_on   = [module.vault]
 }
+
+# web-api-marketplace reads this vault and sends its telemetry here too, under its own role name.
+resource "azurerm_key_vault_secret" "app_insights_connection_string" {
+  name         = "app-insights-connection-string"
+  value        = azurerm_application_insights.this.connection_string
+  key_vault_id = module.vault.key_vault_id
+  depends_on   = [module.vault]
+}

@@ -16,7 +16,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "admin.auth")
 public record AdminAuthProperties(boolean enabled, String issuer, String audience, String role) {
 
-    private static final String DEFAULT_ROLE = "api_marketplace_admin";
+    private static final String DEFAULT_ROLE = "amp_admin";
 
     public boolean usable() {
         return enabled && isSet(issuer) && isSet(audience);

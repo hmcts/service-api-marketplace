@@ -26,7 +26,7 @@ import org.springframework.security.web.SecurityFilterChain;
  * enough for someone managing their own applications, and not enough to approve production access.
  *
  * <p>A caller of {@code /admin/**} must present a token this service verified itself - signature,
- * issuer and audience - carrying the {@code api_marketplace_admin} app role in its {@code roles} claim. The role
+ * issuer and audience - carrying the {@code amp_admin} app role in its {@code roles} claim. The role
  * is assigned to people in Entra, so adding or removing an admin is a directory change rather than a
  * release here, and it never appears in this public repository.
  *

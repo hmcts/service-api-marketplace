@@ -92,7 +92,7 @@ admin:
     enabled: ${ADMIN_AUTH_ENABLED:false}
     issuer: ${ADMIN_AUTH_ISSUER:}
     audience: ${ADMIN_AUTH_AUDIENCE:}
-    role: ${ADMIN_AUTH_ROLE:api_marketplace_admin}
+    role: ${ADMIN_AUTH_ROLE:amp_admin}
 
 # Local only: fakes Entra registration and APIM subscription keys in memory (LocalBypassConfig).
 # Never set ENTRA_BYPASS in a chart.

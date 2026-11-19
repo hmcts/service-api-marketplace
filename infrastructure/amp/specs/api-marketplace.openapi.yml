@@ -35,6 +35,8 @@ tags:
     description: Recording the person Entra has signed in
   - name: users
     description: Who has signed in, for support and debugging
+  - name: admin
+    description: Read-only views for the Marketplace Team. Admins only
   - name: applications
     description: Entra application registrations and their APIM subscriptions
   - name: production-requests
@@ -175,6 +177,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  /admin/users:
+    get:
+      summary: List the active users, for an admin
+      description: >-
+        Every user whose status is ACTIVE, newest first, with how many
+        applications each has made. Answers 403 to a caller who is not an
+        ADMIN.
+      operationId: listAdminUsers
+      tags: [admin]
+      parameters:
+        - $ref: '#/components/parameters/RequestingUserId'
+      responses:
+        '200':
+          description: The active users, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminUser'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/NotAnAdmin'
+        '404':
+          $ref: '#/components/responses/UnknownUser'
 
   /applications:
     get:
@@ -748,6 +777,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+    NotAnAdmin:
+      description: The caller is signed in but is not an ADMIN
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     NotYours:
       description: >-
         No such application for this caller. Deliberately 404 rather than 403,
@@ -918,6 +953,39 @@ components:
           format: local-date-time
           description: Date and time with no offset
           example: '2026-11-02T10:15:30'
+
+    AdminUser:
+      type: object
+      description: >-
+        One registered user as the admin list shows them. No identifiers
+        beyond the row id, and nothing secret.
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: Ada Lovelace
+        email:
+          type: string
+          format: email
+          example: ada.lovelace@hmcts.net
+        createdAt:
+          type: string
+          format: local-date-time
+          description: When they joined. Date and time with no offset
+          example: '2026-10-29T10:15:30'
+        lastLoginAt:
+          type: string
+          format: local-date-time
+          nullable: true
+          description: When they last signed in. Date and time with no offset
+          example: '2026-11-02T10:15:30'
+        applicationCount:
+          type: integer
+          format: int64
+          example: 2
 
     NewApplication:
       type: object

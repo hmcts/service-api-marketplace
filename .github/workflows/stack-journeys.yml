@@ -1,0 +1,18 @@
+# Runs web's Playwright journeys against this PR's service and web master, so a service change
+# that breaks web fails here. The workflow lives in web-api-marketplace, with the journeys.
+name: Stack journeys
+
+on:
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  journeys:
+    uses: hmcts/web-api-marketplace/.github/workflows/stack-journeys.yml@master
+    with:
+      web-ref: master
+      service-ref: ${{ github.event.pull_request.head.sha }}

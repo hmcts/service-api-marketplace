@@ -39,7 +39,7 @@ tags:
     description: Entra application registrations and their APIM subscriptions
   - name: production-requests
     description: Requests for production credentials, reviewed offline
-  - name: products
+  - name: catalogue
     description: The API catalogue, keyed by short code
   - name: subscription-keys
     description: APIM subscriptions, created against an application and revoked

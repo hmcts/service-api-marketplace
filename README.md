@@ -6,6 +6,16 @@ The purpose of this template is to speed up the creation of new Spring applicati
 and help keep the same standards across multiple teams. If you need to create a new app, you can
 simply use this one as a starting point and build on top of it.
 
+## Documentation
+
+| Document | Covers |
+|---|---|
+| [Marketplace API](docs/MARKETPLACE-API.md) | The endpoints and their responses |
+| [APIM subscription keys](docs/APIM-SUBSCRIPTION-KEYS.md) | Creating and managing consumer keys in API Management |
+| [Entra application registrations](docs/ENTRA-APP-REGISTRATIONS.md) | Creating consumer applications and granting API roles |
+| [Audit](docs/AUDIT.md) | What is audited, the audit line and how to query it |
+| [CNP onboarding plan](docs/CNP-ONBOARDING-PLAN.md) | Onboarding the service onto CNP |
+
 ## What's inside
 
 The template is a working application with a minimal setup. It contains:

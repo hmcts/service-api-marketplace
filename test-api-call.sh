@@ -7,7 +7,7 @@
 # The half of test-app-registration.sh that does not create anything, so an application issued
 # earlier can be checked again without registering another one.
 #
-#   ./test-api-call.sh <sbox|demo> <slc|rcc> <clientId> <clientSecret> [subscriptionKey]
+#   ./test-api-call.sh <sbox|demo|prod> <slc|rcc> <clientId> <clientSecret> [subscriptionKey]
 #
 #   ./test-api-call.sh demo rcc 1a2b... s3cr3t 9f8e...
 #
@@ -28,7 +28,7 @@
 set -euo pipefail
 
 usage () {
-  printf '\nUsage: ./test-api-call.sh <sbox|demo> <slc|rcc> <clientId> <clientSecret> [subscriptionKey]\n' >&2
+  printf '\nUsage: ./test-api-call.sh <sbox|demo|prod> <slc|rcc> <clientId> <clientSecret> [subscriptionKey]\n' >&2
   exit 1
 }
 
@@ -51,6 +51,14 @@ case "$ENVIRONMENT" in
         SLC_APP_ID=02b04e09-4f7b-4724-963b-a4c10a6825f2
         RCC_APP_ID=640c325d-5a0e-48ce-a616-710d0785f2cb
         BACKEND=https://amp-try-it-now.demo.platform.hmcts.net ;;
+  # Prod drops the environment segment from every hostname. The resource apps are the audiences
+  # sps-api-mgmt-prod validates in each try-it-now-<code> policy, which is the only thing that
+  # decides whether a token is accepted here.
+  prod) TENANT_DEFAULT=0d0315f6-3c04-4edb-ac37-b05f580cc122
+        GATEWAY_DEFAULT=https://sps-api-mgmt.api.hmcts.net
+        SLC_APP_ID=cabebf93-f8bd-42c1-9fd2-0fff1bd13177
+        RCC_APP_ID=38852e1f-a8b9-463f-bb9e-73e9c166a1ae
+        BACKEND=https://amp-try-it-now.platform.hmcts.net ;;
   *)    usage ;;
 esac
 
@@ -95,10 +103,17 @@ case "$SHORT_CODE" in
   rcc) RESOURCE_APP_ID=${ENTRA_RESOURCE_APP_ID:-$RCC_APP_ID}
        API_PATH=${API_PATH:-$PREFIX$SHORT_CODE}
        REQUEST_PATH=${REQUEST_PATH:-courthouses/$COURTHOUSE_ID} ;;
-  *)   RESOURCE_APP_ID=${ENTRA_RESOURCE_APP_ID:-}
+  # An unknown short code is nearly always a missed argument rather than a new API, so say so
+  # before offering the three overrides that would let one through.
+  *)   case "$SHORT_CODE" in
+         *-*-*-*-*) die "The second argument is the API, not the client id. $SHORT_CODE looks
+   like a client id - did you mean: $0 $ENVIRONMENT slc $SHORT_CODE <clientSecret> [subscriptionKey]" ;;
+       esac
+       RESOURCE_APP_ID=${ENTRA_RESOURCE_APP_ID:-}
        [ -n "$RESOURCE_APP_ID" ] && [ -n "${API_PATH:-}" ] && [ -n "${REQUEST_PATH:-}" ] \
-         || die "No known paths for $SHORT_CODE. Set ENTRA_RESOURCE_APP_ID, API_PATH and
-   REQUEST_PATH, for example API_PATH=amp/try/xyz REQUEST_PATH=courthouses/<id>." ;;
+         || die "No known API $SHORT_CODE. Known: slc, rcc. To call one that is not listed, set
+   ENTRA_RESOURCE_APP_ID, API_PATH and REQUEST_PATH, for example API_PATH=amp/try/xyz
+   REQUEST_PATH=courthouses/<id>." ;;
 esac
 
 echo "Running against $ENVIRONMENT: tenant $TENANT, gateway $GATEWAY, audience $RESOURCE_APP_ID"

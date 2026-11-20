@@ -2,11 +2,15 @@ package uk.gov.hmcts.amp.mappers;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.ReportingPolicy;
+import uk.gov.hmcts.amp.domain.AdminUserSummary;
 import uk.gov.hmcts.amp.domain.ApiSubscriptionResponse;
 import uk.gov.hmcts.amp.domain.ApplicationResponse;
 import uk.gov.hmcts.amp.domain.ProductionAccessDetail;
 import uk.gov.hmcts.amp.domain.ProductionAccessResponse;
 import uk.gov.hmcts.amp.domain.UserResponse;
+import uk.gov.hmcts.amp.openapi.model.AdminApplication;
+import uk.gov.hmcts.amp.openapi.model.AdminProductionRequest;
+import uk.gov.hmcts.amp.openapi.model.AdminUser;
 import uk.gov.hmcts.amp.openapi.model.CatalogueDetail;
 import uk.gov.hmcts.amp.openapi.model.CatalogueEntry;
 import uk.gov.hmcts.amp.openapi.model.ApiSubscription;
@@ -26,6 +30,17 @@ public interface ResponseMapper {
     User toUser(UserResponse user);
 
     List<User> toUsers(List<UserResponse> users);
+
+    AdminUser toAdminUser(AdminUserSummary user);
+
+    List<AdminUser> toAdminUsers(List<AdminUserSummary> users);
+
+    uk.gov.hmcts.amp.openapi.model.AdminUserDetail toAdminUserDetail(uk.gov.hmcts.amp.domain.AdminUserDetail user);
+
+    AdminApplication toAdminApplication(uk.gov.hmcts.amp.domain.AdminUserDetail.Application application);
+
+    AdminProductionRequest toAdminProductionRequest(
+        uk.gov.hmcts.amp.domain.AdminUserDetail.ProductionRequest request);
 
     Application toApplication(ApplicationResponse application);
 

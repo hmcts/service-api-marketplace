@@ -59,7 +59,7 @@ Registers the application and grants its roles in one act.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `name` | string | yes | Letters, digits and spaces, 8 to 50 characters. The hyphenated `appname` and the Entra display name `amp-userNNN-<appname>` are derived from it |
+| `name` | string | yes | Letters, digits and spaces, 8 to 50 characters. The hyphenated `appname` and the Entra display name `amp-consumer-<appname>` are derived from it. Unique across all users: a name already taken is 409 |
 | `roles` | string[] | no | Granted inline if given. Omit and use `grantRole`, which is what `test-app-registration.sh` does |
 
 **Response**

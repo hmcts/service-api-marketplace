@@ -39,11 +39,6 @@ public class UserService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sign in again."));
     }
 
-    /** Everything a user owns in Entra and APIM is named from here, so one person's things sort together. */
-    public static String namePrefix(final UserEntity user) {
-        return String.format("amp-user%03d-", user.getId());
-    }
-
     public List<UserResponse> list(final String requestingUserId) {
         requireSignedIn(requestingUserId);
         return userRepository.findAll(Sort.by("id")).stream().map(UserResponse::from).toList();
@@ -74,8 +69,7 @@ public class UserService {
         final String email = request.email().trim().toLowerCase(Locale.UK);
 
         // The email address is the person. An Entra account deleted and recreated comes back
-        // with a new object id, and the row it left behind owns the applications, the
-        // subscription names and the amp-userNNN prefix they are checked against.
+        // with a new object id, and the row it left behind owns the applications and subscriptions.
         final UserEntity user = userRepository.findByEmail(email).orElseGet(() -> newUser(oid, now));
         if (!UserEntity.ACTIVE.equals(user.getStatus())) {
             log.warn("Entra sign in refused for userId {}, which is not active", user.getId());

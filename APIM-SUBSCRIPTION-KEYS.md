@@ -22,11 +22,10 @@ of the API does. A missing header is 400 and an object id with no `marketplace_u
 
 ## Who a subscription belongs to
 
-Nothing about an APIM subscription is kept in our database, so ownership is carried by the name:
-it must start with the caller's prefix, `amp-user001-`, which `POST /session` returns as
-`userReference`. `listKeys` shows only the caller's own, and `getKeyValues` or `deleteKey` on a
-name outside that prefix answers 404 rather than 403 - the instance is shared with SPS, and a 403
-would confirm the subscription exists.
+A subscription belongs to whoever owns the application it was created for, as recorded in
+`application_api`. Subscriptions are named `amp-consumer-<appname>-<shortCode>`. `listKeys` shows
+only the caller's own, and `getKeyValues` or `deleteKey` on anyone else's answers 404 rather than
+403 - the instance is shared with SPS, and a 403 would confirm the subscription exists.
 
 > There is no way to discover a `productId`. `GET /apim/products` was removed, so the value has
 > to be supplied, for example `cp-crime-schedulingandlisting-courtschedule`.
@@ -54,7 +53,7 @@ asking per subscription would be one extra call each.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `name` | string | yes | Azure's rule: lower case letters, digits and hyphens, 1-80 characters, not starting or ending with a hyphen. Must also start with the caller's `amp-userNNN-` prefix, or it is 400 |
+| `name` | string | yes | Azure's rule: lower case letters, digits and hyphens, 1-80 characters, not starting or ending with a hyphen. Must also be built from one of the caller's applications, `amp-consumer-<appname>-<shortCode>`, or it is 400 |
 | `productId` | string | yes | The APIM product id, not a marketplace short code |
 | `displayName` | string | yes | Free text, shown in the portal |
 
@@ -159,7 +158,7 @@ fail against a subscription that does not exist.
 **4. Call the endpoints.**
 
 ```bash
-# sign in first: the reply carries userReference, which is where your amp-userNNN- prefix comes from
+# sign in first
 OID=11111111-2222-3333-4444-555555555555
 curl -s -X POST localhost:8080/session -H 'Content-Type: application/json' \
   -d "{\"objectId\":\"$OID\",\"email\":\"you@hmcts.net\",\"name\":\"Your Name\"}" | jq -r .userReference
@@ -173,20 +172,20 @@ curl localhost:8080/apim/subscription-keys -H "requestingUserId: $OID" \
 
 ```bash
 # Get existing key values
-curl localhost:8080/apim/subscription-keys/amp-user001-colin-local-test-1/values \
+curl localhost:8080/apim/subscription-keys/amp-consumer-colin-local-test-slc/values \
   -H "requestingUserId: $OID" | jq
 ```
 
 ```bash
-# create new subscription key ... the name has to start with your own prefix
+# create new subscription key ... the name has to be built from one of your applications
 curl -X POST localhost:8080/apim/subscription-keys \
   -H "requestingUserId: $OID" -H 'Content-Type: application/json' \
-  -d '{"name":"amp-user001-colin-local-test-1","productId":"cp-crime-schedulingandlisting-courtschedule","displayName":"Colins Local test"}' | jq
+  -d '{"name":"amp-consumer-colin-local-test-slc","productId":"cp-crime-schedulingandlisting-courtschedule","displayName":"Colins Local test"}' | jq
 ```
 
 ```bash
 # Delete a subscription key ... be careful of course
-curl -X DELETE localhost:8080/apim/subscription-keys/amp-user001-colin-local-test-1 \
+curl -X DELETE localhost:8080/apim/subscription-keys/amp-consumer-colin-local-test-slc \
   -H "requestingUserId: $OID"
 ```
 

@@ -17,4 +17,6 @@ public interface ApplicationApiRepository extends JpaRepository<ApplicationApiEn
     boolean existsByApplicationIdAndShortCode(Long applicationId, String shortCode);
 
     Optional<ApplicationApiEntity> findBySubscriptionName(String subscriptionName);
+
+    List<ApplicationApiEntity> findByApplicationUserId(Long userId);
 }

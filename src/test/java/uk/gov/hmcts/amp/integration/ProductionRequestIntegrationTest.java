@@ -548,7 +548,7 @@ class ProductionRequestIntegrationTest {
         subscription.setApplication(applications.findByClientId(CLIENT_ID).orElseThrow());
         subscription.setShortCode(shortCode);
         subscription.setProductId("cp-crime-schedulingandlisting");
-        subscription.setSubscriptionName("amp-user001-case-viewer-" + shortCode);
+        subscription.setSubscriptionName("amp-consumer-case-viewer-" + shortCode);
         subscription.setKeyHint("a1b");
         subscription.setSubscribedAt(LocalDateTime.of(2026, 10, 20, 11, 0));
         applicationApis.save(subscription);

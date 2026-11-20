@@ -7,6 +7,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
+import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.services.ApimSubscriptionKeyService;
 import uk.gov.hmcts.amp.services.EntraAppRegistrationService;
 import uk.gov.hmcts.amp.services.LocalApimSubscriptionKeyService;
@@ -35,8 +37,10 @@ public class LocalBypassConfig {
     @Primary
     public ApimSubscriptionKeyService localApimSubscriptionKeyService(final ApiManagementManager apim,
                                                                       final UserService users,
+                                                                      final ApplicationRepository applications,
+                                                                      final ApplicationApiRepository applicationApis,
                                                                       final ApimProperties apimProperties) {
         log.warn("ENTRA_BYPASS is on: APIM subscription keys are faked in memory. Local use only.");
-        return new LocalApimSubscriptionKeyService(apim, users, apimProperties);
+        return new LocalApimSubscriptionKeyService(apim, users, applications, applicationApis, apimProperties);
     }
 }

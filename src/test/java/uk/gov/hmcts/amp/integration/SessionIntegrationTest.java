@@ -101,8 +101,7 @@ class SessionIntegrationTest {
             .andExpect(status().isOk())
             .andReturn().getResponse().getContentAsString();
 
-        // Same row, so the applications it owns and the amp-userNNN prefix they are checked
-        // against stay reachable. A second row would strand them.
+        // Same row, so the applications and subscriptions it owns stay reachable. A second row would strand them.
         assertThat(JsonPath.<Integer>read(after, "$.id"))
             .isEqualTo(JsonPath.<Integer>read(before, "$.id"));
         assertThat(JsonPath.<String>read(after, "$.userReference"))
@@ -151,10 +150,10 @@ class SessionIntegrationTest {
         signIn(OID, "{\"email\":\"joe@example.com\"}").andExpect(status().isOk());
         final UserEntity owner = users.findByEntraObjectId(OID).orElseThrow();
         final ApplicationEntity application = applications.saveAndFlush(application(owner));
-        applicationApis.saveAndFlush(api(application, "amp-user001-case-viewer-slc"));
+        applicationApis.saveAndFlush(api(application, "amp-consumer-case-viewer-slc"));
 
         assertThat(rejected(() -> applicationApis.saveAndFlush(
-            api(application, "amp-user001-case-viewer-slc-2")))).isTrue();
+            api(application, "amp-consumer-case-viewer-slc-2")))).isTrue();
 
         applications.delete(application);
         applications.flush();

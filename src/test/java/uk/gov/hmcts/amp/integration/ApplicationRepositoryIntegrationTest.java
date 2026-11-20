@@ -69,35 +69,35 @@ class ApplicationRepositoryIntegrationTest {
     }
 
     @Test
-    void two_users_should_be_able_to_use_the_same_appname() {
+    void two_users_should_not_be_able_to_use_the_same_appname() {
         UserEntity other = users.save(user("oid-other", "grace.hopper@hmcts.net"));
         applications.save(application(owner, "Case Viewer", "case-viewer", "client-c"));
 
-        applications.saveAndFlush(application(other, "Case Viewer", "case-viewer", "client-d"));
-
-        // The APIM subscription name carries the user reference, so these cannot collide there.
-        assertThat(applications.existsByUserIdAndAppname(other.getId(), "case-viewer")).isTrue();
+        assertThatThrownBy(() -> applications.saveAndFlush(
+            application(other, "Case Viewer", "case-viewer", "client-d")))
+            .isInstanceOf(DataIntegrityViolationException.class);
+        assertThat(applications.existsByAppname("case-viewer")).isTrue();
     }
 
     @Test
     void an_application_should_list_its_apis() {
         ApplicationEntity app = applications.save(application(owner, "Case Viewer", "case-viewer", "client-e"));
-        applicationApis.save(api(app, "slc", "amp-user001-case-viewer-slc"));
+        applicationApis.save(api(app, "slc", "amp-consumer-case-viewer-slc"));
 
         ApplicationApiEntity found = applicationApis.findByApplicationId(app.getId()).getFirst();
         assertThat(found.getShortCode()).isEqualTo("slc");
         assertThat(found.getProductId()).isEqualTo("cp-crime-schedulingandlisting-courtschedule");
-        assertThat(found.getSubscriptionName()).isEqualTo("amp-user001-case-viewer-slc");
+        assertThat(found.getSubscriptionName()).isEqualTo("amp-consumer-case-viewer-slc");
         assertThat(found.getKeyHint()).isEqualTo("a1b");
     }
 
     @Test
     void the_same_api_should_not_be_subscribed_twice_by_one_application() {
         ApplicationEntity app = applications.save(application(owner, "Case Viewer", "case-viewer", "client-f"));
-        applicationApis.save(api(app, "slc", "amp-user001-case-viewer-slc"));
+        applicationApis.save(api(app, "slc", "amp-consumer-case-viewer-slc"));
 
         assertThatThrownBy(() -> applicationApis.saveAndFlush(
-            api(app, "slc", "amp-user001-case-viewer-slc-again")))
+            api(app, "slc", "amp-consumer-case-viewer-slc-again")))
             .isInstanceOf(DataIntegrityViolationException.class);
     }
 
@@ -105,8 +105,8 @@ class ApplicationRepositoryIntegrationTest {
     void an_api_should_be_findable_by_short_code_across_applications() {
         ApplicationEntity one = applications.save(application(owner, "One", "one", "client-g"));
         ApplicationEntity two = applications.save(application(owner, "Two", "two", "client-h"));
-        applicationApis.save(api(one, "slc", "amp-user001-one-slc"));
-        applicationApis.save(api(two, "slc", "amp-user001-two-slc"));
+        applicationApis.save(api(one, "slc", "amp-consumer-one-slc"));
+        applicationApis.save(api(two, "slc", "amp-consumer-two-slc"));
 
         // What a publisher withdrawing an API needs to ask.
         assertThat(applicationApis.findByShortCode("slc")).hasSize(2);
@@ -115,7 +115,7 @@ class ApplicationRepositoryIntegrationTest {
     @Test
     void deleting_an_application_should_take_its_apis_with_it() {
         ApplicationEntity app = applications.save(application(owner, "Case Viewer", "case-viewer", "client-i"));
-        applicationApis.save(api(app, "slc", "amp-user001-case-viewer-slc"));
+        applicationApis.save(api(app, "slc", "amp-consumer-case-viewer-slc"));
 
         applications.delete(app);
         applications.flush();

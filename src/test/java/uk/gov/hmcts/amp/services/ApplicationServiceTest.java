@@ -7,15 +7,18 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.config.EntraProperties;
 import uk.gov.hmcts.amp.domain.AppRegistration;
 import uk.gov.hmcts.amp.domain.ApiGrant;
 import uk.gov.hmcts.amp.domain.ApplicationRequest;
+import uk.gov.hmcts.amp.domain.SubscriptionKey;
 import uk.gov.hmcts.amp.entity.ApplicationEntity;
 import uk.gov.hmcts.amp.entity.MarketplaceApiEntity;
 import uk.gov.hmcts.amp.entity.UserEntity;
+import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.MarketplaceApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
 
@@ -58,6 +61,12 @@ class ApplicationServiceTest {
 
     @Mock
     private ClockService clockService;
+
+    @Mock
+    private ApplicationApiRepository applicationApis;
+
+    @Mock
+    private ApimSubscriptionKeyService subscriptionKeys;
 
     @Spy
     private EntraProperties entra = new EntraProperties(TENANT_ID, "an-onboarding-app", "a-secret",
@@ -204,7 +213,7 @@ class ApplicationServiceTest {
     }
 
     @Test
-    void the_entra_display_name_should_carry_the_user_reference_and_the_appname() {
+    void the_entra_display_name_should_be_the_consumer_prefix_and_the_appname() {
         givenCreateReaches(registered("the-secret", null));
         when(applications.saveAndFlush(any())).thenAnswer(saved -> saved.getArgument(0));
 
@@ -212,8 +221,62 @@ class ApplicationServiceTest {
 
         service.create(OID, new ApplicationRequest("Case Viewer", List.of("slc")));
 
-        verify(registrations).register("amp-user001-case-viewer",
+        verify(registrations).register("amp-consumer-case-viewer",
             List.of(new ApiGrant("slc", RESOURCE_APP_ID, "app.read")));
+    }
+
+    @Test
+    void name_taken_by_anyone_should_conflict_before_reaching_entra() {
+        when(users.requireSignedIn(OID)).thenReturn(signedIn());
+        when(applications.existsByAppname("case-viewer")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.create(OID, new ApplicationRequest("Case Viewer", List.of())))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.CONFLICT))
+            .hasMessageContaining("Choose another name");
+        verify(registrations, never()).register(any(), any());
+    }
+
+    @Test
+    void name_taken_while_registering_should_conflict_and_leave_entra() {
+        givenCreateReaches(registered("the-secret", null));
+        when(applications.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException(
+            "duplicate key value violates unique constraint \"application_appname_idx\""));
+
+        assertThatThrownBy(() -> service.create(OID, new ApplicationRequest("Case Viewer", List.of())))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
+        verify(registrations).delete(CLIENT_ID);
+    }
+
+    @Test
+    void any_other_constraint_failure_should_surface_as_it_is() {
+        givenCreateReaches(registered("the-secret", null));
+        RuntimeException otherClash = new DataIntegrityViolationException("application_client_id_key");
+        when(applications.saveAndFlush(any())).thenThrow(otherClash);
+
+        assertThatThrownBy(() -> service.create(OID, new ApplicationRequest("Case Viewer", List.of())))
+            .isSameAs(otherClash);
+    }
+
+    @Test
+    void subscription_that_cannot_be_recorded_should_be_taken_back_out_of_api_management() {
+        UserEntity user = signedIn();
+        when(users.requireSignedIn(OID)).thenReturn(user);
+        when(applications.findByClientId(CLIENT_ID)).thenReturn(Optional.of(owned(user)));
+        MarketplaceApiEntity slc = api("slc", "app.read");
+        slc.setProductId("cp-crime-schedulingandlisting");
+        when(apis.findById("slc")).thenReturn(Optional.of(slc));
+        when(subscriptionKeys.create(OID, "amp-consumer-case-viewer-slc", "cp-crime-schedulingandlisting",
+            "Case Viewer")).thenReturn(new SubscriptionKey("amp-consumer-case-viewer-slc", "Case Viewer",
+                null, "cp-crime-schedulingandlisting", "active", "primary", "secondary"));
+        when(clockService.now()).thenReturn(NOW);
+        RuntimeException couldNotRecord = new IllegalStateException("database unavailable");
+        when(applicationApis.saveAndFlush(any())).thenThrow(couldNotRecord);
+
+        assertThatThrownBy(() -> service.subscribe(OID, CLIENT_ID, "slc")).isSameAs(couldNotRecord);
+
+        verify(subscriptionKeys).discard("amp-consumer-case-viewer-slc");
     }
 
     private static MarketplaceApiEntity api(final String shortCode, final String role) {
@@ -246,7 +309,7 @@ class ApplicationServiceTest {
 
     private void givenCreateReaches(final AppRegistration registration) {
         when(users.requireSignedIn(OID)).thenReturn(signedIn());
-        when(applications.existsByUserIdAndAppname(1L, "case-viewer")).thenReturn(false);
+        when(applications.existsByAppname("case-viewer")).thenReturn(false);
         when(clockService.now()).thenReturn(NOW);
         when(registrations.register(any(), any())).thenReturn(registration);
     }

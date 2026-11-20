@@ -76,13 +76,12 @@ class ApplicationApiIntegrationTest {
         signIn(OWNER_OID, "ada.lovelace@hmcts.net");
         signIn(OTHER_OID, "grace.hopper@hmcts.net");
         createApplication();
-        subscriptionName = "amp-user%03d-case-viewer-slc".formatted(
-            users.findByEntraObjectId(OWNER_OID).orElseThrow().getId());
+        subscriptionName = "amp-consumer-case-viewer-slc";
         stubSubscriptionLifecycle(subscriptionName);
     }
 
     @Test
-    void subscribing_should_name_the_subscription_from_the_user_appname_and_short_code() throws Exception {
+    void subscribing_should_name_the_subscription_from_the_appname_and_short_code() throws Exception {
         mockMvc.perform(subscribeTo("slc"))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.shortCode").value("slc"))

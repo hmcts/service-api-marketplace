@@ -5,7 +5,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.domain.SubscriptionKey;
+import uk.gov.hmcts.amp.entity.ApplicationApiEntity;
+import uk.gov.hmcts.amp.entity.ApplicationEntity;
 import uk.gov.hmcts.amp.entity.UserEntity;
+import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
+import uk.gov.hmcts.amp.repository.ApplicationRepository;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -15,18 +21,30 @@ import static org.mockito.Mockito.when;
 class LocalApimSubscriptionKeyServiceTest {
 
     private static final String OID = "aaaaaaaa-1111-2222-3333-444444444444";
-    private static final String NAME = "amp-user001-case-viewer-slc";
+    private static final String NAME = "amp-consumer-case-viewer-slc";
+    private static final String SOMEONE_ELSES = "amp-consumer-team-beta-slc";
 
     private final UserService users = mock(UserService.class);
+    private final ApplicationRepository applications = mock(ApplicationRepository.class);
+    private final ApplicationApiRepository applicationApis = mock(ApplicationApiRepository.class);
 
     // APIM is never touched: everything is answered from memory.
-    private final LocalApimSubscriptionKeyService service = new LocalApimSubscriptionKeyService(null, users, null);
+    private final LocalApimSubscriptionKeyService service =
+        new LocalApimSubscriptionKeyService(null, users, applications, applicationApis, null);
 
     @BeforeEach
     void signedIn() {
         UserEntity user = new UserEntity();
         user.setId(1L);
         when(users.requireSignedIn(OID)).thenReturn(user);
+        ApplicationEntity application = new ApplicationEntity();
+        application.setUser(user);
+        application.setAppname("case-viewer");
+        when(applications.findByUserIdOrderByCreatedAtAsc(1L)).thenReturn(List.of(application));
+        ApplicationApiEntity subscribed = new ApplicationApiEntity();
+        subscribed.setApplication(application);
+        subscribed.setSubscriptionName(NAME);
+        when(applicationApis.findByApplicationUserId(1L)).thenReturn(List.of(subscribed));
     }
 
     @Test
@@ -40,8 +58,8 @@ class LocalApimSubscriptionKeyServiceTest {
     }
 
     @Test
-    void creating_outside_the_callers_prefix_should_be_rejected() {
-        assertThatThrownBy(() -> service.create(OID, "amp-user002-case-viewer-slc", "try-it-now-slc", "Case Viewer"))
+    void creating_a_name_not_built_from_the_callers_application_should_be_rejected() {
+        assertThatThrownBy(() -> service.create(OID, SOMEONE_ELSES, "try-it-now-slc", "Team Beta"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
     }
@@ -57,10 +75,10 @@ class LocalApimSubscriptionKeyServiceTest {
 
     @Test
     void someone_elses_subscription_should_read_as_not_found() {
-        assertThatThrownBy(() -> service.keyValues(OID, "amp-user002-case-viewer-slc"))
+        assertThatThrownBy(() -> service.keyValues(OID, SOMEONE_ELSES))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
-        assertThatThrownBy(() -> service.delete(OID, "amp-user002-case-viewer-slc"))
+        assertThatThrownBy(() -> service.delete(OID, SOMEONE_ELSES))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
     }

@@ -16,7 +16,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.config.ApimProperties;
 import uk.gov.hmcts.amp.domain.SubscriptionKey;
+import uk.gov.hmcts.amp.entity.ApplicationApiEntity;
+import uk.gov.hmcts.amp.entity.ApplicationEntity;
 import uk.gov.hmcts.amp.entity.UserEntity;
+import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
+import uk.gov.hmcts.amp.repository.ApplicationRepository;
 
 import java.util.List;
 import java.util.Map;
@@ -39,9 +43,10 @@ class ApimSubscriptionKeyServiceTest {
     private static final String INSTANCE_SCOPE =
         "/subscriptions/sub/resourceGroups/rg-test/providers/Microsoft.ApiManagement/service/apim-test";
     private static final String OID = "aaaaaaaa-1111-2222-3333-444444444444";
-    private static final String NAME = "amp-user001-team-alpha";
-    private static final String ABSENT = "amp-user001-nobody";
-    private static final String SOMEONE_ELSES = "amp-user002-team-beta";
+    private static final String NAME = "amp-consumer-team-alpha-slc";
+    private static final String ABSENT = "amp-consumer-team-alpha-pcd";
+    private static final String SOMEONE_ELSES = "amp-consumer-team-alpha-ext-slc";
+    private static final String LEGACY = "amp-user001-team-alpha-rcc";
 
     private Subscriptions subscriptions;
     private ApimSubscriptionKeyService service;
@@ -55,7 +60,16 @@ class ApimSubscriptionKeyServiceTest {
         caller.setId(1L);
         UserService users = mock(UserService.class);
         lenient().when(users.requireSignedIn(OID)).thenReturn(caller);
-        service = new ApimSubscriptionKeyService(apim, users,
+        ApplicationEntity application = new ApplicationEntity();
+        application.setUser(caller);
+        application.setAppname("team-alpha");
+        ApplicationRepository applications = mock(ApplicationRepository.class);
+        lenient().when(applications.findByUserIdOrderByCreatedAtAsc(1L)).thenReturn(List.of(application));
+        ApplicationApiRepository applicationApis = mock(ApplicationApiRepository.class);
+        lenient().when(applicationApis.findByApplicationUserId(1L))
+            .thenReturn(List.of(subscribed(application, NAME), subscribed(application, ABSENT),
+                subscribed(application, LEGACY)));
+        service = new ApimSubscriptionKeyService(apim, users, applications, applicationApis,
             new ApimProperties("a-tenant", "a-subscription", RESOURCE_GROUP, SERVICE_NAME,
                 "https://amp-portal.example", Map.of()));
     }
@@ -210,11 +224,32 @@ class ApimSubscriptionKeyServiceTest {
     }
 
     @Test
+    void subscriptions_recorded_under_the_old_naming_should_still_be_listed_read_and_deleted() {
+        SubscriptionContract legacy = contract(LEGACY, INSTANCE_SCOPE + "/products/hearing-results");
+        givenListed(legacy);
+        givenSecretsFor(LEGACY);
+        when(subscriptions.get(RESOURCE_GROUP, SERVICE_NAME, LEGACY)).thenReturn(legacy);
+
+        assertThat(service.list(OID)).extracting(SubscriptionKey::name).containsExactly(LEGACY);
+        assertThat(service.keyValues(OID, LEGACY).primaryKey()).isEqualTo("primary-key-value");
+        service.delete(OID, LEGACY);
+
+        verify(subscriptions).delete(RESOURCE_GROUP, SERVICE_NAME, LEGACY, "*");
+    }
+
+    @Test
     void creating_a_name_outside_your_own_should_be_refused_before_azure() {
-        assertThatThrownBy(() -> service.create(OID, SOMEONE_ELSES, "hearing-results", "Team Beta"))
+        assertThatThrownBy(() -> service.create(OID, "amp-consumer-team-beta-slc", "hearing-results", "Team Beta"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
-                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST))
-            .hasMessageContaining("amp-user001-");
+                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        verify(subscriptions, never()).createOrUpdate(any(), any(), any(), any());
+    }
+
+    @Test
+    void creating_a_name_that_extends_your_appname_into_another_should_be_refused() {
+        assertThatThrownBy(() -> service.create(OID, SOMEONE_ELSES, "hearing-results", "Team Alpha Ext"))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
         verify(subscriptions, never()).createOrUpdate(any(), any(), any(), any());
     }
 
@@ -270,5 +305,12 @@ class ApimSubscriptionKeyServiceTest {
         HttpResponse response = mock(HttpResponse.class);
         when(response.getStatusCode()).thenReturn(statusCode);
         return response;
+    }
+
+    private static ApplicationApiEntity subscribed(final ApplicationEntity application, final String name) {
+        ApplicationApiEntity row = new ApplicationApiEntity();
+        row.setApplication(application);
+        row.setSubscriptionName(name);
+        return row;
     }
 }

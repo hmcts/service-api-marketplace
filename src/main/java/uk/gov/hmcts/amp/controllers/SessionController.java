@@ -3,6 +3,8 @@ package uk.gov.hmcts.amp.controllers;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.RestController;
+import uk.gov.hmcts.amp.audit.AuditAction;
+import uk.gov.hmcts.amp.audit.LogAudit;
 import uk.gov.hmcts.amp.domain.SessionRequest;
 import uk.gov.hmcts.amp.mappers.ResponseMapper;
 import uk.gov.hmcts.amp.openapi.api.SessionApi;
@@ -19,6 +21,7 @@ public class SessionController implements SessionApi {
     private final ResponseMapper mapper;
 
     @Override
+    @LogAudit(action = AuditAction.USER_SIGNED_IN, actor = "#request.objectId()", target = "#request.objectId()")
     public User createSession(final SessionRequest request) {
         log.info("Start a session for the user Entra has signed in");
         return mapper.toUser(users.signIn(request));

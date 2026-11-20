@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/** What the Marketplace Team sees of everyone. Read only, and admins only. */
 @Service
 @RequiredArgsConstructor
 public class AdminService {
@@ -30,7 +29,6 @@ public class AdminService {
     private final ApplicationApiRepository applicationApiRepository;
     private final ProductionRequestRepository productionRequestRepository;
 
-    /** 403 rather than 404: the caller is known, they are just not allowed this. */
     public UserEntity requireAdmin(final String requestingUserId) {
         final UserEntity caller = userService.requireSignedIn(requestingUserId);
         if (caller.getRole() != UserRole.ADMIN) {

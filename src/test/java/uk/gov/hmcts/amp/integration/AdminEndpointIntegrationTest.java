@@ -27,7 +27,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** /admin over HTTP: what the Marketplace Team sees of everyone, and that nobody else sees it. */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ContextConfiguration(initializers = {TestContainersInitialise.class})

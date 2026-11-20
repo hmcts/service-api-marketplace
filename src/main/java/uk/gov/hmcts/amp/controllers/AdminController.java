@@ -11,7 +11,6 @@ import uk.gov.hmcts.amp.services.AdminService;
 
 import java.util.List;
 
-/** Read-only views for the Marketplace Team. AdminService refuses anyone who is not an admin. */
 @Slf4j
 @RestController
 @RequiredArgsConstructor

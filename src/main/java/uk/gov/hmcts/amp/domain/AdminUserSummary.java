@@ -4,7 +4,6 @@ import uk.gov.hmcts.amp.entity.UserEntity;
 
 import java.time.LocalDateTime;
 
-/** One registered user as the admin list shows them. */
 public record AdminUserSummary(Long id, String name, String email, LocalDateTime createdAt,
                                LocalDateTime lastLoginAt, long applicationCount) {
 

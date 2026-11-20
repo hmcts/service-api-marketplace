@@ -11,7 +11,6 @@ import java.util.Optional;
 @Repository
 public interface ApplicationRepository extends JpaRepository<ApplicationEntity, Long> {
 
-    /** How many applications one user has made. A user with none has no row. */
     interface UserApplicationCount {
         Long getUserId();
 

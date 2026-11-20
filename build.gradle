@@ -207,6 +207,11 @@ dependencies {
   // Bean validation on inbound request bodies - drives the 400 responses in the marketplace OpenAPI spec
   implementation 'org.springframework.boot:spring-boot-starter-validation'
 
+  // Admin endpoints only. The service verifies the caller's Entra token itself and reads the
+  // amp_admin app role from it; every other path keeps the behaviour it has today.
+  implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+  testImplementation 'org.springframework.security:spring-security-test'
+
   // Azure API Management subscription keys, as in service-hmcts-springboot-demo's
   // ( including mocks so the integration test can run locally in the pipeline )
   // The SDK defaults to a Netty transport, which is a large dependency this service has no other

@@ -89,10 +89,7 @@ public class ApplicationService {
 
         final String name = UserService.namePrefix(user) + application.getAppname()
             + "-" + api.getShortCode();
-        final SubscriptionKey created = subscriptionKeys.create(
-            requestingUserId, name,
-            api.getProductId(), application.getName()
-        );
+        final SubscriptionKey created = subscriptionKeys.create(requestingUserId, name, api.getProductId());
 
         record(application, api, name, created.primaryKey());
         log.info("Subscribed application {} to {} as {}", clientId, api.getShortCode(), name);

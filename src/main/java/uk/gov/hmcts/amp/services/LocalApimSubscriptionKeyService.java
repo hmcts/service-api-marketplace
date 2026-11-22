@@ -42,14 +42,13 @@ public class LocalApimSubscriptionKeyService extends ApimSubscriptionKeyService 
     }
 
     @Override
-    public SubscriptionKey create(final String requestingUserId, final String name, final String productId,
-                                  final String displayName) {
+    public SubscriptionKey create(final String requestingUserId, final String name, final String productId) {
         final String prefix = callerPrefix(requestingUserId);
         if (!name.startsWith(prefix)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "A subscription name must start with " + prefix + ".");
         }
-        final SubscriptionKey created = new SubscriptionKey(name, displayName, PRODUCTS + productId, productId,
+        final SubscriptionKey created = new SubscriptionKey(name, name, PRODUCTS + productId, productId,
             ACTIVE, null, null);
         if (subscriptions.putIfAbsent(name, created) != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,

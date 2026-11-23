@@ -9,6 +9,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
+import uk.gov.hmcts.amp.entity.UserEntity;
+import uk.gov.hmcts.amp.entity.UserRole;
 import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
@@ -18,13 +20,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** /users over HTTP, which is the only way to see who has signed in without database access. */
+/** /admin/users/lookup over HTTP: the support view of who has signed in, for admins only. */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ContextConfiguration(initializers = {TestContainersInitialise.class})
 class UserEndpointIntegrationTest {
 
-    private static final String PATH = "/users";
+    private static final String PATH = "/admin/users/lookup";
     private static final String ADA = "aaaaaaaa-1111-2222-3333-444444444444";
     private static final String GRACE = "bbbbbbbb-1111-2222-3333-444444444444";
 
@@ -49,6 +51,9 @@ class UserEndpointIntegrationTest {
         users.deleteAll();
         adaId = signIn(ADA, "ada.lovelace@hmcts.net", "Ada Lovelace");
         signIn(GRACE, "grace.hopper@hmcts.net", "Grace Hopper");
+        final UserEntity ada = users.findByEntraObjectId(ADA).orElseThrow();
+        ada.setRole(UserRole.ADMIN);
+        users.save(ada);
     }
 
     @Test
@@ -66,7 +71,7 @@ class UserEndpointIntegrationTest {
             .andExpect(jsonPath("$[0].userReference").value("user%03d".formatted(adaId)))
             .andExpect(jsonPath("$[0].name").value("Ada Lovelace"))
             .andExpect(jsonPath("$[0].status").value("ACTIVE"))
-            .andExpect(jsonPath("$[0].role").value("USER"))
+            .andExpect(jsonPath("$[0].role").value("ADMIN"))
             .andExpect(jsonPath("$[0].lastLoginAt").isNotEmpty());
     }
 
@@ -85,7 +90,7 @@ class UserEndpointIntegrationTest {
     }
 
     @Test
-    void reading_somebody_else_should_be_allowed() throws Exception {
+    void an_admin_should_be_able_to_read_somebody_else() throws Exception {
         mockMvc.perform(get(PATH + "/" + GRACE).header("requestingUserId", ADA))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.email").value("grace.hopper@hmcts.net"));
@@ -104,6 +109,26 @@ class UserEndpointIntegrationTest {
     void missing_header_should_be_rejected() throws Exception {
         mockMvc.perform(get(PATH)).andExpect(status().isBadRequest());
         mockMvc.perform(get(PATH + "/" + adaId)).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void listing_should_be_refused_for_someone_who_is_not_an_admin() throws Exception {
+        mockMvc.perform(get(PATH).header("requestingUserId", GRACE))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void someone_who_is_not_an_admin_should_not_read_somebody_else() throws Exception {
+        mockMvc.perform(get(PATH + "/" + ADA).header("requestingUserId", GRACE))
+            .andExpect(status().isForbidden());
+        mockMvc.perform(get(PATH + "/" + adaId).header("requestingUserId", GRACE))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void someone_who_is_not_an_admin_should_not_read_themselves_here_either() throws Exception {
+        mockMvc.perform(get(PATH + "/" + GRACE).header("requestingUserId", GRACE))
+            .andExpect(status().isForbidden());
     }
 
     @Test

@@ -32,8 +32,8 @@ object id and returns the long id and `userReference`.
 
 | Method | Path | Returns | |
 |---|---|---|---|
-| GET | `/users` | 200 400 404 | Everyone who has signed in, oldest first |
-| GET | `/users/{userId}` | 200 400 404 | Row id or Entra object id, whichever you have |
+| GET | `/admin/users/lookup` | 200 400 403 404 | Admins only. Everyone who has signed in, oldest first |
+| GET | `/admin/users/lookup/{userId}` | 200 400 403 404 | Admins only. Row id or Entra object id, whichever you have |
 
 Deliberately not user-scoped: a marketplace user can see the others. A user exists only by having
 signed in, and no environment but sbox allows a database connection, so without this there is no

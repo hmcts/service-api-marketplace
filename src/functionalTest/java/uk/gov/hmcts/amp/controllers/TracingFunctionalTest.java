@@ -30,7 +30,7 @@ class TracingFunctionalTest {
 
     @Test
     void an_error_should_carry_the_correlation_id_as_its_trace_id() throws Exception {
-        var response = http.get("/users", CORRELATION_ID, SENT_ID);
+        var response = http.get("/admin/users/lookup", CORRELATION_ID, SENT_ID);
 
         assertThat(response.statusCode()).isEqualTo(400);
         assertThat(json(response).path("traceId").asText()).isEqualTo(SENT_ID);

@@ -49,7 +49,7 @@ class UserServiceTest {
 
     @Test
     void listing_users_should_come_back_in_row_order() {
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(saved(1L, OID)));
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(admin(1L, OID)));
         when(userRepository.findAll(Sort.by("id"))).thenReturn(List.of(saved(1L, OID), saved(2L, OTHER_OID)));
 
         assertThat(userService.list(OID)).extracting(UserResponse::userReference)
@@ -69,7 +69,7 @@ class UserServiceTest {
 
     @Test
     void numeric_user_id_should_be_read_as_the_row_id() {
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(saved(1L, OID)));
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(admin(1L, OID)));
         when(userRepository.findById(2L)).thenReturn(Optional.of(saved(2L, OTHER_OID)));
 
         assertThat(userService.get(OID, "2").userReference()).isEqualTo("user002");
@@ -77,7 +77,7 @@ class UserServiceTest {
 
     @Test
     void anything_else_should_be_read_as_an_entra_object_id() {
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(saved(1L, OID)));
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(admin(1L, OID)));
         when(userRepository.findByEntraObjectId(OTHER_OID)).thenReturn(Optional.of(saved(2L, OTHER_OID)));
 
         assertThat(userService.get(OID, "  " + OTHER_OID.toUpperCase(java.util.Locale.UK) + "  ").id())
@@ -86,12 +86,36 @@ class UserServiceTest {
 
     @Test
     void an_identifier_matching_nobody_should_be_not_found() {
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(saved(1L, OID)));
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(admin(1L, OID)));
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userService.get(OID, "99"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+    }
+
+    @Test
+    void listing_users_should_be_refused_for_someone_who_is_not_an_admin() {
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(saved(1L, OID)));
+
+        assertStatus(() -> userService.list(OID), HttpStatus.FORBIDDEN);
+        verify(userRepository, never()).findAll(Sort.by("id"));
+    }
+
+    @Test
+    void someone_who_is_not_an_admin_should_not_read_somebody_else() {
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(saved(1L, OID)));
+
+        assertStatus(() -> userService.get(OID, "2"), HttpStatus.FORBIDDEN);
+        assertStatus(() -> userService.get(OID, OTHER_OID), HttpStatus.FORBIDDEN);
+        verify(userRepository, never()).findById(2L);
+    }
+
+    @Test
+    void someone_who_is_not_an_admin_should_not_read_themselves_either() {
+        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(saved(1L, OID)));
+
+        assertStatus(() -> userService.get(OID, OID), HttpStatus.FORBIDDEN);
     }
 
     @Test
@@ -313,6 +337,12 @@ class UserServiceTest {
 
     private static UserEntity saved(final long id, final String oid) {
         return withId(existing(oid, "user" + id + "@hmcts.net"), id);
+    }
+
+    private static UserEntity admin(final long id, final String oid) {
+        final UserEntity user = saved(id, oid);
+        user.setRole(UserRole.ADMIN);
+        return user;
     }
 
     private static UserEntity withId(final UserEntity user, final long id) {

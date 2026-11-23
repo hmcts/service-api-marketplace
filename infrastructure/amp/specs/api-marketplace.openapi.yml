@@ -35,6 +35,8 @@ tags:
     description: Recording the person Entra has signed in
   - name: users
     description: Who has signed in, for support and debugging
+  - name: admin
+    description: Read-only views for the Marketplace Team. Admins only
   - name: applications
     description: Entra application registrations and their APIM subscriptions
   - name: production-requests
@@ -171,6 +173,71 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           description: No user with that row id or Entra object id, or the caller is not known
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/users:
+    get:
+      summary: List the active users, for an admin
+      description: >-
+        Every user whose status is ACTIVE, newest first, with how many
+        applications each has made. Answers 403 to a caller who is not an
+        ADMIN.
+      operationId: listAdminUsers
+      tags: [admin]
+      parameters:
+        - $ref: '#/components/parameters/RequestingUserId'
+      responses:
+        '200':
+          description: The active users, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminUser'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/NotAnAdmin'
+        '404':
+          $ref: '#/components/responses/UnknownUser'
+
+  /admin/users/{userId}:
+    get:
+      summary: Read one user, for an admin
+      description: >-
+        The user whatever their status, their applications (oldest first) and
+        their production credentials requests (newest first). Organisation is
+        the one given on their latest production credentials request. Answers
+        403 to a caller who is not an ADMIN.
+      operationId: getAdminUser
+      tags: [admin]
+      parameters:
+        - $ref: '#/components/parameters/RequestingUserId'
+        - name: userId
+          in: path
+          required: true
+          description: The user's row id
+          schema:
+            type: integer
+            format: int64
+          example: 1
+      responses:
+        '200':
+          description: The user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/NotAnAdmin'
+        '404':
+          description: No user with that row id, or the caller is not known
           content:
             application/json:
               schema:
@@ -748,6 +815,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+    NotAnAdmin:
+      description: The caller is signed in but is not an ADMIN
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     NotYours:
       description: >-
         No such application for this caller. Deliberately 404 rather than 403,
@@ -914,6 +987,120 @@ components:
           description: Date and time with no offset
           example: '2026-11-02T10:15:30'
         lastLoginAt:
+          type: string
+          format: local-date-time
+          description: Date and time with no offset
+          example: '2026-11-02T10:15:30'
+
+    AdminUser:
+      type: object
+      description: >-
+        One registered user as the admin list shows them. No identifiers
+        beyond the row id, and nothing secret.
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: Ada Lovelace
+        email:
+          type: string
+          format: email
+          example: ada.lovelace@hmcts.net
+        createdAt:
+          type: string
+          format: local-date-time
+          description: When they joined. Date and time with no offset
+          example: '2026-10-29T10:15:30'
+        lastLoginAt:
+          type: string
+          format: local-date-time
+          nullable: true
+          description: When they last signed in. Date and time with no offset
+          example: '2026-11-02T10:15:30'
+        applicationCount:
+          type: integer
+          format: int64
+          example: 2
+
+    AdminUserDetail:
+      type: object
+      description: >-
+        One user as the admin user page shows them. No identifiers beyond the
+        row id, and nothing secret.
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: Ada Lovelace
+        email:
+          type: string
+          format: email
+          example: ada.lovelace@hmcts.net
+        status:
+          type: string
+          example: ACTIVE
+        createdAt:
+          type: string
+          format: local-date-time
+          description: When they joined. Date and time with no offset
+          example: '2026-10-29T10:15:30'
+        lastLoginAt:
+          type: string
+          format: local-date-time
+          nullable: true
+          description: When they last signed in. Date and time with no offset
+          example: '2026-11-02T10:15:30'
+        organisation:
+          type: string
+          nullable: true
+          description: From their latest production credentials request, if they have made one
+          example: Example Legal Ltd
+        applications:
+          type: array
+          description: Oldest first
+          items:
+            $ref: '#/components/schemas/AdminApplication'
+        productionRequests:
+          type: array
+          description: Newest first
+          items:
+            $ref: '#/components/schemas/AdminProductionRequest'
+
+    AdminApplication:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Case Viewer
+        apiCount:
+          type: integer
+          format: int64
+          example: 1
+        createdAt:
+          type: string
+          format: local-date-time
+          description: Date and time with no offset
+          example: '2026-10-29T10:15:30'
+
+    AdminProductionRequest:
+      type: object
+      properties:
+        reference:
+          type: string
+          example: PCR-ABCD2345
+        applicationName:
+          type: string
+          example: Case Viewer
+        status:
+          type: string
+          example: SUBMITTED
+        submittedAt:
           type: string
           format: local-date-time
           description: Date and time with no offset

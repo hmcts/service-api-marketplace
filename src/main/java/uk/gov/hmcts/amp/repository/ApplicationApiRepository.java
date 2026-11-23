@@ -12,6 +12,8 @@ public interface ApplicationApiRepository extends JpaRepository<ApplicationApiEn
 
     List<ApplicationApiEntity> findByApplicationId(Long applicationId);
 
+    long countByApplicationId(Long applicationId);
+
     List<ApplicationApiEntity> findByShortCode(String shortCode);
 
     boolean existsByApplicationIdAndShortCode(Long applicationId, String shortCode);

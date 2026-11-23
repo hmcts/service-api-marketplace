@@ -31,7 +31,7 @@ class LocalApimSubscriptionKeyServiceTest {
 
     @Test
     void creating_should_return_keys_that_reading_again_gives_back() {
-        SubscriptionKey created = service.create(OID, NAME, "try-it-now-slc", "Case Viewer");
+        SubscriptionKey created = service.create(OID, NAME, "try-it-now-slc");
 
         assertThat(created.productId()).isEqualTo("try-it-now-slc");
         assertThat(created.primaryKey()).isNotBlank().isNotEqualTo(created.secondaryKey());
@@ -41,16 +41,16 @@ class LocalApimSubscriptionKeyServiceTest {
 
     @Test
     void creating_outside_the_callers_prefix_should_be_rejected() {
-        assertThatThrownBy(() -> service.create(OID, "amp-user002-case-viewer-slc", "try-it-now-slc", "Case Viewer"))
+        assertThatThrownBy(() -> service.create(OID, "amp-user002-case-viewer-slc", "try-it-now-slc"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
     }
 
     @Test
     void creating_the_same_name_twice_should_conflict() {
-        service.create(OID, NAME, "try-it-now-slc", "Case Viewer");
+        service.create(OID, NAME, "try-it-now-slc");
 
-        assertThatThrownBy(() -> service.create(OID, NAME, "try-it-now-slc", "Case Viewer"))
+        assertThatThrownBy(() -> service.create(OID, NAME, "try-it-now-slc"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
     }
@@ -67,7 +67,7 @@ class LocalApimSubscriptionKeyServiceTest {
 
     @Test
     void deleting_should_take_it_out_of_the_list() {
-        service.create(OID, NAME, "try-it-now-slc", "Case Viewer");
+        service.create(OID, NAME, "try-it-now-slc");
 
         service.delete(OID, NAME);
 

@@ -95,14 +95,14 @@ class ApimSubscriptionKeyServiceTest {
             .thenReturn(created);
         givenSecretsFor(NAME);
 
-        SubscriptionKey result = service.create(OID, NAME, "hearing-results", "Team Alpha");
+        SubscriptionKey result = service.create(OID, NAME, "hearing-results");
 
         ArgumentCaptor<SubscriptionCreateParameters> sent =
             ArgumentCaptor.forClass(SubscriptionCreateParameters.class);
         verify(subscriptions).createOrUpdate(eq(RESOURCE_GROUP), eq(SERVICE_NAME), eq(NAME),
             sent.capture());
         assertThat(sent.getValue().scope()).isEqualTo("/products/hearing-results");
-        assertThat(sent.getValue().displayName()).isEqualTo("Team Alpha");
+        assertThat(sent.getValue().displayName()).isEqualTo(NAME);
         assertThat(sent.getValue().state()).isEqualTo(SubscriptionState.ACTIVE);
         assertThat(result.primaryKey()).isEqualTo("primary-key-value");
         assertThat(result.secondaryKey()).isEqualTo("secondary-key-value");
@@ -113,7 +113,7 @@ class ApimSubscriptionKeyServiceTest {
         SubscriptionContract existing = contract(NAME, INSTANCE_SCOPE + "/products/hearing-results");
         when(subscriptions.get(RESOURCE_GROUP, SERVICE_NAME, NAME)).thenReturn(existing);
 
-        assertThatThrownBy(() -> service.create(OID, NAME, "hearing-results", "Team Alpha"))
+        assertThatThrownBy(() -> service.create(OID, NAME, "hearing-results"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
         // Azure's createOrUpdate is a PUT and would have upserted over the existing key.
@@ -211,7 +211,7 @@ class ApimSubscriptionKeyServiceTest {
 
     @Test
     void creating_a_name_outside_your_own_should_be_refused_before_azure() {
-        assertThatThrownBy(() -> service.create(OID, SOMEONE_ELSES, "hearing-results", "Team Beta"))
+        assertThatThrownBy(() -> service.create(OID, SOMEONE_ELSES, "hearing-results"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST))
             .hasMessageContaining("amp-user001-");

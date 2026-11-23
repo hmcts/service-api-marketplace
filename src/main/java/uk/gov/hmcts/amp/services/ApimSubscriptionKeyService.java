@@ -43,8 +43,7 @@ public class ApimSubscriptionKeyService {
         }
     }
 
-    public SubscriptionKey create(final String requestingUserId, final String name, final String productId,
-                                  final String displayName) {
+    public SubscriptionKey create(final String requestingUserId, final String name, final String productId) {
         final String prefix = prefixFor(requestingUserId);
         if (!name.startsWith(prefix)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -61,7 +60,7 @@ public class ApimSubscriptionKeyService {
                 apimProperties.resourceGroup(), apimProperties.serviceName(), name,
                 new SubscriptionCreateParameters()
                     .withScope(PRODUCTS + productId)
-                    .withDisplayName(displayName)
+                    .withDisplayName(name)
                     .withState(SubscriptionState.ACTIVE));
             log.info("Created APIM subscription {}", name);
             return withKeys(asSubscriptionKey(created));

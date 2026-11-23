@@ -1,6 +1,5 @@
 package uk.gov.hmcts.amp.controllers;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,31 +22,21 @@ class UserFunctionalTest {
     }
 
     @Test
-    void reading_a_user_by_their_entra_object_id_should_carry_their_role() throws Exception {
+    void reading_a_user_should_be_refused_for_someone_who_is_not_an_admin() throws Exception {
         http.signIn(OID, EMAIL);
 
-        var response = http.get("/users/" + OID, REQUESTING_USER_ID, OID);
-
-        assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(json(response).path("entraObjectId").asText()).isEqualTo(OID);
-        assertThat(json(response).path("role").asText()).isEqualTo("USER");
+        assertThat(http.get("/admin/users/lookup/" + OID, REQUESTING_USER_ID, OID).statusCode()).isEqualTo(403);
     }
 
     @Test
-    void listing_users_should_give_everyone_a_role() throws Exception {
+    void listing_users_should_be_refused_for_someone_who_is_not_an_admin() throws Exception {
         http.signIn(OID, EMAIL);
 
-        var response = http.get("/users", REQUESTING_USER_ID, OID);
-
-        assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(json(response)).isNotEmpty();
-        for (JsonNode user : json(response)) {
-            assertThat(user.path("role").asText()).isIn("USER", "ADMIN");
-        }
+        assertThat(http.get("/admin/users/lookup", REQUESTING_USER_ID, OID).statusCode()).isEqualTo(403);
     }
 
     @Test
     void listing_users_without_a_requesting_user_should_be_refused_with_400() throws Exception {
-        assertThat(http.get("/users").statusCode()).isEqualTo(400);
+        assertThat(http.get("/admin/users/lookup").statusCode()).isEqualTo(400);
     }
 }

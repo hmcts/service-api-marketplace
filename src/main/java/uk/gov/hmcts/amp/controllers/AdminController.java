@@ -3,6 +3,8 @@ package uk.gov.hmcts.amp.controllers;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.RestController;
+import uk.gov.hmcts.amp.audit.AuditAction;
+import uk.gov.hmcts.amp.audit.LogAudit;
 import uk.gov.hmcts.amp.mappers.ResponseMapper;
 import uk.gov.hmcts.amp.openapi.api.AdminApi;
 import uk.gov.hmcts.amp.openapi.model.AdminUser;
@@ -20,12 +22,14 @@ public class AdminController implements AdminApi {
     private final ResponseMapper mapper;
 
     @Override
+    @LogAudit(action = AuditAction.ADMIN_USERS_LISTED)
     public List<AdminUser> listAdminUsers(final String requestingUserId) {
         log.info("List users for an admin");
         return mapper.toAdminUsers(admin.listUsers(requestingUserId));
     }
 
     @Override
+    @LogAudit(action = AuditAction.ADMIN_USER_VIEWED, target = "#userId")
     public AdminUserDetail getAdminUser(final String requestingUserId, final Long userId) {
         log.info("Read user {} for an admin", userId);
         return mapper.toAdminUserDetail(admin.getUser(requestingUserId, userId));

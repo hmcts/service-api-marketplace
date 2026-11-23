@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RestController;
+import uk.gov.hmcts.amp.audit.AuditAction;
+import uk.gov.hmcts.amp.audit.LogAudit;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.domain.ApiAccess;
 import uk.gov.hmcts.amp.domain.ApplicationRequest;
@@ -37,12 +39,15 @@ public class ApplicationController implements ApplicationsApi {
     }
 
     @Override
+    @LogAudit(action = AuditAction.CONSUMER_APPLICATION_CREATED, target = "#result?.clientId")
     public CreatedApplication createApplication(final String requestingUserId, final ApplicationRequest request) {
         log.info("Register application '{}'", request.name());
         return mapper.toCreatedApplication(applications.create(requestingUserId, request));
     }
 
     @Override
+    @LogAudit(action = AuditAction.CONSUMER_APPLICATION_ROLES_GRANTED, target = "#clientId",
+        api = "#request.shortCode()")
     public void grantRole(final String requestingUserId, final String clientId, final ApiAccess request) {
         log.info("Grant access to {} for application {}", request.shortCode(), clientId);
         applications.grantAccess(requestingUserId, clientId, request.shortCode());
@@ -54,6 +59,7 @@ public class ApplicationController implements ApplicationsApi {
     }
 
     @Override
+    @LogAudit(action = AuditAction.CONSUMER_APPLICATION_DELETED, target = "#clientId")
     public void deleteApplication(final String requestingUserId, final String clientId) {
         log.info("Delete application {}", clientId);
         applications.delete(requestingUserId, clientId);

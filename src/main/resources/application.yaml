@@ -62,6 +62,14 @@ apim:
     pcd: ${APIM_TRY_IT_NOW_API_PCD:try-it-now-pcd}
     dl: ${APIM_TRY_IT_NOW_API_DL:try-it-now-dl}
 
+audit:
+  ingestion:
+    # Off: audit goes to AppTraces. On: to AmpAudit_CL (docs/AUDIT.md).
+    enabled: ${AUDIT_INGESTION_ENABLED:false}
+    endpoint: ${AUDIT_INGESTION_ENDPOINT:}
+    rule-id: ${AUDIT_INGESTION_RULE_ID:}
+    environment: ${ENVIRONMENT_NAME:UNKNOWN}
+
 notify:
   api-key: ${NOTIFY_API_KEY:}
   base-url: ${NOTIFY_BASE_URL:https://api.notifications.service.gov.uk}

@@ -3,6 +3,8 @@ package uk.gov.hmcts.amp.controllers;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.RestController;
+import uk.gov.hmcts.amp.audit.AuditAction;
+import uk.gov.hmcts.amp.audit.LogAudit;
 import uk.gov.hmcts.amp.domain.ProductionAccessRequest;
 import uk.gov.hmcts.amp.mappers.ResponseMapper;
 import uk.gov.hmcts.amp.openapi.api.ProductionRequestsApi;
@@ -33,6 +35,7 @@ public class ProductionRequestController implements ProductionRequestsApi {
     }
 
     @Override
+    @LogAudit(action = AuditAction.CONSUMER_PRODUCTION_REQUEST_SUBMITTED, target = "#result?.reference")
     public ProductionRequest createProductionRequest(final String requestingUserId,
                                                             final ProductionAccessRequest request) {
         log.info("Create a production request for application {}", request.clientId());
@@ -40,6 +43,7 @@ public class ProductionRequestController implements ProductionRequestsApi {
     }
 
     @Override
+    @LogAudit(action = AuditAction.CONSUMER_PRODUCTION_REQUEST_WITHDRAWN, target = "#reference")
     public void deleteProductionRequest(final String requestingUserId, final String reference) {
         log.info("Delete production request {}", reference);
         productionRequests.delete(requestingUserId, reference);

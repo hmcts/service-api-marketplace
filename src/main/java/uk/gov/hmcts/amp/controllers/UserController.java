@@ -3,6 +3,8 @@ package uk.gov.hmcts.amp.controllers;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.RestController;
+import uk.gov.hmcts.amp.audit.AuditAction;
+import uk.gov.hmcts.amp.audit.LogAudit;
 import uk.gov.hmcts.amp.mappers.ResponseMapper;
 import uk.gov.hmcts.amp.openapi.api.UsersApi;
 import uk.gov.hmcts.amp.openapi.model.User;
@@ -20,12 +22,14 @@ public class UserController implements UsersApi {
     private final ResponseMapper mapper;
 
     @Override
+    @LogAudit(action = AuditAction.ADMIN_USERS_LISTED)
     public List<User> listUsers(final String requestingUserId) {
         log.info("List marketplace users");
         return mapper.toUsers(users.list(requestingUserId));
     }
 
     @Override
+    @LogAudit(action = AuditAction.ADMIN_USER_VIEWED, target = "#userId")
     public User getUser(final String requestingUserId, final String userId) {
         log.info("Read marketplace user {}", userId);
         return mapper.toUser(users.get(requestingUserId, userId));

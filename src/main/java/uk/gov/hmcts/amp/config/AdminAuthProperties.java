@@ -21,6 +21,10 @@ public record AdminAuthProperties(String tenantId, String audience, String role)
         return "https://%s.ciamlogin.com/%s/v2.0".formatted(tenantId, tenantId);
     }
 
+    public String jwkSetUri() {
+        return "https://%s.ciamlogin.com/%s/discovery/v2.0/keys".formatted(tenantId, tenantId);
+    }
+
     public String roleOrDefault() {
         return isSet(role) ? role : DEFAULT_ROLE;
     }

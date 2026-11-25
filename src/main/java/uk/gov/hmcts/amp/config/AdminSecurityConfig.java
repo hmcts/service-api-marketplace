@@ -41,6 +41,7 @@ public class AdminSecurityConfig {
     public SecurityFilterChain adminFilterChain(final HttpSecurity http,
                                                 final AdminAuthProperties admin) throws Exception {
         http.securityMatcher(ADMIN_PATHS)
+            // Disabled because this is a stateless API: nothing here reads a cookie or a session.
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
@@ -65,6 +66,7 @@ public class AdminSecurityConfig {
     @Order(2)
     public SecurityFilterChain openFilterChain(final HttpSecurity http) throws Exception {
         return http
+            // Disabled because this is a stateless API: nothing here reads a cookie or a session.
             .csrf(csrf -> csrf.disable())
             // SecurityHeadersFilter already sets these on every response, error responses included.
             .headers(headers -> headers.disable())
@@ -73,12 +75,13 @@ public class AdminSecurityConfig {
     }
 
     /**
-     * Reads the tenant's signing keys from its own discovery document, so no key material is held
-     * here. {@code withIssuerLocation} fetches that document on the first admin request rather than
-     * at startup.
+     * Reads the tenant's signing keys from Entra, so no key material is held here. The keys are
+     * named rather than discovered because {@code withIssuerLocation} fetches the discovery
+     * document while the bean is being built, which would make the tenant's availability a
+     * condition of this service starting at all.
      */
     private static JwtDecoder decoder(final AdminAuthProperties admin) {
-        final NimbusJwtDecoder decoder = NimbusJwtDecoder.withIssuerLocation(admin.issuer()).build();
+        final NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(admin.jwkSetUri()).build();
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
             JwtValidators.createDefaultWithIssuer(admin.issuer()),
             audienceIs(admin.audience())));

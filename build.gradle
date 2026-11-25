@@ -207,6 +207,9 @@ dependencies {
   // Bean validation on inbound request bodies - drives the 400 responses in the marketplace OpenAPI spec
   implementation 'org.springframework.boot:spring-boot-starter-validation'
 
+  implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+  testImplementation 'org.springframework.security:spring-security-test'
+
   // Azure API Management subscription keys, as in service-hmcts-springboot-demo's
   // ( including mocks so the integration test can run locally in the pipeline )
   // The SDK defaults to a Netty transport, which is a large dependency this service has no other

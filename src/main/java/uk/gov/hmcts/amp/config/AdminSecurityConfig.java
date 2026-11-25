@@ -38,6 +38,8 @@ public class AdminSecurityConfig {
 
     @Bean
     @Order(1)
+    // S4502 is the CSRF rule; see the exemption below for why it does not apply here.
+    @SuppressWarnings("java:S4502")
     public SecurityFilterChain adminFilterChain(final HttpSecurity http,
                                                 final AdminAuthProperties admin) throws Exception {
         http.securityMatcher(ADMIN_PATHS)
@@ -64,6 +66,8 @@ public class AdminSecurityConfig {
     /** Every other path as it was: this service has never authenticated them and this does not start. */
     @Bean
     @Order(2)
+    // S4502 is the CSRF rule; see the exemption below for why it does not apply here.
+    @SuppressWarnings("java:S4502")
     public SecurityFilterChain openFilterChain(final HttpSecurity http) throws Exception {
         return http
             // Disabled because this is a stateless API: nothing here reads a cookie or a session.

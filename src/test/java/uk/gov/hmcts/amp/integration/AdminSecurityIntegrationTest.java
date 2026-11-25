@@ -63,14 +63,18 @@ class AdminSecurityIntegrationTest {
 
     @Test
     void an_admin_should_be_served_the_users_behind_the_gate() throws Exception {
-        mockMvc.perform(get(USERS).with(adminToken()).header("requestingUserId", ADA))
+        mockMvc.perform(get(USERS).with(adminToken(ADA))).andExpect(status().isOk());
+    }
+
+    @Test
+    void the_role_in_the_token_should_be_enough_without_a_row_in_this_service() throws Exception {
+        mockMvc.perform(get(USERS).with(adminToken("dddddddd-1111-2222-3333-444444444444")))
             .andExpect(status().isOk());
     }
 
     @Test
     void someone_signed_in_without_the_role_should_be_refused() throws Exception {
-        mockMvc.perform(get(USERS).with(jwt().jwt(token -> token.claim("oid", ADA)))
-                .header("requestingUserId", ADA))
+        mockMvc.perform(get(USERS).with(jwt().jwt(token -> token.claim("oid", ADA))))
             .andExpect(status().isForbidden());
     }
 
@@ -96,9 +100,9 @@ class AdminSecurityIntegrationTest {
         mockMvc.perform(get("/health")).andExpect(status().isOk());
     }
 
-    private static RequestPostProcessor adminToken() {
+    private static RequestPostProcessor adminToken(final String oid) {
         return jwt()
-            .jwt(token -> token.claim("oid", ADA).claim("roles", List.of("amp_admin")))
+            .jwt(token -> token.claim("oid", oid).claim("roles", List.of("amp_admin")))
             .authorities(new SimpleGrantedAuthority("ROLE_amp_admin"));
     }
 

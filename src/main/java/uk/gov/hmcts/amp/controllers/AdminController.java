@@ -23,15 +23,15 @@ public class AdminController implements AdminApi {
 
     @Override
     @LogAudit(action = AuditAction.ADMIN_USERS_LISTED)
-    public List<AdminUser> listAdminUsers(final String requestingUserId) {
+    public List<AdminUser> listAdminUsers() {
         log.info("List users for an admin");
-        return mapper.toAdminUsers(admin.listUsers(requestingUserId));
+        return mapper.toAdminUsers(admin.listUsers());
     }
 
     @Override
     @LogAudit(action = AuditAction.ADMIN_USER_VIEWED, target = "#userId")
-    public AdminUserDetail getAdminUser(final String requestingUserId, final Long userId) {
+    public AdminUserDetail getAdminUser(final Long userId) {
         log.info("Read user {} for an admin", userId);
-        return mapper.toAdminUserDetail(admin.getUser(requestingUserId, userId));
+        return mapper.toAdminUserDetail(admin.getUser(userId));
     }
 }

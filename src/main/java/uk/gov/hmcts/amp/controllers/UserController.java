@@ -23,15 +23,15 @@ public class UserController implements UsersApi {
 
     @Override
     @LogAudit(action = AuditAction.ADMIN_USERS_LISTED)
-    public List<User> listUsers(final String requestingUserId) {
+    public List<User> listUsers() {
         log.info("List marketplace users");
-        return mapper.toUsers(users.list(requestingUserId));
+        return mapper.toUsers(users.list());
     }
 
     @Override
     @LogAudit(action = AuditAction.ADMIN_USER_VIEWED, target = "#userId")
-    public User getUser(final String requestingUserId, final String userId) {
+    public User getUser(final String userId) {
         log.info("Read marketplace user {}", userId);
-        return mapper.toUser(users.get(requestingUserId, userId));
+        return mapper.toUser(users.get(userId));
     }
 }

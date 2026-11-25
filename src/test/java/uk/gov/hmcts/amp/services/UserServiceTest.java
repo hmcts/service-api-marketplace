@@ -48,47 +48,32 @@ class UserServiceTest {
 
     @Test
     void listing_users_should_come_back_in_row_order() {
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(admin(1L, OID)));
         when(userRepository.findAll(Sort.by("id"))).thenReturn(List.of(saved(1L, OID), saved(2L, OTHER_OID)));
 
-        assertThat(userService.list(OID)).extracting(UserResponse::userReference)
+        assertThat(userService.list()).extracting(UserResponse::userReference)
             .containsExactly("user001", "user002");
     }
 
     @Test
-    void listing_users_should_need_a_caller_this_service_knows() {
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> userService.list(OID))
-            .isInstanceOfSatisfying(ResponseStatusException.class,
-                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
-
-        verify(userRepository, never()).findAll(any(Sort.class));
-    }
-
-    @Test
     void numeric_user_id_should_be_read_as_the_row_id() {
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(admin(1L, OID)));
         when(userRepository.findById(2L)).thenReturn(Optional.of(saved(2L, OTHER_OID)));
 
-        assertThat(userService.get(OID, "2").userReference()).isEqualTo("user002");
+        assertThat(userService.get("2").userReference()).isEqualTo("user002");
     }
 
     @Test
     void anything_else_should_be_read_as_an_entra_object_id() {
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(admin(1L, OID)));
         when(userRepository.findByEntraObjectId(OTHER_OID)).thenReturn(Optional.of(saved(2L, OTHER_OID)));
 
-        assertThat(userService.get(OID, "  " + OTHER_OID.toUpperCase(java.util.Locale.UK) + "  ").id())
+        assertThat(userService.get("  " + OTHER_OID.toUpperCase(java.util.Locale.UK) + "  ").id())
             .isEqualTo(2L);
     }
 
     @Test
     void an_identifier_matching_nobody_should_be_not_found() {
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(admin(1L, OID)));
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userService.get(OID, "99"))
+        assertThatThrownBy(() -> userService.get("99"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
     }
@@ -299,11 +284,6 @@ class UserServiceTest {
 
     private static UserEntity saved(final long id, final String oid) {
         return withId(existing(oid, "user" + id + "@hmcts.net"), id);
-    }
-
-    private static UserEntity admin(final long id, final String oid) {
-        final UserEntity user = saved(id, oid);
-        return user;
     }
 
     private static UserEntity withId(final UserEntity user, final long id) {

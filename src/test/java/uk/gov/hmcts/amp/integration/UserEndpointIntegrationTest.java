@@ -61,7 +61,7 @@ class UserEndpointIntegrationTest {
 
     @Test
     void listing_should_show_everyone_who_has_signed_in_in_row_order() throws Exception {
-        mockMvc.perform(adminGet(PATH).header("requestingUserId", ADA))
+        mockMvc.perform(adminGet(PATH))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.length()").value(2))
             .andExpect(jsonPath("$[0].email").value("ada.lovelace@hmcts.net"))
@@ -70,7 +70,7 @@ class UserEndpointIntegrationTest {
 
     @Test
     void listing_should_not_expose_anything_a_sign_in_does_not() throws Exception {
-        mockMvc.perform(adminGet(PATH).header("requestingUserId", ADA))
+        mockMvc.perform(adminGet(PATH))
             .andExpect(jsonPath("$[0].userReference").value("user%03d".formatted(adaId)))
             .andExpect(jsonPath("$[0].name").value("Ada Lovelace"))
             .andExpect(jsonPath("$[0].status").value("ACTIVE"))
@@ -79,65 +79,55 @@ class UserEndpointIntegrationTest {
 
     @Test
     void row_id_should_find_the_user() throws Exception {
-        mockMvc.perform(adminGet(PATH + "/" + adaId).header("requestingUserId", ADA))
+        mockMvc.perform(adminGet(PATH + "/" + adaId))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.entraObjectId").value(ADA));
     }
 
     @Test
     void an_entra_object_id_should_find_the_same_user() throws Exception {
-        mockMvc.perform(adminGet(PATH + "/" + ADA).header("requestingUserId", ADA))
+        mockMvc.perform(adminGet(PATH + "/" + ADA))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(adaId));
     }
 
     @Test
     void an_admin_should_be_able_to_read_somebody_else() throws Exception {
-        mockMvc.perform(adminGet(PATH + "/" + GRACE).header("requestingUserId", ADA))
+        mockMvc.perform(adminGet(PATH + "/" + GRACE))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.email").value("grace.hopper@hmcts.net"));
     }
 
     @Test
     void an_identifier_matching_nobody_should_be_not_found() throws Exception {
-        mockMvc.perform(adminGet(PATH + "/999999").header("requestingUserId", ADA))
+        mockMvc.perform(adminGet(PATH + "/999999"))
             .andExpect(status().isNotFound());
 
-        mockMvc.perform(adminGet(PATH + "/not-an-identifier").header("requestingUserId", ADA))
+        mockMvc.perform(adminGet(PATH + "/not-an-identifier"))
             .andExpect(status().isNotFound());
     }
 
-    @Test
-    void missing_header_should_be_rejected() throws Exception {
-        mockMvc.perform(adminGet(PATH)).andExpect(status().isBadRequest());
-        mockMvc.perform(adminGet(PATH + "/" + adaId)).andExpect(status().isBadRequest());
-    }
 
     @Test
     void listing_should_be_refused_for_someone_who_is_not_an_admin() throws Exception {
-        mockMvc.perform(nonAdminGet(PATH).header("requestingUserId", GRACE))
+        mockMvc.perform(nonAdminGet(PATH))
             .andExpect(status().isForbidden());
     }
 
     @Test
     void someone_who_is_not_an_admin_should_not_read_somebody_else() throws Exception {
-        mockMvc.perform(nonAdminGet(PATH + "/" + ADA).header("requestingUserId", GRACE))
+        mockMvc.perform(nonAdminGet(PATH + "/" + ADA))
             .andExpect(status().isForbidden());
-        mockMvc.perform(nonAdminGet(PATH + "/" + adaId).header("requestingUserId", GRACE))
+        mockMvc.perform(nonAdminGet(PATH + "/" + adaId))
             .andExpect(status().isForbidden());
     }
 
     @Test
     void someone_who_is_not_an_admin_should_not_read_themselves_here_either() throws Exception {
-        mockMvc.perform(nonAdminGet(PATH + "/" + GRACE).header("requestingUserId", GRACE))
+        mockMvc.perform(nonAdminGet(PATH + "/" + GRACE))
             .andExpect(status().isForbidden());
     }
 
-    @Test
-    void an_unknown_requesting_user_should_be_told_to_sign_in_again() throws Exception {
-        mockMvc.perform(adminGet(PATH).header("requestingUserId", "cccccccc-1111-2222-3333-444444444444"))
-            .andExpect(status().isNotFound());
-    }
 
     private long signIn(final String oid, final String email, final String name) throws Exception {
         String body = mockMvc.perform(post("/session").contentType(MediaType.APPLICATION_JSON)

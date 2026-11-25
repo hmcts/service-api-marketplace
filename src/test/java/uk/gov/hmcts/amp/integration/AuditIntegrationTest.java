@@ -106,9 +106,8 @@ class AuditIntegrationTest {
         users.save(admin);
         appender.list.clear();
 
-        mockMvc.perform(adminGet("/admin/users").header("requestingUserId", OID)).andExpect(status().isOk());
-        mockMvc.perform(adminGet("/admin/users/" + admin.getId()).header("requestingUserId", OID))
-            .andExpect(status().isOk());
+        mockMvc.perform(adminGet("/admin/users")).andExpect(status().isOk());
+        mockMvc.perform(adminGet("/admin/users/" + admin.getId())).andExpect(status().isOk());
 
         assertThat(appender.list).hasSize(2);
         assertThat(appender.list.get(0).getMDCPropertyMap())
@@ -131,9 +130,8 @@ class AuditIntegrationTest {
         users.save(admin);
         appender.list.clear();
 
-        mockMvc.perform(adminGet("/admin/users/lookup").header("requestingUserId", OID)).andExpect(status().isOk());
-        mockMvc.perform(adminGet("/admin/users/lookup/" + OID).header("requestingUserId", OID))
-            .andExpect(status().isOk());
+        mockMvc.perform(adminGet("/admin/users/lookup")).andExpect(status().isOk());
+        mockMvc.perform(adminGet("/admin/users/lookup/" + OID)).andExpect(status().isOk());
 
         assertThat(appender.list).hasSize(2);
         assertThat(appender.list.get(0).getMDCPropertyMap())
@@ -169,7 +167,8 @@ class AuditIntegrationTest {
     }
 
     private static MockHttpServletRequestBuilder adminGet(final String uri) {
-        return get(uri).with(jwt().authorities(new SimpleGrantedAuthority("ROLE_amp_admin")));
+        return get(uri).with(jwt().jwt(token -> token.claim("oid", OID))
+            .authorities(new SimpleGrantedAuthority("ROLE_amp_admin")));
     }
 
 

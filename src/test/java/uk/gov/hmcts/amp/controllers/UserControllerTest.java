@@ -37,15 +37,15 @@ class UserControllerTest {
 
     @Test
     void listing_should_return_what_the_service_found() {
-        when(users.list(OID)).thenReturn(List.of(ada));
+        when(users.list()).thenReturn(List.of(ada));
 
-        assertThat(controller.listUsers(OID)).containsExactly(mapper.toUser(ada));
+        assertThat(controller.listUsers()).containsExactly(mapper.toUser(ada));
     }
 
     @Test
     void reading_one_should_pass_the_identifier_through_untouched() {
-        when(users.get(OID, "1")).thenReturn(ada);
+        when(users.get("1")).thenReturn(ada);
 
-        assertThat(controller.getUser(OID, "1")).isEqualTo(mapper.toUser(ada));
+        assertThat(controller.getUser("1")).isEqualTo(mapper.toUser(ada));
     }
 }

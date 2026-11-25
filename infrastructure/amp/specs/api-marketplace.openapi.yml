@@ -12,6 +12,11 @@ info:
     every call after /session. The backend takes that at face value and holds
     no session of its own.
 
+    The /admin paths are the exception. They take no requestingUserId: the
+    caller sends the ID token the web app signed them in with, and the backend
+    verifies it and requires the amp_admin app role, which is assigned in
+    Entra.
+
     /apim/subscription-keys is where subscriptions are created, read and
     revoked. A subscription belongs to whoever created it: the name carries
     that person's prefix, amp-user001- say, and the instance is shared with
@@ -128,8 +133,8 @@ paths:
         in. Carries no secret of any kind.
       operationId: listUsers
       tags: [users]
-      parameters:
-        - $ref: '#/components/parameters/RequestingUserId'
+      security:
+        - adminToken: []
       responses:
         '200':
           description: Every user, oldest first
@@ -139,12 +144,10 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/User'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NoAdminToken'
         '403':
           $ref: '#/components/responses/NotAnAdmin'
-        '404':
-          $ref: '#/components/responses/UnknownUser'
 
   /admin/users/lookup/{userId}:
     get:
@@ -156,8 +159,9 @@ paths:
         only.
       operationId: getUser
       tags: [users]
+      security:
+        - adminToken: []
       parameters:
-        - $ref: '#/components/parameters/RequestingUserId'
         - name: userId
           in: path
           required: true
@@ -172,12 +176,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NoAdminToken'
         '403':
           $ref: '#/components/responses/NotAnAdmin'
         '404':
-          description: No user with that row id or Entra object id, or the caller is not known
+          description: No user with that row id or Entra object id
           content:
             application/json:
               schema:
@@ -188,12 +192,11 @@ paths:
       summary: List the active users, for an admin
       description: >-
         Every user whose status is ACTIVE, newest first, with how many
-        applications each has made. Answers 403 to a caller who is not an
-        ADMIN.
+        applications each has made. Admins only.
       operationId: listAdminUsers
       tags: [admin]
-      parameters:
-        - $ref: '#/components/parameters/RequestingUserId'
+      security:
+        - adminToken: []
       responses:
         '200':
           description: The active users, newest first
@@ -203,12 +206,10 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/AdminUser'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NoAdminToken'
         '403':
           $ref: '#/components/responses/NotAnAdmin'
-        '404':
-          $ref: '#/components/responses/UnknownUser'
 
   /admin/users/{userId}:
     get:
@@ -216,12 +217,13 @@ paths:
       description: >-
         The user whatever their status, their applications (oldest first) and
         their production credentials requests (newest first). Organisation is
-        the one given on their latest production credentials request. Answers
-        403 to a caller who is not an ADMIN.
+        the one given on their latest production credentials request. Admins
+        only.
       operationId: getAdminUser
       tags: [admin]
+      security:
+        - adminToken: []
       parameters:
-        - $ref: '#/components/parameters/RequestingUserId'
         - name: userId
           in: path
           required: true
@@ -237,12 +239,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdminUserDetail'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NoAdminToken'
         '403':
           $ref: '#/components/responses/NotAnAdmin'
         '404':
-          description: No user with that row id, or the caller is not known
+          description: No user with that row id
           content:
             application/json:
               schema:
@@ -777,6 +779,15 @@ paths:
           $ref: '#/components/responses/UpstreamUnreachable'
 
 components:
+  securitySchemes:
+    adminToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        The ID token the web app signed the caller in with. Verified for
+        signature, issuer and audience, and must carry the amp_admin app role.
+
   parameters:
     RequestingUserId:
       name: requestingUserId
@@ -820,8 +831,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+    NoAdminToken:
+      description: >-
+        No token, or one that fails verification: a bad signature, the wrong
+        issuer or audience, or expired. Sign in again
     NotAnAdmin:
-      description: The caller is signed in but is not an ADMIN
+      description: The token is valid but does not carry the amp_admin app role
       content:
         application/json:
           schema:

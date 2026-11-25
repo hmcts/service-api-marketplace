@@ -71,7 +71,7 @@ class AdminEndpointIntegrationTest {
 
     @Test
     void an_admin_should_see_every_active_user_newest_first() throws Exception {
-        mockMvc.perform(adminGet(USERS).header("requestingUserId", ADA))
+        mockMvc.perform(adminGet(USERS))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.length()").value(2))
             .andExpect(jsonPath("$[0].email").value("grace.hopper@hmcts.net"))
@@ -88,7 +88,7 @@ class AdminEndpointIntegrationTest {
         grace.setStatus("SUSPENDED");
         users.save(grace);
 
-        mockMvc.perform(adminGet(USERS).header("requestingUserId", ADA))
+        mockMvc.perform(adminGet(USERS))
             .andExpect(jsonPath("$.length()").value(1))
             .andExpect(jsonPath("$[0].email").value("ada.lovelace@hmcts.net"));
     }
@@ -99,14 +99,14 @@ class AdminEndpointIntegrationTest {
         applications.save(application(grace, "Case Viewer", "client-1"));
         applications.save(application(grace, "Listings", "client-2"));
 
-        mockMvc.perform(adminGet(USERS).header("requestingUserId", ADA))
+        mockMvc.perform(adminGet(USERS))
             .andExpect(jsonPath("$[0].applicationCount").value(2))
             .andExpect(jsonPath("$[1].applicationCount").value(0));
     }
 
     @Test
     void the_list_should_not_expose_identifiers_or_secrets() throws Exception {
-        mockMvc.perform(adminGet(USERS).header("requestingUserId", ADA))
+        mockMvc.perform(adminGet(USERS))
             .andExpect(jsonPath("$[0].entraObjectId").doesNotExist())
             .andExpect(jsonPath("$[0].userReference").doesNotExist())
             .andExpect(jsonPath("$[0].role").doesNotExist());
@@ -114,16 +114,10 @@ class AdminEndpointIntegrationTest {
 
     @Test
     void user_who_is_not_an_admin_should_be_refused() throws Exception {
-        mockMvc.perform(nonAdminGet(USERS).header("requestingUserId", GRACE))
+        mockMvc.perform(nonAdminGet(USERS))
             .andExpect(status().isForbidden());
     }
 
-    @Test
-    void missing_or_unknown_caller_should_be_refused_as_elsewhere() throws Exception {
-        mockMvc.perform(adminGet(USERS)).andExpect(status().isBadRequest());
-        mockMvc.perform(adminGet(USERS).header("requestingUserId", "cccccccc-1111-2222-3333-444444444444"))
-            .andExpect(status().isNotFound());
-    }
 
     @Test
     void an_admin_should_see_one_user_with_their_applications_and_requests() throws Exception {
@@ -138,7 +132,7 @@ class AdminEndpointIntegrationTest {
         productionRequests.save(productionRequest(grace, caseViewer, "PCR-NEWER001", "Example Legal Ltd",
             NOW.plusDays(2)));
 
-        mockMvc.perform(adminGet(USERS + "/" + graceId).header("requestingUserId", ADA))
+        mockMvc.perform(adminGet(USERS + "/" + graceId))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(graceId))
             .andExpect(jsonPath("$.name").value("Grace Hopper"))
@@ -163,7 +157,7 @@ class AdminEndpointIntegrationTest {
 
     @Test
     void user_with_no_production_requests_should_have_no_organisation() throws Exception {
-        mockMvc.perform(adminGet(USERS + "/" + graceId).header("requestingUserId", ADA))
+        mockMvc.perform(adminGet(USERS + "/" + graceId))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.organisation").doesNotExist())
             .andExpect(jsonPath("$.applications.length()").value(0))
@@ -176,20 +170,20 @@ class AdminEndpointIntegrationTest {
         grace.setStatus("SUSPENDED");
         users.save(grace);
 
-        mockMvc.perform(adminGet(USERS + "/" + graceId).header("requestingUserId", ADA))
+        mockMvc.perform(adminGet(USERS + "/" + graceId))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("SUSPENDED"));
     }
 
     @Test
     void an_unknown_user_should_be_not_found() throws Exception {
-        mockMvc.perform(adminGet(USERS + "/999999").header("requestingUserId", ADA))
+        mockMvc.perform(adminGet(USERS + "/999999"))
             .andExpect(status().isNotFound());
     }
 
     @Test
     void user_who_is_not_an_admin_should_be_refused_one_user() throws Exception {
-        mockMvc.perform(nonAdminGet(USERS + "/" + adaId).header("requestingUserId", GRACE))
+        mockMvc.perform(nonAdminGet(USERS + "/" + adaId))
             .andExpect(status().isForbidden());
     }
 
@@ -197,7 +191,7 @@ class AdminEndpointIntegrationTest {
     void one_user_should_not_expose_identifiers_or_secrets() throws Exception {
         applications.save(application(users.findById(graceId).orElseThrow(), "Case Viewer", "client-1"));
 
-        mockMvc.perform(adminGet(USERS + "/" + graceId).header("requestingUserId", ADA))
+        mockMvc.perform(adminGet(USERS + "/" + graceId))
             .andExpect(jsonPath("$.entraObjectId").doesNotExist())
             .andExpect(jsonPath("$.role").doesNotExist())
             .andExpect(jsonPath("$.applications[0].clientId").doesNotExist())

@@ -44,13 +44,11 @@ public class UserService {
         return String.format("amp-user%03d-", user.getId());
     }
 
-    public List<UserResponse> list(final String requestingUserId) {
-        requireSignedIn(requestingUserId);
+    public List<UserResponse> list() {
         return userRepository.findAll(Sort.by("id")).stream().map(UserResponse::from).toList();
     }
 
-    public UserResponse get(final String requestingUserId, final String userId) {
-        requireSignedIn(requestingUserId);
+    public UserResponse get(final String userId) {
         return UserResponse.from(find(userId));
     }
 

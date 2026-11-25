@@ -22,14 +22,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AdminService {
 
-    private final UserService userService;
     private final UserRepository userRepository;
     private final ApplicationRepository applicationRepository;
     private final ApplicationApiRepository applicationApiRepository;
     private final ProductionRequestRepository productionRequestRepository;
 
-    public AdminUserDetail getUser(final String requestingUserId, final long userId) {
-        userService.requireSignedIn(requestingUserId);
+    public AdminUserDetail getUser(final long userId) {
         final UserEntity user = userRepository.findById(userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No user " + userId + "."));
         final List<AdminUserDetail.Application> applications =
@@ -47,8 +45,7 @@ public class AdminService {
                 request.getApplicationName(), request.getStatus(), request.getSubmittedAt())).toList());
     }
 
-    public List<AdminUserSummary> listUsers(final String requestingUserId) {
-        userService.requireSignedIn(requestingUserId);
+    public List<AdminUserSummary> listUsers() {
         final Map<Long, Long> applications = applicationRepository.countByUser().stream()
             .collect(Collectors.toMap(UserApplicationCount::getUserId, UserApplicationCount::getTotal));
         return userRepository.findByStatusOrderByCreatedAtDesc(UserEntity.ACTIVE).stream()

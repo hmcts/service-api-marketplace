@@ -19,6 +19,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import uk.gov.hmcts.amp.audit.AdminAccessDeniedHandler;
 
 import java.util.Collection;
 
@@ -43,7 +44,8 @@ public class AdminSecurityConfig {
     // S4502 is the CSRF rule; see the exemption below for why it does not apply here.
     @SuppressWarnings("java:S4502")
     public SecurityFilterChain adminFilterChain(final HttpSecurity http,
-                                                final AdminAuthProperties admin) throws Exception {
+                                                final AdminAuthProperties admin,
+                                                final AdminAccessDeniedHandler accessDenied) throws Exception {
         http.securityMatcher(ADMIN_PATHS)
             // Exempt because this is a stateless API: nothing here reads a cookie or a session.
             .csrf(csrf -> csrf.ignoringRequestMatchers(ADMIN_PATHS))
@@ -58,6 +60,7 @@ public class AdminSecurityConfig {
         log.info("Admin endpoints require {} from issuer {}", authority, admin.issuer());
         return http
             .authorizeHttpRequests(request -> request.anyRequest().hasAuthority(authority))
+            .exceptionHandling(handling -> handling.accessDeniedHandler(accessDenied))
             .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
                 .decoder(decoder(admin))
                 .jwtAuthenticationConverter(roleConverter())))

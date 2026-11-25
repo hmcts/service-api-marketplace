@@ -14,11 +14,11 @@ class UserFunctionalTest {
     private final FunctionalClient http = new FunctionalClient();
 
     @Test
-    void signing_in_should_make_a_new_user_a_user_rather_than_an_admin() throws Exception {
+    void signing_in_should_return_the_user() throws Exception {
         var response = http.post("/session", "{\"objectId\":\"" + OID + "\",\"email\":\"" + EMAIL + "\"}");
 
         assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(json(response).path("role").asText()).isEqualTo("USER");
+        assertThat(json(response).path("email").asText()).isEqualTo(EMAIL);
     }
 
     // Preview has no Entra tenant, so the chain refuses every admin request outright: 403 rather

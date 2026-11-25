@@ -15,7 +15,6 @@ import uk.gov.hmcts.amp.entity.ApplicationApiEntity;
 import uk.gov.hmcts.amp.entity.ApplicationEntity;
 import uk.gov.hmcts.amp.entity.ProductionRequestEntity;
 import uk.gov.hmcts.amp.entity.UserEntity;
-import uk.gov.hmcts.amp.entity.UserRole;
 import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.ProductionRequestRepository;
@@ -68,9 +67,6 @@ class AdminEndpointIntegrationTest {
         users.deleteAll();
         adaId = signIn(ADA, "ada.lovelace@hmcts.net", "Ada Lovelace");
         graceId = signIn(GRACE, "grace.hopper@hmcts.net", "Grace Hopper");
-        final UserEntity ada = users.findById(adaId).orElseThrow();
-        ada.setRole(UserRole.ADMIN);
-        users.save(ada);
     }
 
     @Test
@@ -118,7 +114,7 @@ class AdminEndpointIntegrationTest {
 
     @Test
     void user_who_is_not_an_admin_should_be_refused() throws Exception {
-        mockMvc.perform(adminGet(USERS).header("requestingUserId", GRACE))
+        mockMvc.perform(nonAdminGet(USERS).header("requestingUserId", GRACE))
             .andExpect(status().isForbidden());
     }
 
@@ -193,7 +189,7 @@ class AdminEndpointIntegrationTest {
 
     @Test
     void user_who_is_not_an_admin_should_be_refused_one_user() throws Exception {
-        mockMvc.perform(adminGet(USERS + "/" + adaId).header("requestingUserId", GRACE))
+        mockMvc.perform(nonAdminGet(USERS + "/" + adaId).header("requestingUserId", GRACE))
             .andExpect(status().isForbidden());
     }
 
@@ -261,6 +257,12 @@ class AdminEndpointIntegrationTest {
 
     private static MockHttpServletRequestBuilder adminGet(final String uri) {
         return get(uri).with(jwt().authorities(new SimpleGrantedAuthority("ROLE_amp_admin")));
+    }
+
+
+    /** A token from someone signed in who does not hold the role; the chain refuses it. */
+    private static MockHttpServletRequestBuilder nonAdminGet(final String uri) {
+        return get(uri).with(jwt());
     }
 
 }

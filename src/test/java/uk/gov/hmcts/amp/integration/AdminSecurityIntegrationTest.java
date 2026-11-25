@@ -1,6 +1,5 @@
 package uk.gov.hmcts.amp.integration;
 
-import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,8 +10,6 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
-import uk.gov.hmcts.amp.entity.UserEntity;
-import uk.gov.hmcts.amp.entity.UserRole;
 import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.ProductionRequestRepository;
@@ -61,10 +58,7 @@ class AdminSecurityIntegrationTest {
         applicationApis.deleteAll();
         applications.deleteAll();
         users.deleteAll();
-        final long adaId = signIn(ADA, "ada.lovelace@hmcts.net", "Ada Lovelace");
-        final UserEntity ada = users.findById(adaId).orElseThrow();
-        ada.setRole(UserRole.ADMIN);
-        users.save(ada);
+        signIn(ADA, "ada.lovelace@hmcts.net", "Ada Lovelace");
     }
 
     @Test
@@ -108,11 +102,9 @@ class AdminSecurityIntegrationTest {
             .authorities(new SimpleGrantedAuthority("ROLE_amp_admin"));
     }
 
-    private long signIn(final String oid, final String email, final String name) throws Exception {
-        final String body = mockMvc.perform(post("/session").contentType(MediaType.APPLICATION_JSON)
+    private void signIn(final String oid, final String email, final String name) throws Exception {
+        mockMvc.perform(post("/session").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"objectId\":\"" + oid + "\",\"email\":\"" + email + "\",\"name\":\"" + name + "\"}"))
-            .andExpect(status().isOk())
-            .andReturn().getResponse().getContentAsString();
-        return ((Number) JsonPath.read(body, "$.id")).longValue();
+            .andExpect(status().isOk());
     }
 }

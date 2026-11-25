@@ -9,7 +9,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import uk.gov.hmcts.amp.mappers.ResponseMapper;
 import uk.gov.hmcts.amp.mappers.ResponseMapperImpl;
 import uk.gov.hmcts.amp.domain.UserResponse;
-import uk.gov.hmcts.amp.entity.UserRole;
 import uk.gov.hmcts.amp.services.UserService;
 
 import java.time.LocalDateTime;
@@ -33,7 +32,7 @@ class UserControllerTest {
     private UserController controller;
 
     private final UserResponse ada = new UserResponse(1L, "user001", OID, "ada.lovelace@hmcts.net",
-        "Ada Lovelace", "ACTIVE", UserRole.ADMIN, LocalDateTime.of(2026, 1, 1, 9, 0),
+        "Ada Lovelace", "ACTIVE", LocalDateTime.of(2026, 1, 1, 9, 0),
         LocalDateTime.of(2026, 10, 16, 9, 0));
 
     @Test

@@ -12,7 +12,6 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import uk.gov.hmcts.amp.entity.UserEntity;
-import uk.gov.hmcts.amp.entity.UserRole;
 import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
@@ -57,7 +56,6 @@ class UserEndpointIntegrationTest {
         adaId = signIn(ADA, "ada.lovelace@hmcts.net", "Ada Lovelace");
         signIn(GRACE, "grace.hopper@hmcts.net", "Grace Hopper");
         final UserEntity ada = users.findByEntraObjectId(ADA).orElseThrow();
-        ada.setRole(UserRole.ADMIN);
         users.save(ada);
     }
 
@@ -76,7 +74,6 @@ class UserEndpointIntegrationTest {
             .andExpect(jsonPath("$[0].userReference").value("user%03d".formatted(adaId)))
             .andExpect(jsonPath("$[0].name").value("Ada Lovelace"))
             .andExpect(jsonPath("$[0].status").value("ACTIVE"))
-            .andExpect(jsonPath("$[0].role").value("ADMIN"))
             .andExpect(jsonPath("$[0].lastLoginAt").isNotEmpty());
     }
 
@@ -118,21 +115,21 @@ class UserEndpointIntegrationTest {
 
     @Test
     void listing_should_be_refused_for_someone_who_is_not_an_admin() throws Exception {
-        mockMvc.perform(adminGet(PATH).header("requestingUserId", GRACE))
+        mockMvc.perform(nonAdminGet(PATH).header("requestingUserId", GRACE))
             .andExpect(status().isForbidden());
     }
 
     @Test
     void someone_who_is_not_an_admin_should_not_read_somebody_else() throws Exception {
-        mockMvc.perform(adminGet(PATH + "/" + ADA).header("requestingUserId", GRACE))
+        mockMvc.perform(nonAdminGet(PATH + "/" + ADA).header("requestingUserId", GRACE))
             .andExpect(status().isForbidden());
-        mockMvc.perform(adminGet(PATH + "/" + adaId).header("requestingUserId", GRACE))
+        mockMvc.perform(nonAdminGet(PATH + "/" + adaId).header("requestingUserId", GRACE))
             .andExpect(status().isForbidden());
     }
 
     @Test
     void someone_who_is_not_an_admin_should_not_read_themselves_here_either() throws Exception {
-        mockMvc.perform(adminGet(PATH + "/" + GRACE).header("requestingUserId", GRACE))
+        mockMvc.perform(nonAdminGet(PATH + "/" + GRACE).header("requestingUserId", GRACE))
             .andExpect(status().isForbidden());
     }
 
@@ -152,6 +149,12 @@ class UserEndpointIntegrationTest {
 
     private static MockHttpServletRequestBuilder adminGet(final String uri) {
         return get(uri).with(jwt().authorities(new SimpleGrantedAuthority("ROLE_amp_admin")));
+    }
+
+
+    /** A token from someone signed in who does not hold the role; the chain refuses it. */
+    private static MockHttpServletRequestBuilder nonAdminGet(final String uri) {
+        return get(uri).with(jwt());
     }
 
 }

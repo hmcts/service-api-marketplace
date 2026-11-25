@@ -23,15 +23,13 @@ import org.springframework.security.web.SecurityFilterChain;
 import java.util.Collection;
 
 /**
- * Admin endpoints are the only paths this service authenticates.
+ * Admin endpoints are the only paths this service currently authenticates.
  *
  * <p>A caller of {@code /admin/**} must present a token this service verified itself - signature,
  * issuer and audience - carrying the {@code amp_admin} app role in its {@code roles} claim.
  * The role is assigned to people in Entra.
  *
- * <p>aat and preview have no Entra registration, so there is no tenant to verify against and the
- * admin paths are closed there rather than left open. Nobody signs in to either: the web runs
- * with Entra disabled in both.
+ * <p>aat and preview will have real entra users setup shortly for Func Tests
  */
 @Slf4j
 @Configuration

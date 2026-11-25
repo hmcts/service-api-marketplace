@@ -7,7 +7,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
@@ -36,7 +35,6 @@ class AuditInterceptorTest {
     @Spy
     private ClockService clockService = new ClockService(Clock.fixed(FIXED_NOW, ZoneOffset.UTC));
 
-    @InjectMocks
     private AuditInterceptor interceptor;
 
     private final MockHttpServletRequest request = new MockHttpServletRequest("POST", "/apim/subscription-keys");
@@ -46,6 +44,7 @@ class AuditInterceptorTest {
 
     @BeforeEach
     void captureAuditLines() {
+        interceptor = new AuditInterceptor(new AuditWriter(clockService));
         appender.start();
         auditLogger.addAppender(appender);
     }

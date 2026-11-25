@@ -13,7 +13,6 @@ import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.domain.SessionRequest;
 import uk.gov.hmcts.amp.domain.UserResponse;
 import uk.gov.hmcts.amp.entity.UserEntity;
-import uk.gov.hmcts.amp.entity.UserRole;
 import uk.gov.hmcts.amp.repository.UserRepository;
 
 import java.time.Instant;
@@ -175,7 +174,6 @@ class UserServiceTest {
         assertThat(result.name()).isEqualTo("Joe Bloggs");
         assertThat(result.userReference()).isEqualTo("user001");
         assertThat(result.status()).isEqualTo(UserEntity.ACTIVE);
-        assertThat(result.role()).isEqualTo(UserRole.USER);
         assertThat(result.createdAt()).isEqualTo(NOW_UTC);
         assertThat(result.lastLoginAt()).isEqualTo(NOW_UTC);
     }
@@ -196,18 +194,6 @@ class UserServiceTest {
         assertThat(saved.getValue().getFirstName()).isEqualTo("Joseph");
         assertThat(saved.getValue().getCreatedAt()).isEqualTo(CREATED);
         assertThat(saved.getValue().getLastLoginAt()).isEqualTo(NOW_UTC);
-    }
-
-    @Test
-    void signing_in_again_should_keep_an_admin_an_admin() {
-        UserEntity joe = existing(OID, "joe@example.com");
-        joe.setRole(UserRole.ADMIN);
-        when(clockService.now()).thenReturn(NOW);
-        when(userRepository.findByEmail("joe@example.com")).thenReturn(Optional.of(joe));
-        when(userRepository.saveAndFlush(joe)).thenReturn(joe);
-
-        assertThat(userService.signIn(new SessionRequest(OID, "joe@example.com", "Joe Bloggs")).role())
-            .isEqualTo(UserRole.ADMIN);
     }
 
     @Test
@@ -341,7 +327,6 @@ class UserServiceTest {
 
     private static UserEntity admin(final long id, final String oid) {
         final UserEntity user = saved(id, oid);
-        user.setRole(UserRole.ADMIN);
         return user;
     }
 

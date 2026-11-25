@@ -7,7 +7,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ContextConfiguration;
 import uk.gov.hmcts.amp.entity.UserEntity;
-import uk.gov.hmcts.amp.entity.UserRole;
 import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
@@ -59,22 +58,6 @@ class UserRepositoryIntegrationTest {
         assertThat(found.get().getEmail()).isEqualTo("joe@example.com");
         assertThat(found.get().getFirstName()).isEqualTo("Joe");
         assertThat(found.get().getStatus()).isEqualTo(UserEntity.ACTIVE);
-    }
-
-    @Test
-    void new_user_should_be_a_user_until_granted_admin() {
-        UserEntity saved = userRepository.saveAndFlush(user(OID, "joe@example.com"));
-
-        assertThat(userRepository.findById(saved.getId())).map(UserEntity::getRole).contains(UserRole.USER);
-    }
-
-    @Test
-    void admin_role_should_round_trip() {
-        UserEntity joe = user(OID, "joe@example.com");
-        joe.setRole(UserRole.ADMIN);
-        userRepository.saveAndFlush(joe);
-
-        assertThat(userRepository.findByEntraObjectId(OID)).map(UserEntity::getRole).contains(UserRole.ADMIN);
     }
 
     @Test

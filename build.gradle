@@ -14,8 +14,7 @@ plugins {
   id 'com.gorylenko.gradle-git-properties' version '4.0.1'
 }
 
-// build-info.properties and git.properties, which StartupLogger reads. Not up to date by
-// definition: a cached build time is a wrong build time.
+// build-info.properties and git.properties, which StartupLogger reads
 springBoot {
   buildInfo()
 }

@@ -41,8 +41,8 @@ public class AdminSecurityConfig {
     public SecurityFilterChain adminFilterChain(final HttpSecurity http,
                                                 final AdminAuthProperties admin) throws Exception {
         http.securityMatcher(ADMIN_PATHS)
-            // Disabled because this is a stateless API: nothing here reads a cookie or a session.
-            .csrf(csrf -> csrf.disable())
+            // Exempt because this is a stateless API: nothing here reads a cookie or a session.
+            .csrf(csrf -> csrf.ignoringRequestMatchers(ADMIN_PATHS))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         if (!admin.usable()) {

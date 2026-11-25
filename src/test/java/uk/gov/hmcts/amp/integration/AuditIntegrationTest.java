@@ -11,8 +11,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.ResultActions;
 import uk.gov.hmcts.amp.entity.UserEntity;
 import uk.gov.hmcts.amp.entity.UserRole;
@@ -23,11 +25,14 @@ import uk.gov.hmcts.amp.audit.AuditInterceptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+    "admin.auth.tenant-id=99999999-8888-7777-6666-555555555555",
+    "admin.auth.audience=the-web-app"})
 @AutoConfigureMockMvc
 @ContextConfiguration(initializers = TestContainersInitialise.class)
 class AuditIntegrationTest {
@@ -103,8 +108,8 @@ class AuditIntegrationTest {
         users.save(admin);
         appender.list.clear();
 
-        mockMvc.perform(get("/admin/users").header("requestingUserId", OID)).andExpect(status().isOk());
-        mockMvc.perform(get("/admin/users/" + admin.getId()).header("requestingUserId", OID))
+        mockMvc.perform(adminGet("/admin/users").header("requestingUserId", OID)).andExpect(status().isOk());
+        mockMvc.perform(adminGet("/admin/users/" + admin.getId()).header("requestingUserId", OID))
             .andExpect(status().isOk());
 
         assertThat(appender.list).hasSize(2);
@@ -129,8 +134,8 @@ class AuditIntegrationTest {
         users.save(admin);
         appender.list.clear();
 
-        mockMvc.perform(get("/admin/users/lookup").header("requestingUserId", OID)).andExpect(status().isOk());
-        mockMvc.perform(get("/admin/users/lookup/" + OID).header("requestingUserId", OID))
+        mockMvc.perform(adminGet("/admin/users/lookup").header("requestingUserId", OID)).andExpect(status().isOk());
+        mockMvc.perform(adminGet("/admin/users/lookup/" + OID).header("requestingUserId", OID))
             .andExpect(status().isOk());
 
         assertThat(appender.list).hasSize(2);
@@ -148,7 +153,7 @@ class AuditIntegrationTest {
         signIn();
         appender.list.clear();
 
-        mockMvc.perform(get("/admin/users").header("requestingUserId", OID)).andExpect(status().isForbidden());
+        mockMvc.perform(adminGet("/admin/users").header("requestingUserId", OID)).andExpect(status().isForbidden());
 
         assertThat(appender.list).singleElement().satisfies(line -> assertThat(line.getMDCPropertyMap())
             .containsEntry("audit_action", "ADMIN_USERS_LISTED")
@@ -163,4 +168,9 @@ class AuditIntegrationTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"objectId\":\"" + OID + "\",\"email\":\"joe@example.com\",\"name\":\"Joe Bloggs\"}"));
     }
+
+    private static MockHttpServletRequestBuilder adminGet(final String uri) {
+        return get(uri).with(jwt().authorities(new SimpleGrantedAuthority("ROLE_amp_admin")));
+    }
+
 }

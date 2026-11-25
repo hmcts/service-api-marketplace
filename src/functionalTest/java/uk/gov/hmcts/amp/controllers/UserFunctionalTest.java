@@ -21,22 +21,24 @@ class UserFunctionalTest {
         assertThat(json(response).path("role").asText()).isEqualTo("USER");
     }
 
+    // Preview has no Entra tenant, so the chain refuses every admin request outright: 403 rather
+    // than the 401 an environment with a tenant answers when a token is missing.
     @Test
-    void reading_a_user_should_be_refused_for_someone_who_is_not_an_admin() throws Exception {
+    void reading_a_user_should_be_refused_without_an_admin_token() throws Exception {
         http.signIn(OID, EMAIL);
 
         assertThat(http.get("/admin/users/lookup/" + OID, REQUESTING_USER_ID, OID).statusCode()).isEqualTo(403);
     }
 
     @Test
-    void listing_users_should_be_refused_for_someone_who_is_not_an_admin() throws Exception {
+    void listing_users_should_be_refused_without_an_admin_token() throws Exception {
         http.signIn(OID, EMAIL);
 
         assertThat(http.get("/admin/users/lookup", REQUESTING_USER_ID, OID).statusCode()).isEqualTo(403);
     }
 
     @Test
-    void listing_users_without_a_requesting_user_should_be_refused_with_400() throws Exception {
-        assertThat(http.get("/admin/users/lookup").statusCode()).isEqualTo(400);
+    void the_requesting_user_header_alone_should_not_open_an_admin_path() throws Exception {
+        assertThat(http.get("/admin/users/lookup").statusCode()).isEqualTo(403);
     }
 }

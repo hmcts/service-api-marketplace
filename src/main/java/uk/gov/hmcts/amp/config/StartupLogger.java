@@ -3,6 +3,8 @@ package uk.gov.hmcts.amp.config;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.boot.info.BuildProperties;
+import org.springframework.boot.info.GitProperties;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
@@ -10,6 +12,7 @@ import uk.gov.hmcts.amp.notify.EmailMask;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 
 @Slf4j
@@ -18,16 +21,30 @@ import java.util.TreeMap;
 public class StartupLogger {
 
     private final Environment environment;
+    private final Optional<BuildProperties> buildProperties;
+    private final Optional<GitProperties> gitProperties;
     private final ApimProperties apimProperties;
     private final EntraProperties entraProperties;
     private final NotifyProperties notifyProperties;
 
     @EventListener(ApplicationReadyEvent.class)
     public void logConfiguration() {
+        log.info("Build: {}", buildSettings());
         log.info("Database: {}", databaseSettings());
         log.info("API Management: {}", apimSettings());
         log.info("Entra: {}", entraSettings());
         log.info("Notify: {}", notifySettings());
+    }
+
+    /** Which build is running, read from the files the gradle build writes beside the classes. */
+    String buildSettings() {
+        if (buildProperties.isEmpty() && gitProperties.isEmpty()) {
+            return "not recorded; this was not built by the gradle build";
+        }
+        return "built %s from %s %s".formatted(
+            buildProperties.map(BuildProperties::getTime).map(Object::toString).orElse("at an unknown time"),
+            gitProperties.map(GitProperties::getBranch).orElse("an unknown branch"),
+            gitProperties.map(GitProperties::getShortCommitId).orElse("")).trim();
     }
 
     String databaseSettings() {

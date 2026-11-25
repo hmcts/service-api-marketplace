@@ -7,6 +7,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import uk.gov.hmcts.amp.audit.AuditWriter;
 import uk.gov.hmcts.amp.services.ClockService;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -18,6 +19,10 @@ class GetWelcomeTest {
 
     @MockitoBean
     private ClockService clockService;
+
+    // The slice scans web components only, so the interceptor's writer is not one of them.
+    @MockitoBean
+    private AuditWriter auditWriter;
 
     @Autowired
     private transient MockMvc mockMvc;

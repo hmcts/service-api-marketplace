@@ -8,7 +8,6 @@ import uk.gov.hmcts.amp.domain.AdminUserDetail;
 import uk.gov.hmcts.amp.domain.AdminUserSummary;
 import uk.gov.hmcts.amp.entity.ProductionRequestEntity;
 import uk.gov.hmcts.amp.entity.UserEntity;
-import uk.gov.hmcts.amp.entity.UserRole;
 import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository.UserApplicationCount;
@@ -29,16 +28,8 @@ public class AdminService {
     private final ApplicationApiRepository applicationApiRepository;
     private final ProductionRequestRepository productionRequestRepository;
 
-    public UserEntity requireAdmin(final String requestingUserId) {
-        final UserEntity caller = userService.requireSignedIn(requestingUserId);
-        if (caller.getRole() != UserRole.ADMIN) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admins only.");
-        }
-        return caller;
-    }
-
     public AdminUserDetail getUser(final String requestingUserId, final long userId) {
-        requireAdmin(requestingUserId);
+        userService.requireSignedIn(requestingUserId);
         final UserEntity user = userRepository.findById(userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No user " + userId + "."));
         final List<AdminUserDetail.Application> applications =
@@ -57,7 +48,7 @@ public class AdminService {
     }
 
     public List<AdminUserSummary> listUsers(final String requestingUserId) {
-        requireAdmin(requestingUserId);
+        userService.requireSignedIn(requestingUserId);
         final Map<Long, Long> applications = applicationRepository.countByUser().stream()
             .collect(Collectors.toMap(UserApplicationCount::getUserId, UserApplicationCount::getTotal));
         return userRepository.findByStatusOrderByCreatedAtDesc(UserEntity.ACTIVE).stream()

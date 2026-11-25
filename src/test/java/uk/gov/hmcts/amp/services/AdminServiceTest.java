@@ -11,7 +11,6 @@ import uk.gov.hmcts.amp.domain.AdminUserDetail;
 import uk.gov.hmcts.amp.domain.AdminUserSummary;
 import uk.gov.hmcts.amp.entity.ProductionRequestEntity;
 import uk.gov.hmcts.amp.entity.UserEntity;
-import uk.gov.hmcts.amp.entity.UserRole;
 import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository.UserApplicationCount;
@@ -53,8 +52,8 @@ class AdminServiceTest {
 
     @Test
     void organisation_should_come_from_the_latest_production_request() {
-        when(userService.requireSignedIn(ADMIN_OID)).thenReturn(user(1L, "Ada", "Lovelace", UserRole.ADMIN));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(user(2L, "Grace", "Hopper", UserRole.USER)));
+        when(userService.requireSignedIn(ADMIN_OID)).thenReturn(user(1L, "Ada", "Lovelace"));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(user(2L, "Grace", "Hopper")));
         when(applicationRepository.findByUserIdOrderByCreatedAtAsc(2L)).thenReturn(List.of());
         when(productionRequestRepository.findByUserIdOrderBySubmittedAtDesc(2L))
             .thenReturn(List.of(request("PCR-NEWER001", "Example Legal Ltd"), request("PCR-OLDER001", "Old Org")));
@@ -68,8 +67,8 @@ class AdminServiceTest {
 
     @Test
     void organisation_should_be_null_without_a_production_request() {
-        when(userService.requireSignedIn(ADMIN_OID)).thenReturn(user(1L, "Ada", "Lovelace", UserRole.ADMIN));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(user(2L, "Grace", "Hopper", UserRole.USER)));
+        when(userService.requireSignedIn(ADMIN_OID)).thenReturn(user(1L, "Ada", "Lovelace"));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(user(2L, "Grace", "Hopper")));
         when(applicationRepository.findByUserIdOrderByCreatedAtAsc(2L)).thenReturn(List.of());
         when(productionRequestRepository.findByUserIdOrderBySubmittedAtDesc(2L)).thenReturn(List.of());
 
@@ -78,20 +77,12 @@ class AdminServiceTest {
 
     @Test
     void unknown_user_should_be_not_found() {
-        when(userService.requireSignedIn(ADMIN_OID)).thenReturn(user(1L, "Ada", "Lovelace", UserRole.ADMIN));
+        when(userService.requireSignedIn(ADMIN_OID)).thenReturn(user(1L, "Ada", "Lovelace"));
         when(userRepository.findById(9L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.getUser(ADMIN_OID, 9L))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
-    }
-
-    @Test
-    void one_user_should_be_refused_before_anything_is_read() {
-        when(userService.requireSignedIn(USER_OID)).thenReturn(user(2L, "Grace", "Hopper", UserRole.USER));
-
-        assertThatThrownBy(() -> service.getUser(USER_OID, 1L)).isInstanceOf(ResponseStatusException.class);
-        verifyNoInteractions(userRepository, applicationRepository, productionRequestRepository);
     }
 
     private static ProductionRequestEntity request(final String reference, final String organisation) {
@@ -105,25 +96,9 @@ class AdminServiceTest {
     }
 
     @Test
-    void an_admin_should_be_let_through() {
-        final UserEntity admin = user(1L, "Ada", "Lovelace", UserRole.ADMIN);
-        when(userService.requireSignedIn(ADMIN_OID)).thenReturn(admin);
-
-        assertThat(service.requireAdmin(ADMIN_OID)).isSameAs(admin);
-    }
-
-    @Test
-    void user_who_is_not_an_admin_should_be_forbidden() {
-        when(userService.requireSignedIn(USER_OID)).thenReturn(user(2L, "Grace", "Hopper", UserRole.USER));
-
-        assertThatThrownBy(() -> service.requireAdmin(USER_OID))
-            .isInstanceOfSatisfying(ResponseStatusException.class,
-                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
-    }
-
-    @Test
-    void listing_should_be_refused_before_anything_is_read() {
-        when(userService.requireSignedIn(USER_OID)).thenReturn(user(2L, "Grace", "Hopper", UserRole.USER));
+    void someone_who_has_not_signed_in_should_be_refused_before_anything_is_read() {
+        when(userService.requireSignedIn(USER_OID))
+            .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Sign in again."));
 
         assertThatThrownBy(() -> service.listUsers(USER_OID)).isInstanceOf(ResponseStatusException.class);
         verifyNoInteractions(userRepository, applicationRepository);
@@ -131,9 +106,9 @@ class AdminServiceTest {
 
     @Test
     void listing_should_keep_the_repositorys_order_and_count_applications() {
-        when(userService.requireSignedIn(ADMIN_OID)).thenReturn(user(1L, "Ada", "Lovelace", UserRole.ADMIN));
-        final UserEntity grace = user(2L, "Grace", "Hopper", UserRole.USER);
-        final UserEntity ada = user(1L, "Ada", "Lovelace", UserRole.ADMIN);
+        when(userService.requireSignedIn(ADMIN_OID)).thenReturn(user(1L, "Ada", "Lovelace"));
+        final UserEntity grace = user(2L, "Grace", "Hopper");
+        final UserEntity ada = user(1L, "Ada", "Lovelace");
         when(userRepository.findByStatusOrderByCreatedAtDesc(UserEntity.ACTIVE)).thenReturn(List.of(grace, ada));
         when(applicationRepository.countByUser()).thenReturn(List.of(count(2L, 3)));
 
@@ -145,22 +120,21 @@ class AdminServiceTest {
 
     @Test
     void user_with_no_last_name_should_be_named_without_a_trailing_space() {
-        when(userService.requireSignedIn(ADMIN_OID)).thenReturn(user(1L, "Ada", "Lovelace", UserRole.ADMIN));
+        when(userService.requireSignedIn(ADMIN_OID)).thenReturn(user(1L, "Ada", "Lovelace"));
         when(userRepository.findByStatusOrderByCreatedAtDesc(UserEntity.ACTIVE))
-            .thenReturn(List.of(user(3L, "Cher", "", UserRole.USER)));
+            .thenReturn(List.of(user(3L, "Cher", "")));
         when(applicationRepository.countByUser()).thenReturn(List.of());
 
         assertThat(service.listUsers(ADMIN_OID).get(0).name()).isEqualTo("Cher");
     }
 
-    private static UserEntity user(final long id, final String first, final String last, final UserRole role) {
+    private static UserEntity user(final long id, final String first, final String last) {
         final UserEntity user = new UserEntity();
         user.setId(id);
         user.setFirstName(first);
         user.setLastName(last);
         user.setEmail(first.toLowerCase() + "@example.com");
         user.setStatus(UserEntity.ACTIVE);
-        user.setRole(role);
         user.setCreatedAt(LocalDateTime.of(2026, 10, 29, 10, 0));
         user.setLastLoginAt(LocalDateTime.of(2026, 11, 2, 10, 0));
         return user;

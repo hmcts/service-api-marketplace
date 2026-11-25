@@ -10,7 +10,6 @@ import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.domain.SessionRequest;
 import uk.gov.hmcts.amp.domain.UserResponse;
 import uk.gov.hmcts.amp.entity.UserEntity;
-import uk.gov.hmcts.amp.entity.UserRole;
 import uk.gov.hmcts.amp.repository.UserRepository;
 
 import java.time.LocalDateTime;
@@ -45,22 +44,13 @@ public class UserService {
         return String.format("amp-user%03d-", user.getId());
     }
 
-    /** 403 for anyone signed in who is not an admin. */
-    public UserEntity requireAdmin(final String requestingUserId) {
-        final UserEntity caller = requireSignedIn(requestingUserId);
-        if (caller.getRole() != UserRole.ADMIN) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admins only.");
-        }
-        return caller;
-    }
-
     public List<UserResponse> list(final String requestingUserId) {
-        requireAdmin(requestingUserId);
+        requireSignedIn(requestingUserId);
         return userRepository.findAll(Sort.by("id")).stream().map(UserResponse::from).toList();
     }
 
     public UserResponse get(final String requestingUserId, final String userId) {
-        requireAdmin(requestingUserId);
+        requireSignedIn(requestingUserId);
         return UserResponse.from(find(userId));
     }
 

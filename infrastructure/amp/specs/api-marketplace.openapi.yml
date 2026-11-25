@@ -123,8 +123,8 @@ paths:
       summary: List everyone who has signed in
       description: >-
         Admins only. The support view: every user, whatever their status, with
-        their Entra object id, user reference and role, which the admin pages
-        under /admin/users leave out. A user is only ever created by signing
+        their Entra object id and user reference, which the admin pages under
+        /admin/users leave out. A user is only ever created by signing
         in. Carries no secret of any kind.
       operationId: listUsers
       tags: [users]
@@ -979,13 +979,6 @@ components:
         status:
           type: string
           example: ACTIVE
-        role:
-          type: string
-          enum: [USER, ADMIN]
-          description: >-
-            USER for everyone by default. ADMIN may see every user, application
-            and production request, and is granted only by a migration.
-          example: USER
         createdAt:
           type: string
           format: local-date-time

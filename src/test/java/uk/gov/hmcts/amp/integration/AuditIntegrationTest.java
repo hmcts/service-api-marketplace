@@ -17,7 +17,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.ResultActions;
 import uk.gov.hmcts.amp.entity.UserEntity;
-import uk.gov.hmcts.amp.entity.UserRole;
 import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
@@ -104,7 +103,6 @@ class AuditIntegrationTest {
     void an_admin_viewing_users_should_write_an_audit_line_for_the_list_and_for_the_user() throws Exception {
         signIn();
         final UserEntity admin = users.findByEntraObjectId(OID).orElseThrow();
-        admin.setRole(UserRole.ADMIN);
         users.save(admin);
         appender.list.clear();
 
@@ -130,7 +128,6 @@ class AuditIntegrationTest {
         throws Exception {
         signIn();
         final UserEntity admin = users.findByEntraObjectId(OID).orElseThrow();
-        admin.setRole(UserRole.ADMIN);
         users.save(admin);
         appender.list.clear();
 
@@ -153,13 +150,15 @@ class AuditIntegrationTest {
         signIn();
         appender.list.clear();
 
-        mockMvc.perform(adminGet("/admin/users").header("requestingUserId", OID)).andExpect(status().isForbidden());
+        mockMvc.perform(nonAdminGet("/admin/users").with(jwt().jwt(token -> token.claim("oid", OID))))
+            .andExpect(status().isForbidden());
 
         assertThat(appender.list).singleElement().satisfies(line -> assertThat(line.getMDCPropertyMap())
-            .containsEntry("audit_action", "ADMIN_USERS_LISTED")
+            .containsEntry("audit_action", "ADMIN_ACCESS_DENIED")
             .containsEntry("audit_actor_oid", OID)
             .containsEntry("audit_outcome", "FAILURE")
-            .containsEntry("audit_status", "403"));
+            .containsEntry("audit_status", "403")
+            .containsEntry("audit_endpoint", "GET /admin/users"));
     }
 
     private ResultActions signIn() throws Exception {
@@ -171,6 +170,12 @@ class AuditIntegrationTest {
 
     private static MockHttpServletRequestBuilder adminGet(final String uri) {
         return get(uri).with(jwt().authorities(new SimpleGrantedAuthority("ROLE_amp_admin")));
+    }
+
+
+    /** A token from someone signed in who does not hold the role; the chain refuses it. */
+    private static MockHttpServletRequestBuilder nonAdminGet(final String uri) {
+        return get(uri).with(jwt());
     }
 
 }

@@ -18,7 +18,7 @@ resource "azurerm_application_insights" "this" {
   tags                = local.tags
 }
 
-# AppTraces holds the AUDIT log lines, so it alone keeps the audit retention period.
+# Keeps audit retention until every environment sends audit to AmpAudit_CL (audit.tf).
 resource "azurerm_log_analytics_workspace_table" "app_traces" {
   workspace_id            = azurerm_log_analytics_workspace.this.id
   name                    = "AppTraces"

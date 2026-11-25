@@ -24,6 +24,18 @@ tasks.named('bootBuildInfo') {
   outputs.cacheIf { false }
 }
 
+// Two META-INF/build-info.properties reach processResources on Jenkins: the CNP pipeline writes one
+// into the resources folder, and bootBuildInfo above generates another. Drop the pipeline's file and
+// keep the generated one, because only the generated one has build.time, which StartupLogger reads.
+def pipelineBuildInfo = file('src/main/resources/META-INF/build-info.properties')
+tasks.named('processResources') {
+  eachFile { details ->
+    if (details.file == pipelineBuildInfo) {
+      details.exclude()
+    }
+  }
+}
+
 application {
   mainClass = 'uk.gov.hmcts.amp.Application'
   group = 'uk.gov.hmcts.amp'

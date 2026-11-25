@@ -1,10 +1,15 @@
 package uk.gov.hmcts.amp.config;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.info.BuildProperties;
+import org.springframework.boot.info.GitProperties;
 import org.springframework.mock.env.MockEnvironment;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -14,6 +19,18 @@ class StartupLoggerTest {
         + "-11111111-1111-1111-1111-111111111111";
 
     private static final String PORTAL = "https://amp-portal.example";
+
+    @Test
+    void the_build_line_should_say_when_it_was_built_and_from_what() {
+        assertThat(logger().buildSettings())
+            .isEqualTo("built 2026-11-25T09:14:02Z from master abc1234");
+    }
+
+    @Test
+    void build_the_gradle_build_did_not_make_should_say_so_rather_than_invent_one() {
+        assertThat(logger(Optional.empty(), Optional.empty()).buildSettings())
+            .isEqualTo("not recorded; this was not built by the gradle build");
+    }
 
     @Test
     void the_database_line_should_name_the_url_and_user_but_never_the_password() {
@@ -39,7 +56,7 @@ class StartupLoggerTest {
 
     @Test
     void an_api_with_no_resource_app_here_should_be_visible_as_missing() {
-        StartupLogger partial = new StartupLogger(environment(),
+        StartupLogger partial = new StartupLogger(environment(), Optional.of(build()), Optional.of(git()),
             new ApimProperties("a-tenant", "a-subscription", "rg", "instance", PORTAL, Map.of()),
             new EntraProperties("entra-tenant", "a-client", "a-secret", Map.of(), 1, 1),
             new NotifyProperties(KEY, "https://notify.example", List.of(), List.of(), "PROD"));
@@ -59,7 +76,7 @@ class StartupLoggerTest {
 
     @Test
     void an_unset_secret_should_be_said_out_loud_rather_than_left_blank() {
-        StartupLogger unconfigured = new StartupLogger(environment(),
+        StartupLogger unconfigured = new StartupLogger(environment(), Optional.of(build()), Optional.of(git()),
             new ApimProperties("a-tenant", "a-subscription", "rg", "instance", PORTAL, Map.of()),
             new EntraProperties("entra-tenant", "a-client", "", Map.of("slc", "an-api"), 1, 1),
             new NotifyProperties("", "https://notify.example", List.of(), List.of(), "PROD"));
@@ -72,7 +89,7 @@ class StartupLoggerTest {
     @Test
     void the_placeholder_value_should_count_as_unset_rather_than_as_a_secret() {
         // A vault that is mounted but empty resolves to NOT_SET, which is not a secret.
-        StartupLogger placeholder = new StartupLogger(environment(),
+        StartupLogger placeholder = new StartupLogger(environment(), Optional.of(build()), Optional.of(git()),
             new ApimProperties("a-tenant", "a-subscription", "rg", "instance", PORTAL, Map.of()),
             new EntraProperties("entra-tenant", "a-client", "NOT_SET", Map.of("slc", "an-api"), 1, 1),
             new NotifyProperties(KEY, "https://notify.example", List.of(), List.of(), "PROD"));
@@ -81,7 +98,11 @@ class StartupLoggerTest {
     }
 
     private StartupLogger logger() {
-        return new StartupLogger(environment(),
+        return logger(Optional.of(build()), Optional.of(git()));
+    }
+
+    private StartupLogger logger(final Optional<BuildProperties> build, final Optional<GitProperties> git) {
+        return new StartupLogger(environment(), build, git,
             new ApimProperties("a-tenant", "a-subscription", "rg-sps-platform-sbox",
                 "sps-api-mgmt-sbox", PORTAL, Map.of()),
             new EntraProperties("entra-tenant", "an-onboarding-client", "an-onboarding-secret",
@@ -89,6 +110,19 @@ class StartupLoggerTest {
             new NotifyProperties(KEY, "https://notify.example",
                 List.of("DataAccessPanel@justice.gov.uk"),
                 List.of("APIMarketplace@hmcts.net"), "PROD"));
+    }
+
+    private static BuildProperties build() {
+        final Properties properties = new Properties();
+        properties.setProperty("time", String.valueOf(Instant.parse("2026-11-25T09:14:02Z").toEpochMilli()));
+        return new BuildProperties(properties);
+    }
+
+    private static GitProperties git() {
+        final Properties properties = new Properties();
+        properties.setProperty("branch", "master");
+        properties.setProperty("commit.id.abbrev", "abc1234");
+        return new GitProperties(properties);
     }
 
     private MockEnvironment environment() {

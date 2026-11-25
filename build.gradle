@@ -11,6 +11,18 @@ plugins {
  */
   id 'uk.gov.hmcts.java' version '0.12.70'
   id 'org.openapi.generator' version '7.27.0'
+  id 'com.gorylenko.gradle-git-properties' version '4.0.1'
+}
+
+// build-info.properties and git.properties, which StartupLogger reads. Not up to date by
+// definition: a cached build time is a wrong build time.
+springBoot {
+  buildInfo()
+}
+
+tasks.named('bootBuildInfo') {
+  outputs.upToDateWhen { false }
+  outputs.cacheIf { false }
 }
 
 application {

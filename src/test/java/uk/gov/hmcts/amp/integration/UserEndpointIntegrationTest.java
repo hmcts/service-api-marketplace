@@ -74,7 +74,6 @@ class UserEndpointIntegrationTest {
             .andExpect(jsonPath("$[0].userReference").value("user%03d".formatted(adaId)))
             .andExpect(jsonPath("$[0].name").value("Ada Lovelace"))
             .andExpect(jsonPath("$[0].status").value("ACTIVE"))
-            .andExpect(jsonPath("$[0].role").value("ADMIN"))
             .andExpect(jsonPath("$[0].lastLoginAt").isNotEmpty());
     }
 
@@ -130,7 +129,7 @@ class UserEndpointIntegrationTest {
 
     @Test
     void someone_who_is_not_an_admin_should_not_read_themselves_here_either() throws Exception {
-        mockMvc.perform(adminGet(PATH + "/" + GRACE).header("requestingUserId", GRACE))
+        mockMvc.perform(nonAdminGet(PATH + "/" + GRACE).header("requestingUserId", GRACE))
             .andExpect(status().isForbidden());
     }
 

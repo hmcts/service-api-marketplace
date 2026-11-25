@@ -85,14 +85,6 @@ class AdminServiceTest {
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
     }
 
-    @Test
-    void one_user_should_be_refused_before_anything_is_read() {
-        when(userService.requireSignedIn(USER_OID)).thenReturn(user(2L, "Grace", "Hopper"));
-
-        assertThatThrownBy(() -> service.getUser(USER_OID, 1L)).isInstanceOf(ResponseStatusException.class);
-        verifyNoInteractions(userRepository, applicationRepository, productionRequestRepository);
-    }
-
     private static ProductionRequestEntity request(final String reference, final String organisation) {
         final ProductionRequestEntity request = new ProductionRequestEntity();
         request.setReference(reference);

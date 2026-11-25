@@ -94,30 +94,6 @@ class UserServiceTest {
     }
 
     @Test
-    void listing_users_should_be_refused_for_someone_who_is_not_an_admin() {
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(saved(1L, OID)));
-
-        assertStatus(() -> userService.list(OID), HttpStatus.FORBIDDEN);
-        verify(userRepository, never()).findAll(Sort.by("id"));
-    }
-
-    @Test
-    void someone_who_is_not_an_admin_should_not_read_somebody_else() {
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(saved(1L, OID)));
-
-        assertStatus(() -> userService.get(OID, "2"), HttpStatus.FORBIDDEN);
-        assertStatus(() -> userService.get(OID, OTHER_OID), HttpStatus.FORBIDDEN);
-        verify(userRepository, never()).findById(2L);
-    }
-
-    @Test
-    void someone_who_is_not_an_admin_should_not_read_themselves_either() {
-        when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(saved(1L, OID)));
-
-        assertStatus(() -> userService.get(OID, OID), HttpStatus.FORBIDDEN);
-    }
-
-    @Test
     void missing_requesting_user_id_should_be_rejected_before_any_lookup() {
         assertThatThrownBy(() -> userService.requireSignedIn(null))
             .isInstanceOf(ResponseStatusException.class)

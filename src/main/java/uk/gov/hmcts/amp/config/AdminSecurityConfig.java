@@ -29,8 +29,9 @@ import java.util.Collection;
  * issuer and audience - carrying the {@code amp_admin} app role in its {@code roles} claim.
  * The role is assigned to people in Entra.
  *
- * <p>aat and preview have no Entra registration at all, so there is no tenant to verify against
- * and the gate does not apply there.
+ * <p>aat and preview have no Entra registration, so there is no tenant to verify against and the
+ * admin paths are closed there rather than left open. Nobody signs in to either: the web runs
+ * with Entra disabled in both.
  */
 @Slf4j
 @Configuration
@@ -51,9 +52,8 @@ public class AdminSecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         if (!admin.usable()) {
-            log.warn("No Entra tenant or audience for this environment; {} keeps the role check it "
-                + "has always made against the database and nothing more", ADMIN_PATHS);
-            return http.authorizeHttpRequests(request -> request.anyRequest().permitAll()).build();
+            log.warn("No Entra tenant or audience for this environment; {} is closed here", ADMIN_PATHS);
+            return http.authorizeHttpRequests(request -> request.anyRequest().denyAll()).build();
         }
 
         final String authority = "ROLE_" + admin.roleOrDefault();

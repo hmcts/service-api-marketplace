@@ -127,6 +127,13 @@ public class ApplicationService {
         registrations.grantApiAccess(clientId, grant.resourceAppId(), grant.role());
     }
 
+    public void revokeAccess(final String requestingUserId, final String clientId,
+                             final String shortCode) {
+        requireOwned(users.requireSignedIn(requestingUserId), clientId);
+        final ApiGrant grant = grantFor(shortCode);
+        registrations.revokeApiAccess(clientId, grant.resourceAppId(), grant.role());
+    }
+
     public void delete(final String requestingUserId, final String clientId) {
         final ApplicationEntity application = requireOwned(users.requireSignedIn(requestingUserId), clientId);
         revokeKeys(requestingUserId, application);

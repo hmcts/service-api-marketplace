@@ -40,6 +40,16 @@ class LocalEntraAppRegistrationServiceTest {
     }
 
     @Test
+    void revoking_should_take_the_role_back_off_the_registration() {
+        String clientId = service.register("amp-user001-case-viewer", List.of()).clientId();
+        service.grantApiAccess(clientId, "a-resource-app", "app.read");
+
+        service.revokeApiAccess(clientId, "a-resource-app", "app.read");
+
+        assertThat(service.get(clientId).roles()).isEmpty();
+    }
+
+    @Test
     void listing_should_return_every_registration_it_holds() {
         String first = service.register("amp-user001-first", List.of()).clientId();
         String second = service.register("amp-user001-second", List.of()).clientId();

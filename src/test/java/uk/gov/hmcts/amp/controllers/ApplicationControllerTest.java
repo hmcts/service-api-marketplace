@@ -69,6 +69,13 @@ class ApplicationControllerTest {
     }
 
     @Test
+    void revoking_access_should_delegate_with_the_short_code() {
+        controller.revokeRole(OID, CLIENT_ID, "slc");
+
+        verify(applications).revokeAccess(OID, CLIENT_ID, "slc");
+    }
+
+    @Test
     void deleting_should_delegate_by_user_and_client_id() {
         controller.deleteApplication(OID, CLIENT_ID);
 

@@ -123,6 +123,62 @@ class EntraAppRegistrationServiceTest {
     }
 
     @Test
+    void revoking_a_role_should_delete_the_assignment_from_the_apis_service_principal() {
+        stubServicePrincipalLookups();
+        stubApiRoles();
+        stubAssignments("""
+            {"value":[{"id":"assign-1","appRoleId":"%s","resourceId":"%s"}]}"""
+            .formatted(ROLE_ID, API_SP_ID));
+        mockEntra.stubFor(delete(urlPathEqualTo(ASSIGNED_TO + "/assign-1"))
+            .willReturn(aResponse().withStatus(204)));
+
+        service.revokeApiAccess(CLIENT_ID, API_CLIENT_ID, "app.read");
+
+        mockEntra.verify(deleteRequestedFor(urlPathEqualTo(ASSIGNED_TO + "/assign-1")));
+    }
+
+    @Test
+    void revoking_a_role_the_application_does_not_hold_should_delete_nothing() {
+        stubServicePrincipalLookups();
+        stubApiRoles();
+        stubAssignments("{\"value\":[]}");
+
+        service.revokeApiAccess(CLIENT_ID, API_CLIENT_ID, "app.read");
+
+        mockEntra.verify(0, deleteRequestedFor(urlPathMatching(ASSIGNED_TO + "/.*")));
+    }
+
+    @Test
+    void revoking_a_role_held_on_another_api_should_leave_it_alone() {
+        stubServicePrincipalLookups();
+        stubApiRoles();
+        // The same role value on a different resource: matching on the role id alone would take it.
+        stubAssignments("""
+            {"value":[{"id":"assign-1","appRoleId":"%s","resourceId":"%s"}]}"""
+            .formatted(ROLE_ID, CONSUMER_SP_ID));
+
+        service.revokeApiAccess(CLIENT_ID, API_CLIENT_ID, "app.read");
+
+        mockEntra.verify(0, deleteRequestedFor(urlPathMatching(ASSIGNED_TO + "/.*")));
+    }
+
+    @Test
+    void refused_removal_should_name_the_permission_that_is_missing() {
+        stubServicePrincipalLookups();
+        stubApiRoles();
+        stubAssignments("""
+            {"value":[{"id":"assign-1","appRoleId":"%s","resourceId":"%s"}]}"""
+            .formatted(ROLE_ID, API_SP_ID));
+        mockEntra.stubFor(delete(urlPathEqualTo(ASSIGNED_TO + "/assign-1"))
+            .willReturn(aResponse().withStatus(403)));
+
+        assertThatThrownBy(() -> service.revokeApiAccess(CLIENT_ID, API_CLIENT_ID, "app.read"))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR))
+            .hasMessageContaining("AppRoleAssignment.ReadWrite.All");
+    }
+
+    @Test
     void role_the_api_does_not_offer_should_say_what_it_does_offer() {
         stubServicePrincipalLookups();
         stubApiRoles();

@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -176,6 +177,39 @@ public class EntraAppRegistrationService {
             throw assignmentRefused(e);
         }
         log.info("Granted {} on {} to application {}", roleValue, resourceAppId, consumerClientId);
+    }
+
+    /**
+     * Takes back what grantApiAccess gave. An assignment that is already gone is the state the
+     * caller asked for, so finding nothing to remove is not a failure.
+     */
+    public void revokeApiAccess(final String consumerClientId, final String resourceAppId,
+                                final String roleValue) {
+        requireCredential();
+        String consumerPrincipalId = servicePrincipalObjectId(consumerClientId,
+            "No service principal for application " + consumerClientId);
+        String apiPrincipalId = servicePrincipalObjectId(resourceAppId,
+            "No service principal for the API " + resourceAppId);
+        UUID roleId = appRoleId(apiPrincipalId, roleValue);
+        UUID apiPrincipal = UUID.fromString(apiPrincipalId);
+
+        Optional<String> assignmentId = assignmentsFor(consumerPrincipalId).stream()
+            .filter(assignment -> roleId.equals(assignment.getAppRoleId())
+                && apiPrincipal.equals(assignment.getResourceId()))
+            .map(AppRoleAssignment::getId)
+            .findFirst();
+
+        if (assignmentId.isEmpty()) {
+            log.info("Application {} does not hold {} on {}", consumerClientId, roleValue, resourceAppId);
+            return;
+        }
+        try {
+            graph.servicePrincipals().byServicePrincipalId(apiPrincipalId)
+                .appRoleAssignedTo().byAppRoleAssignmentId(assignmentId.get()).delete();
+        } catch (final ApiException e) {
+            throw assignmentRefused(e);
+        }
+        log.info("Revoked {} on {} from application {}", roleValue, resourceAppId, consumerClientId);
     }
 
     /** Retried: run straight after registering, the service principal is seconds old and may not have replicated. */

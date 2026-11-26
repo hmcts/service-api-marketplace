@@ -100,6 +100,10 @@ admin:
     # The web app's client id - the token the browser sends is the one it signed the user in with.
     audience: ${ADMIN_AUTH_AUDIENCE:}
     role: ${ADMIN_AUTH_ROLE:amp_admin}
+    # Unset everywhere real: the issuer and signing keys are derived from the tenant. The stack
+    # journeys set them to the Entra mock, so the admin pages are tested end to end there.
+    issuer-override: ${ADMIN_AUTH_ISSUER:}
+    jwk-set-uri-override: ${ADMIN_AUTH_JWK_SET_URI:}
 
 # Local only: fakes Entra registration and APIM subscription keys in memory (LocalBypassConfig).
 # Never set ENTRA_BYPASS in a chart.

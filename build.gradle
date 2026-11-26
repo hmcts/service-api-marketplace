@@ -55,7 +55,6 @@ def configureSourceSet(String name) {
       runtimeClasspath += sourceSets.main.output + sourceSets.test.output
       srcDir "src/${name}/java"
     }
-    sourceSet.resources.srcDir "src/${name}/resources"
   }
 }
 

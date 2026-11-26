@@ -8,7 +8,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * and the admin endpoints keep to the role check they have always made against the database.
  */
 @ConfigurationProperties(prefix = "admin.auth")
-public record AdminAuthProperties(String tenantId, String audience, String role) {
+public record AdminAuthProperties(String tenantId, String audience, String role,
+                                  String issuerOverride, String jwkSetUriOverride) {
 
     private static final String DEFAULT_ROLE = "amp_admin";
 
@@ -18,10 +19,16 @@ public record AdminAuthProperties(String tenantId, String audience, String role)
 
     /** The issuer is the directory id as a host, not the friendly name its endpoints answer on. */
     public String issuer() {
+        if (isSet(issuerOverride)) {
+            return issuerOverride;
+        }
         return "https://%s.ciamlogin.com/%s/v2.0".formatted(tenantId, tenantId);
     }
 
     public String jwkSetUri() {
+        if (isSet(jwkSetUriOverride)) {
+            return jwkSetUriOverride;
+        }
         return "https://%s.ciamlogin.com/%s/discovery/v2.0/keys".formatted(tenantId, tenantId);
     }
 

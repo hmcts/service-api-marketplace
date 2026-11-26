@@ -187,6 +187,29 @@ class ApimSubscriptionKeyServiceTest {
     }
 
     @Test
+    void azure_rejecting_the_request_should_say_so_rather_than_suggest_trying_again() {
+        ManagementException rejected = new ManagementException("product not found on " + RESOURCE_GROUP, response(400));
+        when(subscriptions.listSecrets(RESOURCE_GROUP, SERVICE_NAME, NAME)).thenThrow(rejected);
+
+        assertThatThrownBy(() -> service.keyValues(OID, NAME))
+            .isInstanceOfSatisfying(ResponseStatusException.class, e -> {
+                assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+                assertThat(e.getReason()).isEqualTo("API Management rejected the request.")
+                    .doesNotContain(RESOURCE_GROUP);
+            });
+    }
+
+    @Test
+    void azure_failing_on_its_side_should_still_suggest_trying_again() {
+        ManagementException failed = new ManagementException("busy", response(503));
+        when(subscriptions.listSecrets(RESOURCE_GROUP, SERVICE_NAME, NAME)).thenThrow(failed);
+
+        assertThatThrownBy(() -> service.keyValues(OID, NAME))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getReason()).isEqualTo("Could not reach API Management. Please try again."));
+    }
+
+    @Test
     @SuppressWarnings("unchecked") // mock() of the SDK's generic PagedIterable
     void azure_failing_while_listing_should_be_a_bad_gateway_rather_than_an_unhandled_error() {
         ManagementException failed = new ManagementException("quota exceeded on " + RESOURCE_GROUP, response(500));

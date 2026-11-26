@@ -163,6 +163,12 @@ public class ApimSubscriptionKeyService {
             return new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                 "Not permitted to manage subscriptions on API Management.");
         }
+        if (cause.getResponse() != null && HttpStatus.valueOf(cause.getResponse().getStatusCode()).is4xxClientError()) {
+            log.error("API Management rejected the request for subscription {} with {}.",
+                name, cause.getResponse().getStatusCode(), cause);
+            return new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                "API Management rejected the request.");
+        }
         log.error("APIM call for subscription {} failed.", name, cause);
         return new ResponseStatusException(HttpStatus.BAD_GATEWAY,
             "Could not reach API Management. Please try again.");

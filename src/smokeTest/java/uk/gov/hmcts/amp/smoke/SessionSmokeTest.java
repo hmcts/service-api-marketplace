@@ -1,4 +1,4 @@
-package uk.gov.hmcts.amp.controllers;
+package uk.gov.hmcts.amp.smoke;
 
 import org.junit.jupiter.api.Test;
 

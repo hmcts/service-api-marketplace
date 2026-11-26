@@ -92,12 +92,9 @@ entra:
   onboarding-client-id: ${ENTRA_ONBOARDING_CLIENT_ID:74afcacd-e439-47f4-ba67-2c75d4306468}
   onboarding-client-secret: ${ENTRA_ONBOARDING_CLIENT_SECRET:}
 
-# Admin endpoints (/admin/**) only. Both values come from the environment's Entra key vault;
-# without them the service has no tenant to verify against and leaves /admin/** as it was.
 admin:
   auth:
     tenant-id: ${ENTRA_TENANT_ID:}
-    # The web app's client id - the token the browser sends is the one it signed the user in with.
     audience: ${ADMIN_AUTH_AUDIENCE:}
     role: ${ADMIN_AUTH_ROLE:amp_admin}
     # Unset everywhere real: the issuer and signing keys are derived from the tenant. The stack

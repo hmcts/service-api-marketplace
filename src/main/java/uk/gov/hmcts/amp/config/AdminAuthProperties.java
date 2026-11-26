@@ -2,11 +2,6 @@ package uk.gov.hmcts.amp.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-/**
- * Where an admin token comes from, and which app role it has to carry. An environment that
- * supplies neither a tenant nor an audience has no Entra sign-in, so the gate stays open there
- * and the admin endpoints keep to the role check they have always made against the database.
- */
 @ConfigurationProperties(prefix = "admin.auth")
 public record AdminAuthProperties(String tenantId, String audience, String role,
                                   String issuerOverride, String jwkSetUriOverride) {

@@ -72,7 +72,7 @@ All derived names follow the pattern `{product}-{component}` = `apim-marketplace
 | **Spring app name** | `service-api-marketplace` |
 | **Jenkins AAD group** | `DTS API Marketplace` |
 | **Slack contact** | `#api-marketplace-tech` |
-| **Slack build notices** | `#api-marketplace-build-notices` |
+| **Slack build and Flux alerts** | `#amp-ci-alerts` |
 | **TF approval whitelist** | `cnp-jenkins-config/terraform-infra-approvals/service-api-marketplace.json` |
 
 ---

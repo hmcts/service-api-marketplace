@@ -87,7 +87,11 @@ class AuditIngestionAppenderTest {
         assertThat(fallback.list).singleElement().satisfies(line -> {
             assertThat(line.getLevel()).isEqualTo(Level.ERROR);
             assertThat(line.getFormattedMessage()).contains("CONSUMER_SUBSCRIPTION_KEY_CREATED sub-123 SUCCESS");
-            assertThat(line.getMDCPropertyMap()).containsAllEntriesOf(FIELDS);
+            assertThat(line.getMDCPropertyMap())
+                .containsEntry("unsent_audit_action", "CONSUMER_SUBSCRIPTION_KEY_CREATED")
+                .containsEntry("unsent_audit_actor_oid", "9b1c4e2a-0000-0000-0000-000000000001")
+                .containsEntry(TracingFilter.MDC_CORRELATION_ID, "corr-1")
+                .doesNotContainKey("audit_action");
             assertThat(line.getThrowableProxy().getMessage()).isEqualTo("ingestion unavailable");
         });
     }

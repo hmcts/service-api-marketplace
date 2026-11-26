@@ -35,11 +35,17 @@ resource "azurerm_key_vault_secret" "app_insights_config" {
     sampling = {
       # Audit lines ride on request telemetry, so nothing may be sampled out.
       percentage = 100
-      overrides = [{
+      overrides = concat([{
         telemetryType = "request"
         attributes    = [{ key = "http.url", value = "https?://[^/]+/health.*", matchType = "regexp" }]
         percentage    = 1
-      }]
+        }], var.audit_in_own_table ? [{
+        # Audit lines already go to AmpAudit_CL (audit.tf); the agent would copy them to AppTraces
+        # too. A line that could not be sent carries unsent_audit_* instead, so it is kept.
+        telemetryType = "trace"
+        attributes    = [{ key = "audit_action", value = ".+", matchType = "regexp" }]
+        percentage    = 0
+      }] : [])
     }
   })
   key_vault_id = module.vault.key_vault_id

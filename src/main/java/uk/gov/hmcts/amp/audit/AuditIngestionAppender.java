@@ -60,10 +60,18 @@ public class AuditIngestionAppender extends UnsynchronizedAppenderBase<ILoggingE
         return value != null && STATUS.matcher(value).matches() ? Integer.valueOf(value) : null;
     }
 
+    static Map<String, String> unsent(final Map<String, String> fields) {
+        final Map<String, String> renamed = new LinkedHashMap<>();
+        fields.forEach((key, value) -> renamed.put(key.startsWith("audit_") ? "unsent_" + key : key, value));
+        return renamed;
+    }
+
     private void fallBack(final ILoggingEvent event, final Map<String, String> fields, final RuntimeException cause) {
-        // Runs on the AsyncAppender's thread, which has no MDC of its own.
+        // Runs on the AsyncAppender's thread, which has no MDC of its own. The audit fields are
+        // renamed unsent_audit_*: where audit has its own table, App Insights drops log lines that
+        // carry audit_action, and this line must still reach AppTraces.
         final Map<String, String> previous = MDC.getCopyOfContextMap();
-        MDC.setContextMap(fields);
+        MDC.setContextMap(unsent(fields));
         try {
             FALLBACK.error("Audit entry not sent to AmpAudit_CL: {}", event.getFormattedMessage(), cause);
         } finally {

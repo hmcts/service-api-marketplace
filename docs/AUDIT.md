@@ -27,7 +27,7 @@ Reads that only list or show a user's own data are not audited. Admin reads of o
 3. `AuditInterceptor.afterCompletion` writes one line per request to the `AUDIT` logger, with the outcome taken from the HTTP status. It also runs when the request failed before or inside the controller.
 4. Where it goes depends on `AUDIT_INGESTION_ENABLED`:
    - **Off** (the default, and always for local runs, tests and previews): the line is logged as JSON to stdout and the App Insights Java agent sends it to `AppTraces` in the `amp-marketplace-<env>` Log Analytics workspace.
-   - **On**: `AuditIngestionConfig` moves the `AUDIT` logger off stdout. `AuditIngestionAppender`, behind an `AsyncAppender`, sends each entry through the Logs Ingestion API to a data collection rule, which writes it to the `AmpAudit_CL` table in the same workspace. The app signs in as `amp-<env>-mi`. An entry that still cannot be sent after the client's retries is logged to stdout at `ERROR` by `AUDIT_FALLBACK`, so it reaches `AppTraces` instead of being lost.
+   - **On**: `AuditIngestionConfig` moves the `AUDIT` logger off stdout. `AuditIngestionAppender`, behind an `AsyncAppender`, sends each entry through the Logs Ingestion API to a data collection rule, which writes it to the `AmpAudit_CL` table in the same workspace. The app signs in as `amp-<env>-mi`. An entry that still cannot be sent after the client's retries is logged to stdout at `ERROR` by `AUDIT_FALLBACK`, with its fields renamed `unsent_audit_*`, so it reaches `AppTraces` instead of being lost.
 
 An audit failure is logged as an error and never changes the response.
 
@@ -70,7 +70,13 @@ Fields with no value are left out. Keys, secrets, tokens and request bodies are 
 | `CorrelationId` | `X-Correlation-Id` |
 | `Environment` | `ENVIRONMENT_NAME` |
 
-To switch an environment over, first set `grant_audit_publisher = true` for it (it gives `amp-<env>-mi` *Monitoring Metrics Publisher* on the rule, which Jenkins can only grant once that role is in `rbac_admin_roles` in hmcts/cft-jenkins-infrastructure). Then mount the `audit-ingestion-endpoint` and `audit-ingestion-rule-id` secrets as `AUDIT_INGESTION_ENDPOINT` and `AUDIT_INGESTION_RULE_ID`, and set `AUDIT_INGESTION_ENABLED` to `true`. The app refuses to start when it is on without both. Once every environment has switched, `AppTraces` total retention goes back to `log_analytics_retention_days`.
+To switch an environment over:
+
+1. Ask PlatOps for *Monitoring Metrics Publisher* for `amp-<env>-mi` on `amp-marketplace-audit-<env>`. Jenkins can't grant this role, so `grant_audit_publisher` stays `false`.
+2. In cnp-flux-config, mount the `audit-ingestion-endpoint` and `audit-ingestion-rule-id` secrets as `AUDIT_INGESTION_ENDPOINT` and `AUDIT_INGESTION_RULE_ID`, and set `AUDIT_INGESTION_ENABLED` to `true`. The app refuses to start when it is on without both.
+3. Set `audit_in_own_table = true` in that environment's tfvars. The App Insights agent copies every log line to `AppTraces`, audit included, so this adds a rule to its config that drops lines carrying `audit_action`. A line that could not be sent carries `unsent_audit_*` instead, so it still reaches `AppTraces`.
+
+Once every environment has switched, `AppTraces` total retention goes back to `log_analytics_retention_days`.
 
 ## Querying
 

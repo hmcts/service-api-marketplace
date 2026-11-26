@@ -36,6 +36,14 @@ class AdminFunctionalTest {
     }
 
     @Test
+    void an_admin_should_be_served_the_applications() throws Exception {
+        var response = http.get("/admin/applications", "Authorization", "Bearer " + TOKEN);
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(json(response).isArray()).isTrue();
+    }
+
+    @Test
     void an_admin_should_be_served_the_support_lookup() throws Exception {
         http.signIn(OID, EMAIL);
 

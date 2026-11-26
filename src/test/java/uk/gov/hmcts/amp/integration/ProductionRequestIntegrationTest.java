@@ -487,7 +487,8 @@ class ProductionRequestIntegrationTest {
 
         mockMvc.perform(get(PATH).header("requestingUserId", OWNER_OID))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].useCase").doesNotExist())
+            .andExpect(jsonPath("$[0].dataRequest").doesNotExist())
+            .andExpect(jsonPath("$[0].proposedOutputs").doesNotExist())
             .andExpect(jsonPath("$[0].organisation").doesNotExist());
     }
 

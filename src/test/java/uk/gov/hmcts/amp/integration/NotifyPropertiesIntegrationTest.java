@@ -17,7 +17,7 @@ class NotifyPropertiesIntegrationTest {
     private NotifyProperties notifyProperties;
 
     @Test
-    void each_inbox_should_be_the_one_address_production_sends_to() {
+    void the_reviewer_and_team_inboxes_should_each_default_to_one_production_address() {
         assertThat(notifyProperties.reviewers()).containsExactly("DataAccessPanel@justice.gov.uk");
         assertThat(notifyProperties.ampTeam()).containsExactly("APIMarketplace@hmcts.net");
     }

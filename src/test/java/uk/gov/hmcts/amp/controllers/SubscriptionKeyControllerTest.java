@@ -59,7 +59,7 @@ class SubscriptionKeyControllerTest {
     }
 
     @Test
-    void reading_key_values_should_ask_for_that_name_and_nothing_else() {
+    void reading_key_values_should_return_the_values_for_that_name() {
         SubscriptionKey values = SubscriptionKey.keysOnly("team-alpha", "primary", "secondary");
         when(subscriptionKeys.keyValues(OID, "team-alpha")).thenReturn(values);
 

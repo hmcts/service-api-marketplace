@@ -46,7 +46,7 @@ class AnswerTest {
     }
 
     @Test
-    void slugs_the_enum_does_not_hold_should_say_so_rather_than_read_as_blank() {
+    void an_unknown_slug_should_be_refused_naming_the_enum_and_the_slug() {
         assertThatThrownBy(() -> DataRecipient.fromSlug("farm-animals"))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("DataRecipient")

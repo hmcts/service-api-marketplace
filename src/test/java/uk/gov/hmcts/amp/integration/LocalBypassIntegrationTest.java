@@ -58,7 +58,7 @@ class LocalBypassIntegrationTest {
     }
 
     @Test
-    void the_whole_journey_should_work_without_entra_or_apim() throws Exception {
+    void the_bypass_should_create_grant_subscribe_read_back_and_delete_without_entra_or_apim() throws Exception {
         String created = mockMvc.perform(post("/applications").header("requestingUserId", OID)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Case Viewer\"}"))
             .andExpect(status().isCreated())

@@ -97,7 +97,7 @@ class NotifyTestEndpointIntegrationTest {
     }
 
     @Test
-    void notify_refusing_should_surface_rather_than_look_like_a_send() throws Exception {
+    void notify_refusing_should_answer_502_rather_than_look_like_a_send() throws Exception {
         stubRefused(400, "email_address Not a valid email address");
 
         mockMvc.perform(post(PATH).header("requestingUserId", OID))
@@ -105,12 +105,12 @@ class NotifyTestEndpointIntegrationTest {
     }
 
     @Test
-    void missing_header_should_be_rejected() throws Exception {
+    void missing_requesting_user_header_should_be_refused_with_400() throws Exception {
         mockMvc.perform(post(PATH)).andExpect(status().isBadRequest());
     }
 
     @Test
-    void an_unknown_requesting_user_should_be_told_to_sign_in_again() throws Exception {
+    void an_unknown_requesting_user_should_be_not_found() throws Exception {
         mockMvc.perform(post(PATH).header("requestingUserId", "cccccccc-1111-2222-3333-444444444444"))
             .andExpect(status().isNotFound());
     }

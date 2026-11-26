@@ -13,7 +13,7 @@ class UserFunctionalTest {
     private final FunctionalClient http = new FunctionalClient();
 
     @Test
-    void signing_in_should_return_the_user() throws Exception {
+    void signing_in_should_answer_200_with_the_users_email() throws Exception {
         var response = http.post("/session", "{\"objectId\":\"" + OID + "\",\"email\":\"" + EMAIL + "\"}");
 
         assertThat(response.statusCode()).isEqualTo(200);

@@ -9,7 +9,7 @@ class AdminAuthPropertiesTest {
     private static final String TENANT = "99999999-8888-7777-6666-555555555555";
 
     @Test
-    void issuer_and_keys_should_come_from_the_tenant_by_default() {
+    void issuer_and_keys_should_come_from_the_tenant_and_the_role_default_to_amp_admin() {
         final AdminAuthProperties admin = new AdminAuthProperties(TENANT, "the-web-app", null, null, null);
 
         assertThat(admin.issuer()).isEqualTo("https://" + TENANT + ".ciamlogin.com/" + TENANT + "/v2.0");
@@ -28,7 +28,7 @@ class AdminAuthPropertiesTest {
     }
 
     @Test
-    void blank_overrides_should_be_ignored() {
+    void blank_overrides_should_fall_back_to_the_tenant_issuer_and_keys() {
         final AdminAuthProperties admin = new AdminAuthProperties(TENANT, "the-web-app", null, " ", "");
 
         assertThat(admin.issuer()).startsWith("https://" + TENANT + ".ciamlogin.com/");
@@ -36,7 +36,7 @@ class AdminAuthPropertiesTest {
     }
 
     @Test
-    void sign_in_should_still_need_a_tenant_and_an_audience() {
+    void admin_sign_in_should_be_usable_only_with_both_a_tenant_and_an_audience() {
         assertThat(new AdminAuthProperties(TENANT, "the-web-app", null, null, null).usable()).isTrue();
         assertThat(new AdminAuthProperties("", "the-web-app", null, "http://x", "http://x/jwks").usable()).isFalse();
         assertThat(new AdminAuthProperties(TENANT, null, null, null, null).usable()).isFalse();

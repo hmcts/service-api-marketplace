@@ -78,7 +78,7 @@ class AuditInterceptorTest {
     }
 
     @Test
-    void afterCompletion_should_prefer_the_captured_actor_whenTheEndpointNamesOne() throws Exception {
+    void afterCompletion_should_prefer_the_captured_actor_over_the_requesting_user_header() throws Exception {
         request.addHeader(AuditInterceptor.REQUESTING_USER_ID_HEADER, ACTOR_OID);
         request.setAttribute(AuditAspect.AUDIT_DETAILS_ATTRIBUTE, new AuditDetails(SIGNED_IN_OID, null, null));
 
@@ -89,7 +89,7 @@ class AuditInterceptorTest {
     }
 
     @Test
-    void afterCompletion_should_write_a_failure_line_without_missing_fields_whenTheControllerMethodNeverRan()
+    void afterCompletion_should_write_a_failure_line_without_missing_fields_when_the_controller_method_never_ran()
         throws Exception {
         response.setStatus(400);
 
@@ -102,14 +102,14 @@ class AuditInterceptorTest {
     }
 
     @Test
-    void afterCompletion_should_not_write_a_line_whenTheHandlerIsNotAudited() throws Exception {
+    void afterCompletion_should_not_write_a_line_when_the_handler_is_not_audited() throws Exception {
         interceptor.afterCompletion(request, response, handler("notAudited"), null);
 
         assertThat(appender.list).isEmpty();
     }
 
     @Test
-    void afterCompletion_should_not_fail_the_request_whenTheAuditWriteFails() throws Exception {
+    void afterCompletion_should_not_throw_when_the_audit_write_fails() throws Exception {
         doThrow(new IllegalStateException("clock unavailable")).when(clockService).now();
         final HandlerMethod audited = handler("audited");
 

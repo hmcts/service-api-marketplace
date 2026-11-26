@@ -67,7 +67,7 @@ class ApplicationServiceTest {
     private ApplicationService service;
 
     @Test
-    void listing_should_return_only_what_the_caller_owns() {
+    void listing_should_query_applications_by_the_callers_user_id() {
         when(users.requireSignedIn(OID)).thenReturn(signedIn());
         when(applications.findByUserIdOrderByCreatedAtAsc(1L)).thenReturn(List.of());
 

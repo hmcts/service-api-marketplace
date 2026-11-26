@@ -106,7 +106,7 @@ class AdminEndpointIntegrationTest {
     }
 
     @Test
-    void the_list_should_not_expose_identifiers_or_secrets() throws Exception {
+    void the_user_list_should_leave_out_the_entra_object_id_user_reference_and_role() throws Exception {
         mockMvc.perform(adminGet(USERS))
             .andExpect(jsonPath("$[0].entraObjectId").doesNotExist())
             .andExpect(jsonPath("$[0].userReference").doesNotExist())
@@ -255,7 +255,7 @@ class AdminEndpointIntegrationTest {
     }
 
     @Test
-    void application_with_no_request_should_have_none() throws Exception {
+    void an_application_with_no_apis_or_request_should_show_neither() throws Exception {
         final ApplicationEntity caseViewer =
             applications.save(application(users.findById(graceId).orElseThrow(), "Case Viewer", "client-1"));
 

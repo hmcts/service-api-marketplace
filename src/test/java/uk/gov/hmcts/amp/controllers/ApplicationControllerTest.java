@@ -46,14 +46,14 @@ class ApplicationControllerTest {
     }
 
     @Test
-    void reading_one_should_pass_the_user_and_the_client_id_through() {
+    void reading_one_should_return_the_users_application_by_client_id() {
         when(applications.get(OID, CLIENT_ID)).thenReturn(response);
 
         assertThat(controller.getApplication(OID, CLIENT_ID)).isEqualTo(mapper.toApplication(response));
     }
 
     @Test
-    void creating_should_pass_the_user_and_the_request_through() {
+    void creating_should_return_the_client_secret_the_service_issued() {
         ApplicationRequest request = new ApplicationRequest("Case Viewer", List.of());
         when(applications.create(OID, request)).thenReturn(response.withSecret("shown-once"));
 

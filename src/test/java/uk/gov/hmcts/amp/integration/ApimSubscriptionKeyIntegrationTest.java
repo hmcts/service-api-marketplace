@@ -101,18 +101,18 @@ class ApimSubscriptionKeyIntegrationTest {
     }
 
     @Test
-    void missing_header_should_be_rejected() throws Exception {
+    void missing_requesting_user_header_should_be_refused_with_400() throws Exception {
         mockMvc.perform(get(PATH)).andExpect(status().isBadRequest());
     }
 
     @Test
-    void an_unknown_requesting_user_should_be_told_to_sign_in_again() throws Exception {
+    void an_unknown_requesting_user_should_be_not_found() throws Exception {
         mockMvc.perform(get(PATH).header("requestingUserId", "cccccccc-1111-2222-3333-444444444444"))
             .andExpect(status().isNotFound());
     }
 
     @Test
-    void refusal_from_api_management_should_be_our_fault_not_a_bad_gateway() throws Exception {
+    void api_management_answering_403_should_be_a_500_not_a_bad_gateway() throws Exception {
         // 403 means API Management answered and said no: the service identity has no role on the
         // instance. That is our deployment at fault, not a broken upstream.
         stubSubscriptionAnswering(mine, 403);
@@ -122,7 +122,7 @@ class ApimSubscriptionKeyIntegrationTest {
     }
 
     @Test
-    void api_management_failing_should_be_a_bad_gateway() throws Exception {
+    void api_management_answering_500_should_be_a_bad_gateway() throws Exception {
         stubSubscriptionAnswering(mine, 500);
 
         mockMvc.perform(get(PATH + "/" + mine + "/values").header("requestingUserId", OWNER_OID))

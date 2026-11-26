@@ -40,7 +40,7 @@ class NotifyFunctionalTest {
     private NotifyService notifyService;
 
     @Test
-    void notify_should_send_email_to_requestor() {
+    void notify_should_accept_the_requester_email() {
         ProductionRequestConsumerEmail template = new ProductionRequestConsumerEmail(
             TEST_EMAIL, "Functional Test",
             "Case Viewer",
@@ -51,7 +51,7 @@ class NotifyFunctionalTest {
     }
 
     @Test
-    void notify_should_send_email_to_reviewers() {
+    void notify_should_accept_the_reviewer_email() {
         ProductionRequestPanelEmail template = new ProductionRequestPanelEmail(
             TEST_EMAIL,
             "Case Viewer",
@@ -76,7 +76,7 @@ class NotifyFunctionalTest {
     }
 
     @Test
-    void notify_should_send_email_to_the_marketplace_team() {
+    void notify_should_accept_the_marketplace_team_email() {
         ProductionRequestMarketplaceEmail template = new ProductionRequestMarketplaceEmail(
             TEST_EMAIL,
             "Case Viewer",

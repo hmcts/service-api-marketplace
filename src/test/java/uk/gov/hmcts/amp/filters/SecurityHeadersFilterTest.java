@@ -25,7 +25,7 @@ class SecurityHeadersFilterTest {
     }
 
     @Test
-    void health_and_root_should_carry_them_too() throws Exception {
+    void health_and_root_should_carry_the_security_headers_too() throws Exception {
         assertThat(filtered(new MockHttpServletRequest("GET", "/health")).getHeaderNames())
             .containsAll(SecurityHeadersFilter.HEADERS.keySet());
         assertThat(filtered(new MockHttpServletRequest("GET", "/")).getHeaderNames())
@@ -33,7 +33,7 @@ class SecurityHeadersFilterTest {
     }
 
     @Test
-    void headers_should_be_set_before_the_handler_runs_so_error_responses_keep_them() throws Exception {
+    void headers_should_already_be_set_when_the_handler_runs() throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(new MockHttpServletRequest("GET", "/users"), response,

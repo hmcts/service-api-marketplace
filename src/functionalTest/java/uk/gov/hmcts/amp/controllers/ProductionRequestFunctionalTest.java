@@ -123,7 +123,7 @@ class ProductionRequestFunctionalTest {
     }
 
     @Test
-    void an_answer_past_two_thousand_characters_should_say_so() throws Exception {
+    void data_combined_description_past_2000_characters_should_be_refused_with_400() throws Exception {
         var answers = triage();
         answers.put("dataCombinedDescription", "x".repeat(2001));
 

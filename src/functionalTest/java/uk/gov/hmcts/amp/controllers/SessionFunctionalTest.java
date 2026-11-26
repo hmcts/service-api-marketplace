@@ -33,7 +33,7 @@ class SessionFunctionalTest {
     }
 
     @Test
-    void another_entra_account_with_the_same_email_should_take_over_the_user() throws Exception {
+    void another_entra_account_with_the_same_email_in_any_case_should_take_over_the_user() throws Exception {
         var original = upsert(OID, "{\"email\":\"" + EMAIL + "\"}");
 
         var recreated = upsert(OTHER_OID, "{\"email\":\"" + EMAIL.toUpperCase() + "\"}");

@@ -73,13 +73,13 @@ class AdminSecurityIntegrationTest {
     }
 
     @Test
-    void someone_signed_in_without_the_role_should_be_refused() throws Exception {
+    void token_without_the_admin_role_should_be_forbidden() throws Exception {
         mockMvc.perform(get(USERS).with(jwt().jwt(token -> token.claim("oid", ADA))))
             .andExpect(status().isForbidden());
     }
 
     @Test
-    void no_token_at_all_should_be_refused_rather_than_served() throws Exception {
+    void no_token_at_all_should_be_refused_with_401() throws Exception {
         mockMvc.perform(get(USERS)).andExpect(status().isUnauthorized());
     }
 

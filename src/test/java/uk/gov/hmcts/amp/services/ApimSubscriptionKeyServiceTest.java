@@ -163,7 +163,7 @@ class ApimSubscriptionKeyServiceTest {
     }
 
     @Test
-    void refusal_should_be_reported_as_our_fault_rather_than_a_bad_gateway() {
+    void azure_answering_403_should_be_a_500_without_azure_detail() {
         ManagementException refused = azureStatus(403);
         when(subscriptions.listSecrets(RESOURCE_GROUP, SERVICE_NAME, NAME)).thenThrow(refused);
 
@@ -175,7 +175,7 @@ class ApimSubscriptionKeyServiceTest {
     }
 
     @Test
-    void any_other_azure_failure_should_be_a_bad_gateway_without_azure_detail() {
+    void azure_answering_500_should_be_a_bad_gateway_without_azure_detail() {
         ManagementException failed = new ManagementException("quota exceeded on " + RESOURCE_GROUP, response(500));
         when(subscriptions.listSecrets(RESOURCE_GROUP, SERVICE_NAME, NAME)).thenThrow(failed);
 

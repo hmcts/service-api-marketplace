@@ -90,7 +90,7 @@ class DeveloperPortalClientTest {
     }
 
     @Test
-    void the_portal_answering_an_error_should_say_it_could_not_be_read() {
+    void the_portal_answering_an_error_should_be_a_bad_gateway_saying_it_could_not_be_read() {
         portal.stubFor(get(urlPathEqualTo(EXPORT_PATH)).willReturn(aResponse().withStatus(503)));
 
         assertThatBadGateway().hasMessageContaining("could not be read");

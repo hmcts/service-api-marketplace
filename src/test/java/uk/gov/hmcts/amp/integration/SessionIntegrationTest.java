@@ -112,7 +112,7 @@ class SessionIntegrationTest {
     }
 
     @Test
-    void the_object_id_it_was_created_with_should_stop_working_once_adopted() throws Exception {
+    void after_adoption_the_old_object_id_should_be_not_found_and_the_new_one_served() throws Exception {
         signIn(OID, "{\"email\":\"joe@example.com\"}").andExpect(status().isOk());
         signIn(OTHER_OID, "{\"email\":\"joe@example.com\"}").andExpect(status().isOk());
 
@@ -123,7 +123,7 @@ class SessionIntegrationTest {
     }
 
     @Test
-    void an_inactive_user_should_be_refused() throws Exception {
+    void suspended_user_signing_in_should_be_forbidden() throws Exception {
         signIn(OID, "{\"email\":\"joe@example.com\"}").andExpect(status().isOk());
         final UserEntity user = users.findByEntraObjectId(OID).orElseThrow();
         user.setStatus("SUSPENDED");

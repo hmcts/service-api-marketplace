@@ -69,7 +69,7 @@ class UserEndpointIntegrationTest {
     }
 
     @Test
-    void listing_should_not_expose_anything_a_sign_in_does_not() throws Exception {
+    void listing_should_carry_the_user_reference_name_status_and_last_login() throws Exception {
         mockMvc.perform(adminGet(PATH))
             .andExpect(jsonPath("$[0].userReference").value("user%03d".formatted(adaId)))
             .andExpect(jsonPath("$[0].name").value("Ada Lovelace"))

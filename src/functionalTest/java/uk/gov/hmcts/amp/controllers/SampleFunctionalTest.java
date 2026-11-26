@@ -14,7 +14,7 @@ class SampleFunctionalTest {
     private final String testUrl = System.getenv().getOrDefault("TEST_URL", "http://localhost:8080");
 
     @Test
-    void calling_root_should_return_welcome_message() throws Exception {
+    void the_root_should_answer_200_with_a_welcome_message() throws Exception {
         var client = HttpClient.newHttpClient();
         var request = HttpRequest.newBuilder()
             .uri(URI.create(testUrl))

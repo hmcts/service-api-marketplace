@@ -55,7 +55,7 @@ class StartupLoggerTest {
     }
 
     @Test
-    void an_api_with_no_resource_app_here_should_be_visible_as_missing() {
+    void no_resource_apps_should_be_logged_as_an_empty_map() {
         StartupLogger partial = new StartupLogger(environment(), Optional.of(build()), Optional.of(git()),
             new ApimProperties("a-tenant", "a-subscription", "rg", "instance", PORTAL, Map.of()),
             new EntraProperties("entra-tenant", "a-client", "a-secret", Map.of(), 1, 1),
@@ -75,7 +75,7 @@ class StartupLoggerTest {
     }
 
     @Test
-    void an_unset_secret_should_be_said_out_loud_rather_than_left_blank() {
+    void an_unset_secret_or_key_should_be_logged_as_not_set() {
         StartupLogger unconfigured = new StartupLogger(environment(), Optional.of(build()), Optional.of(git()),
             new ApimProperties("a-tenant", "a-subscription", "rg", "instance", PORTAL, Map.of()),
             new EntraProperties("entra-tenant", "a-client", "", Map.of("slc", "an-api"), 1, 1),

@@ -23,7 +23,7 @@ class SecurityHeadersFunctionalTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"/catalogue", "/products"})
-    void every_response_should_carry_the_security_headers_including_errors(final String path) throws Exception {
+    void found_and_not_found_paths_should_both_carry_every_security_header(final String path) throws Exception {
         var headers = http.get(path).headers();
 
         SECURITY_HEADERS.forEach((name, value) -> assertThat(headers.firstValue(name)).contains(value));

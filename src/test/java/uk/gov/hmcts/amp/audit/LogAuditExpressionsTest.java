@@ -55,7 +55,7 @@ class LogAuditExpressionsTest {
     }
 
     @Test
-    void the_scan_should_find_the_audited_endpoints() {
+    void the_scan_should_find_at_least_thirteen_audited_endpoints() {
         assertThat(auditedMethods()).hasSizeGreaterThanOrEqualTo(13);
     }
 
@@ -70,7 +70,7 @@ class LogAuditExpressionsTest {
     }
 
     @Test
-    void the_check_should_accept_what_the_controllers_use() throws Exception {
+    void the_check_should_find_no_problem_in_valid_parameter_property_and_method_expressions() throws Exception {
         final Method method = Sample.class.getMethod("create", String.class, Request.class);
 
         assertThat(problems(method, "#clientId")).isEmpty();

@@ -110,7 +110,7 @@ class ApplicationApiIntegrationTest {
     }
 
     @Test
-    void the_key_hint_should_be_stored_rather_than_the_key() throws Exception {
+    void only_a_three_character_hint_of_the_returned_key_should_be_stored() throws Exception {
         String body = mockMvc.perform(subscribeTo("slc")).andReturn().getResponse().getContentAsString();
 
         ApplicationApiEntity row = applicationApis.findAll().getFirst();
@@ -177,7 +177,7 @@ class ApplicationApiIntegrationTest {
     }
 
     @Test
-    void missing_header_should_be_rejected() throws Exception {
+    void missing_requesting_user_header_should_be_refused_with_400() throws Exception {
         mockMvc.perform(post(PATH).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"clientId\":\"" + CLIENT_ID + "\",\"shortCode\":\"slc\"}"))
             .andExpect(status().isBadRequest());

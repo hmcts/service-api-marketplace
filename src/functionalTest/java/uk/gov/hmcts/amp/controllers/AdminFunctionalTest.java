@@ -90,7 +90,7 @@ class AdminFunctionalTest {
     }
 
     @Test
-    void tampered_token_should_be_refused() throws Exception {
+    void tampered_admin_token_should_be_refused_with_401() throws Exception {
         assumeAdminToken();
 
         var response = http.get("/admin/users", "Authorization", "Bearer " + TOKEN + "x");

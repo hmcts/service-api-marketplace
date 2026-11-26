@@ -13,7 +13,7 @@ class NotifyConfigTest {
         + "-11111111-1111-1111-1111-111111111111";
 
     @Test
-    void an_api_key_should_give_a_client_pointed_at_the_configured_notify() {
+    void an_api_key_should_give_a_notification_client() {
         assertThat(notifyConfig(KEY).notificationClient()).isInstanceOf(NotificationClient.class);
     }
 
@@ -23,7 +23,7 @@ class NotifyConfigTest {
     }
 
     @Test
-    void null_key_should_be_treated_the_same_as_a_blank_one() {
+    void null_key_should_count_as_not_configured() {
         assertThat(new NotifyProperties(null, "https://notify.example", null, null, "PROD").configured()).isFalse();
     }
 

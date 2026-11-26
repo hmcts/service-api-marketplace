@@ -35,7 +35,7 @@ class CatalogueIntegrationTest {
     private MockMvc mockMvc;
 
     @Test
-    void the_list_should_carry_what_the_catalogue_pages_show() throws Exception {
+    void the_list_entry_should_carry_title_summary_team_domain_platform_and_subscribable() throws Exception {
         mockMvc.perform(get(PATH))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[3].shortCode").value("slc"))
@@ -58,7 +58,7 @@ class CatalogueIntegrationTest {
     }
 
     @Test
-    void the_list_should_leave_out_what_the_detail_page_is_for() throws Exception {
+    void the_list_should_leave_out_description_docs_url_gateway_path_resource_app_id_and_role() throws Exception {
         mockMvc.perform(get(PATH))
             .andExpect(jsonPath("$[3].description").doesNotExist())
             .andExpect(jsonPath("$[3].docsUrl").doesNotExist())
@@ -102,7 +102,7 @@ class CatalogueIntegrationTest {
     }
 
     @Test
-    void one_api_should_carry_what_a_consumer_asks_for_a_token_on() throws Exception {
+    void one_api_should_carry_its_resource_app_id_and_the_app_read_role() throws Exception {
         mockMvc.perform(get(PATH + "/slc"))
             .andExpect(jsonPath("$.resourceAppId").value(SLC_RESOURCE_APP_ID))
             .andExpect(jsonPath("$.role").value("app.read"));

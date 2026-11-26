@@ -93,7 +93,7 @@ class ProductionRequestServiceTest {
     }
 
     @Test
-    void reading_a_request_should_return_what_was_asked_for() {
+    void reading_a_request_should_return_its_answers_and_application() {
         UserEntity user = signedIn();
         when(users.requireSignedIn(OID)).thenReturn(user);
         when(requests.findByUserIdAndReference(user.getId(), "PCR-ABCD2345"))
@@ -137,7 +137,7 @@ class ProductionRequestServiceTest {
     }
 
     @Test
-    void the_subscribed_apis_should_be_named_by_title_for_whichever_template_wants_them() {
+    void the_requester_email_should_list_the_subscribed_apis_by_title_alphabetically() {
         UserEntity user = signedIn();
         givenRequestWillBeRecorded(user);
         when(apis.findAll()).thenReturn(List.of(api("slc", "Scheduling and Listing Court Schedule"),
@@ -195,7 +195,7 @@ class ProductionRequestServiceTest {
     }
 
     @Test
-    void redirecting_should_change_where_a_mail_goes_and_not_whether_one_is_sent() {
+    void redirecting_with_no_inboxes_configured_should_email_only_the_requester() {
         UserEntity user = signedIn();
         givenRequestWillBeRecorded(user);
         // Never consulted: an environment with no inboxes stays silent, redirecting or not.
@@ -226,7 +226,7 @@ class ProductionRequestServiceTest {
     }
 
     @Test
-    void refused_send_should_leave_the_request_recorded_and_the_other_email_sent() {
+    void refused_send_should_still_record_the_request_and_attempt_every_email() {
         UserEntity user = signedIn();
         givenRequestWillBeRecorded(user);
         doThrow(new ResponseStatusException(HttpStatus.BAD_GATEWAY)).when(notify).send(any());

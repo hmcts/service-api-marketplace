@@ -107,7 +107,7 @@ class ProductionRequestIntegrationTest {
     }
 
     @Test
-    void the_long_answers_should_take_two_thousand_characters() throws Exception {
+    void long_answers_of_exactly_2000_characters_should_be_accepted() throws Exception {
         createApplication(OWNER_OID);
 
         mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
@@ -118,7 +118,7 @@ class ProductionRequestIntegrationTest {
     }
 
     @Test
-    void an_answer_past_two_thousand_characters_should_say_so_rather_than_be_cut_short() throws Exception {
+    void answers_of_2001_characters_should_be_refused_with_400_and_not_stored() throws Exception {
         createApplication(OWNER_OID);
 
         mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
@@ -173,7 +173,7 @@ class ProductionRequestIntegrationTest {
     }
 
     @Test
-    void the_panel_should_be_sent_the_answers_without_the_requester_copied() throws Exception {
+    void the_panel_email_should_go_to_the_review_inbox_with_the_answers() throws Exception {
         createApplication(OWNER_OID);
         subscribedTo("slc");
 
@@ -293,7 +293,7 @@ class ProductionRequestIntegrationTest {
     }
 
     @Test
-    void listing_should_show_only_the_callers_own_requests_newest_first() throws Exception {
+    void listing_should_show_only_the_callers_own_requests() throws Exception {
         createApplication(OWNER_OID);
         mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID))).andExpect(status().isCreated());
@@ -412,7 +412,7 @@ class ProductionRequestIntegrationTest {
     }
 
     @Test
-    void an_answer_outside_the_published_list_should_be_rejected() throws Exception {
+    void an_organisation_type_outside_the_allowed_set_should_be_refused_and_not_stored() throws Exception {
         createApplication(OWNER_OID);
 
         mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
@@ -424,7 +424,7 @@ class ProductionRequestIntegrationTest {
     }
 
     @Test
-    void an_answer_outside_the_allowed_set_should_be_rejected() throws Exception {
+    void call_volume_outside_the_allowed_set_should_be_refused() throws Exception {
         createApplication(OWNER_OID);
 
         mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
@@ -434,12 +434,12 @@ class ProductionRequestIntegrationTest {
     }
 
     @Test
-    void missing_header_should_be_rejected() throws Exception {
+    void missing_requesting_user_header_should_be_refused_with_400() throws Exception {
         mockMvc.perform(get(PATH)).andExpect(status().isBadRequest());
     }
 
     @Test
-    void an_unknown_requesting_user_should_be_told_to_sign_in_again() throws Exception {
+    void an_unknown_requesting_user_should_be_not_found() throws Exception {
         mockMvc.perform(get(PATH).header("requestingUserId", "cccccccc-1111-2222-3333-444444444444"))
             .andExpect(status().isNotFound());
     }

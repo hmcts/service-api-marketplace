@@ -15,12 +15,12 @@ class RootControllerTest {
     private RootController controller;
 
     @Test
-    void calling_welcome_should_return_the_welcome_message() {
+    void the_root_should_return_a_message_starting_with_welcome() {
         assertThat(controller.getRoot()).startsWith("Welcome");
     }
 
     @Test
-    void calling_health_should_return_status_ok() {
+    void the_health_check_should_report_status_ok() {
         assertThat(controller.getHealth()).isEqualTo(new Health().status("ok"));
     }
 }

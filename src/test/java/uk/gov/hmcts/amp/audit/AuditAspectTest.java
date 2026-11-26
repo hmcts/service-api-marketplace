@@ -38,7 +38,7 @@ class AuditAspectTest {
     }
 
     @Test
-    void capture_should_store_the_details_and_rethrow_whenTheMethodFails() {
+    void capture_should_store_the_details_and_rethrow_when_the_method_fails() {
         assertThatThrownBy(() -> endpoints.delete("client-1")).isInstanceOf(IllegalStateException.class);
 
         assertThat(request.getAttribute(AuditAspect.AUDIT_DETAILS_ATTRIBUTE))
@@ -46,7 +46,7 @@ class AuditAspectTest {
     }
 
     @Test
-    void capture_should_return_the_result_whenAnExpressionCannotBeEvaluated() {
+    void capture_should_return_the_result_and_store_nothing_when_an_expression_cannot_be_evaluated() {
         assertThat(endpoints.broken()).isEqualTo("done");
 
         assertThat(request.getAttribute(AuditAspect.AUDIT_DETAILS_ATTRIBUTE)).isNull();

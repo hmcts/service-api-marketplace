@@ -34,7 +34,7 @@ class CatalogueApiFunctionalTest {
     }
 
     @Test
-    void the_list_should_leave_out_what_the_detail_page_is_for() throws Exception {
+    void the_list_should_leave_out_description_portal_url_resource_app_id_and_role() throws Exception {
         for (JsonNode api : json(http.get("/catalogue"))) {
             assertThat(api.has("description")).isFalse();
             assertThat(api.has("portalUrl")).isFalse();
@@ -45,7 +45,7 @@ class CatalogueApiFunctionalTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"slc", "rcc", "pcd", "dl"})
-    void each_api_should_carry_what_a_consumer_asks_for_a_token_on(final String shortCode) throws Exception {
+    void each_api_should_carry_the_app_read_role_and_a_guid_resource_app_id(final String shortCode) throws Exception {
         var api = json(http.get("/catalogue/" + shortCode));
 
         assertThat(api.path("role").asText()).isEqualTo("app.read");
@@ -65,7 +65,7 @@ class CatalogueApiFunctionalTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"slc", "rcc", "pcd", "dl"})
-    void each_api_should_have_a_description_even_when_the_portal_cannot_be_read(final String shortCode)
+    void each_api_should_answer_200_with_a_description(final String shortCode)
         throws Exception {
         var response = http.get("/catalogue/" + shortCode);
 
@@ -75,7 +75,7 @@ class CatalogueApiFunctionalTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"pcd", "dl"})
-    void the_newer_case_administration_apis_should_be_published_on_try_it_now(final String shortCode)
+    void the_case_administration_apis_should_be_subscribable_on_their_try_gateway_path(final String shortCode)
         throws Exception {
         var api = json(http.get("/catalogue/" + shortCode));
 
@@ -94,7 +94,7 @@ class CatalogueApiFunctionalTest {
     }
 
     @Test
-    void products_should_be_gone_now_the_catalogue_carries_what_it_held() throws Exception {
+    void the_retired_products_path_should_be_not_found() throws Exception {
         var response = http.get("/products");
 
         assertThat(response.statusCode()).isEqualTo(404);

@@ -148,7 +148,7 @@ class ApplicationIntegrationTest {
     }
 
     @Test
-    void granting_a_role_should_answer_no_content() throws Exception {
+    void granting_a_role_should_assign_it_in_entra_and_answer_204() throws Exception {
         create(OWNER_OID, "Case Viewer");
         stubServicePrincipals();
         stubRoleAssignment();
@@ -199,18 +199,18 @@ class ApplicationIntegrationTest {
     }
 
     @Test
-    void an_unknown_requesting_user_should_be_told_to_sign_in_again() throws Exception {
+    void an_unknown_requesting_user_should_be_not_found() throws Exception {
         mockMvc.perform(get(PATH).header("requestingUserId", "cccccccc-1111-2222-3333-444444444444"))
             .andExpect(status().isNotFound());
     }
 
     @Test
-    void missing_header_should_be_rejected() throws Exception {
+    void missing_requesting_user_header_should_be_refused_with_400() throws Exception {
         mockMvc.perform(get(PATH)).andExpect(status().isBadRequest());
     }
 
     @Test
-    void name_under_eight_characters_should_be_rejected() throws Exception {
+    void name_under_eight_characters_should_be_refused_and_one_of_eight_accepted() throws Exception {
         mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Reports\"}"))
             .andExpect(status().isBadRequest());

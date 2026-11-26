@@ -14,7 +14,7 @@ class HealthSmokeTest {
     private final String testUrl = System.getenv().getOrDefault("TEST_URL", "http://localhost:8080");
 
     @Test
-    void the_api_health_check_should_say_ok() throws Exception {
+    void the_api_health_check_should_answer_200_with_status_ok() throws Exception {
         var response = get("/api/health");
 
         assertThat(response.statusCode()).isEqualTo(200);

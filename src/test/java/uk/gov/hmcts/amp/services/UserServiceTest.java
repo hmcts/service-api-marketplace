@@ -62,7 +62,7 @@ class UserServiceTest {
     }
 
     @Test
-    void anything_else_should_be_read_as_an_entra_object_id() {
+    void non_numeric_user_id_should_be_read_as_a_trimmed_lowercased_entra_object_id() {
         when(userRepository.findByEntraObjectId(OTHER_OID)).thenReturn(Optional.of(saved(2L, OTHER_OID)));
 
         assertThat(userService.get("  " + OTHER_OID.toUpperCase(java.util.Locale.UK) + "  ").id())
@@ -88,7 +88,7 @@ class UserServiceTest {
     }
 
     @Test
-    void blank_requesting_user_id_should_be_rejected_before_any_lookup() {
+    void blank_requesting_user_id_should_be_rejected_as_missing() {
         assertThatThrownBy(() -> userService.requireSignedIn("   "))
             .isInstanceOf(ResponseStatusException.class)
             .hasMessageContaining("Missing requestingUserId");
@@ -104,7 +104,7 @@ class UserServiceTest {
     }
 
     @Test
-    void requesting_user_with_no_row_should_be_told_to_sign_in_again() {
+    void requesting_user_with_no_row_should_be_not_found() {
         when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userService.requireSignedIn(OID))
@@ -197,7 +197,7 @@ class UserServiceTest {
     }
 
     @Test
-    void an_inactive_user_should_throw_403() {
+    void suspended_user_signing_in_should_be_forbidden_and_not_saved() {
         UserEntity suspended = existing(OID, "joe@example.com");
         suspended.setStatus("SUSPENDED");
         when(clockService.now()).thenReturn(NOW);
@@ -232,7 +232,7 @@ class UserServiceTest {
     }
 
     @Test
-    void clashing_twice_should_throw_409() {
+    void losing_the_sign_in_race_twice_should_conflict() {
         when(clockService.now()).thenReturn(NOW);
         when(userRepository.findByEmail("joe@example.com")).thenReturn(Optional.empty());
         when(userRepository.saveAndFlush(any(UserEntity.class)))

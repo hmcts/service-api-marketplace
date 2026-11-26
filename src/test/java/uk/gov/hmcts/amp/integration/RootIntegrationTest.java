@@ -20,7 +20,7 @@ class RootIntegrationTest {
     private MockMvc mockMvc;
 
     @Test
-    void calling_root_endpoint_should_return_welcome_message() throws Exception {
+    void the_root_should_answer_200_with_a_welcome_message() throws Exception {
         mockMvc.perform(get("/"))
             .andExpect(status().isOk())
             .andExpect(content().string(org.hamcrest.Matchers.startsWith("Welcome")));

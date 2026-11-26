@@ -152,7 +152,7 @@ class NotifyMapperTest {
     }
 
     @Test
-    void the_requester_should_never_be_copied_on_the_review_email() {
+    void the_review_email_should_not_be_addressed_to_the_requester() {
         ProductionRequestPanelEmail email =
             notifyMapper.toPanelEmail(request(), user(), APIS, INBOX);
 

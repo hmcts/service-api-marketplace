@@ -67,7 +67,7 @@ class AuditIngestionAppenderTest {
     }
 
     @Test
-    void append_should_leave_out_fields_the_entry_does_not_have() {
+    void append_should_leave_out_missing_fields_and_a_non_numeric_status() {
         start(new AuditIngestionAppender(uploads::add, "AAT")).doAppend(event(Map.of(
             "audit_action", "ADMIN_USERS_LISTED", "audit_status", "not-a-number")));
 

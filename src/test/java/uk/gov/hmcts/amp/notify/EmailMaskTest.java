@@ -18,7 +18,7 @@ class EmailMaskTest {
     }
 
     @Test
-    void anything_that_is_not_an_address_should_say_nothing_at_all() {
+    void anything_that_is_not_an_address_should_be_masked_as_three_asterisks() {
         assertThat(masked(null)).isEqualTo("***");
         assertThat(masked("")).isEqualTo("***");
         assertThat(masked("not-an-address")).isEqualTo("***");

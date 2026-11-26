@@ -69,7 +69,11 @@ resource "azurerm_monitor_data_collection_rule" "audit" {
   }
 }
 
+# Off until the Jenkins identity may grant Monitoring Metrics Publisher: it is not yet in
+# rbac_admin_roles in hmcts/cft-jenkins-infrastructure (jenkins-agent-identities).
 resource "azurerm_role_assignment" "audit_publisher" {
+  count = var.grant_audit_publisher ? 1 : 0
+
   scope                = azurerm_monitor_data_collection_rule.audit.id
   role_definition_name = "Monitoring Metrics Publisher"
   principal_id         = local.amp_identity_principal_id

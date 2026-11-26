@@ -70,7 +70,7 @@ Fields with no value are left out. Keys, secrets, tokens and request bodies are 
 | `CorrelationId` | `X-Correlation-Id` |
 | `Environment` | `ENVIRONMENT_NAME` |
 
-To switch an environment over, mount the `audit-ingestion-endpoint` and `audit-ingestion-rule-id` secrets as `AUDIT_INGESTION_ENDPOINT` and `AUDIT_INGESTION_RULE_ID`, and set `AUDIT_INGESTION_ENABLED` to `true`. The app refuses to start when it is on without both. Once every environment has switched, `AppTraces` total retention goes back to `log_analytics_retention_days`.
+To switch an environment over, first set `grant_audit_publisher = true` for it (it gives `amp-<env>-mi` *Monitoring Metrics Publisher* on the rule, which Jenkins can only grant once that role is in `rbac_admin_roles` in hmcts/cft-jenkins-infrastructure). Then mount the `audit-ingestion-endpoint` and `audit-ingestion-rule-id` secrets as `AUDIT_INGESTION_ENDPOINT` and `AUDIT_INGESTION_RULE_ID`, and set `AUDIT_INGESTION_ENABLED` to `true`. The app refuses to start when it is on without both. Once every environment has switched, `AppTraces` total retention goes back to `log_analytics_retention_days`.
 
 ## Querying
 
@@ -139,7 +139,7 @@ In the order it was set up:
 | 5 | Agent configuration (connection string, role name, sampling) | The `app-insights-config` Key Vault secret, written by `infrastructure/app-insights.tf` |
 | 6 | Agent switched on per environment: `APPLICATIONINSIGHTS_ENABLED`, `APPLICATIONINSIGHTS_CONFIGURATION_FILE` and the `app-insights-config` secret mount | cnp-flux-config `apps/amp/amp-marketplace/<env>.yaml` |
 | 7 | Jenkins permission to create the audit table, data collection rule and role assignment | cnp-jenkins-config `terraform-infra-approvals/service-api-marketplace.json` |
-| 8 | `AmpAudit_CL`, its data collection rule, *Monitoring Metrics Publisher* on the rule for `amp-<env>-mi`, and the `audit-ingestion-*` secrets | `infrastructure/audit.tf` |
+| 8 | `AmpAudit_CL`, its data collection rule, *Monitoring Metrics Publisher* on the rule for `amp-<env>-mi` (behind `grant_audit_publisher`), and the `audit-ingestion-*` secrets | `infrastructure/audit.tf` |
 | 9 | Switch per environment: `AUDIT_INGESTION_ENABLED` and the `audit-ingestion-*` secret mounts | cnp-flux-config `apps/amp/amp-marketplace/<env>.yaml` |
 
 ## Tests

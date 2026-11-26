@@ -89,3 +89,8 @@ variable "log_analytics_daily_quota_gb" {
 variable "audit_retention_days" {
   default = 30
 }
+
+variable "grant_audit_publisher" {
+  description = "Let amp-<env>-mi send audit entries to the data collection rule (see audit.tf)"
+  default     = false
+}

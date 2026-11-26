@@ -1,10 +1,10 @@
 package uk.gov.hmcts.amp.integration;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledOnOs;
-import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ContextConfiguration;
 import uk.gov.hmcts.amp.domain.CallVolume;
 import uk.gov.hmcts.amp.domain.DataCombined;
 import uk.gov.hmcts.amp.domain.DataRecipient;
@@ -18,20 +18,23 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
+
 /**
  * Sends a real email through GOV.UK Notify, which is the only way to see that the template
  * accepts our personalisation: the integration test proves what goes on the wire, not that
  * Notify is happy with it.
  *
- * <p>Runs on a Mac only, so it stays out of CI.
+ * <p>Runs only when NOTIFY_API_KEY is set, so it stays out of CI and ordinary local runs.
  *
  * <p>Only NOTIFY_API_KEY comes from the environment; the context is built from application.yaml,
  * so the base url is the same default the service uses. Without a key NotifyService answers 503
  * rather than quietly sending nothing.
  *
  */
-@EnabledOnOs(OS.MAC)
+@EnabledIfEnvironmentVariable(named = "NOTIFY_API_KEY", matches = ".+")
 @SpringBootTest
+@ContextConfiguration(initializers = TestContainersInitialise.class)
 class NotifyFunctionalTest {
 
     private static final String TEST_EMAIL = "colin.greenwood@hmcts.net";
@@ -47,7 +50,7 @@ class NotifyFunctionalTest {
             List.of("Scheduling and Listing Court Schedule", "Refdata Court Hearing Courthouses"),
             "PCR-FUNCTEST"
         );
-        notifyService.send(template);
+        assertThatCode(() -> notifyService.send(template)).doesNotThrowAnyException();
     }
 
     @Test
@@ -72,7 +75,7 @@ class NotifyFunctionalTest {
             "Joined to our own case tracker to measure turnaround.",
             "PCR-FUNCTEST"
         );
-        notifyService.send(template);
+        assertThatCode(() -> notifyService.send(template)).doesNotThrowAnyException();
     }
 
     @Test
@@ -90,6 +93,6 @@ class NotifyFunctionalTest {
             List.of("Scheduling and Listing Court Schedule", "Refdata Court Hearing Courthouses"),
             "PCR-FUNCTEST"
         );
-        notifyService.send(template);
+        assertThatCode(() -> notifyService.send(template)).doesNotThrowAnyException();
     }
 }

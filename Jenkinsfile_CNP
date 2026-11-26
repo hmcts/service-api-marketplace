@@ -6,6 +6,32 @@ def type = "java"
 def product = "amp"
 def component = "marketplace"
 
+// The AAT functional tests call the admin API as the Entra admin test account. The account and its
+// password are managed by hmcts/external-entra-id (tenants/stg/config/users.yaml), which lets the AAT
+// Jenkins identity read this secret.
+def secrets = [
+  'kvspsextid${env}': [
+    secret('entra-amp-user-amp-functional-admin-at-hmctsextstg-onmicrosoft-com', 'AMP_TEST_ADMIN_PASSWORD'),
+  ]
+]
+
+static LinkedHashMap<String, Object> secret(String secretName, String envVar) {
+  [$class     : 'AzureKeyVaultSecret',
+   secretType : 'Secret',
+   name       : secretName,
+   version    : '',
+   envVariable: envVar
+  ]
+}
+
 withPipeline(type, product, component) {
   disableLegacyDeployment()
+
+  // Only master builds run the AAT functional tests; preview has no Entra sign-in for /admin.
+  onMaster() {
+    env.AMP_TEST_ADMIN_EMAIL = 'amp-functional-admin@hmctsextstg.onmicrosoft.com'
+    env.ADMIN_TOKEN_URL = 'https://hmctsextstg.ciamlogin.com/db827888-77df-4707-b3d9-24a3dfe32889/oauth2/v2.0/token'
+    env.ADMIN_TOKEN_CLIENT_ID = 'd8cdb4a9-3bcc-42c5-bdf4-f90f66c97cb6' // web-api-marketplace in the stg tenant
+    loadVaultSecrets(secrets)
+  }
 }

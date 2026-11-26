@@ -31,6 +31,10 @@ final class FunctionalClient {
             .build());
     }
 
+    HttpResponse<String> delete(final String path, final String... headers) throws Exception {
+        return send(builder(path, headers).DELETE().build());
+    }
+
     void signIn(final String objectId, final String email) throws Exception {
         assertThat(post("/session", "{\"objectId\":\"" + objectId + "\",\"email\":\"" + email + "\"}")
             .statusCode()).isEqualTo(200);

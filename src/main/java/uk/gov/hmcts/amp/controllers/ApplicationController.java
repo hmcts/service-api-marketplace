@@ -54,6 +54,13 @@ public class ApplicationController implements ApplicationsApi {
     }
 
     @Override
+    @LogAudit(action = AuditAction.CONSUMER_APPLICATION_ROLES_REVOKED, target = "#clientId", api = "#api")
+    public void revokeRole(final String requestingUserId, final String clientId, final String api) {
+        log.info("Revoke access to {} for application {}", api, clientId);
+        applications.revokeAccess(requestingUserId, clientId, api);
+    }
+
+    @Override
     public ApiKey getSubscriptionKey(final String requestingUserId, final String clientId, final String api) {
         throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not built yet.");
     }

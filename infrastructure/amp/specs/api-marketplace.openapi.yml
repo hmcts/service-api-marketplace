@@ -475,6 +475,61 @@ paths:
         '503':
           $ref: '#/components/responses/NotConfigured'
 
+  /applications/{clientId}/roles/{api}:
+    delete:
+      summary: Revoke one API role
+      description: >-
+        Removes the app role assignment the grant made, so the consumer's next
+        token stops carrying it. A token already issued keeps the role until it
+        expires. Nothing in APIM changes; the subscription key is revoked
+        separately.
+
+        An application that does not hold the role is the state the caller
+        asked for, so this answers 204 either way.
+      operationId: revokeRole
+      tags: [applications]
+      parameters:
+        - $ref: '#/components/parameters/RequestingUserId'
+        - $ref: '#/components/parameters/ClientId'
+        - name: api
+          in: path
+          required: true
+          description: The API's short code
+          schema:
+            type: string
+            example: slc
+      responses:
+        '204':
+          description: Revoked, or the application did not hold it
+        '400':
+          description: >-
+            requestingUserId is missing, no API has that short code, or it
+            offers no such role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: >-
+            No user for that requestingUserId, no such application for this
+            caller, or no service principal for that Client ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: >-
+            Graph refused the removal. The message names the missing
+            permission, AppRoleAssignment.ReadWrite.All. Not retryable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          $ref: '#/components/responses/UpstreamUnreachable'
+        '503':
+          $ref: '#/components/responses/NotConfigured'
+
   /applications/{clientId}/keys/{api}:
     get:
       summary: Reveal one subscription key

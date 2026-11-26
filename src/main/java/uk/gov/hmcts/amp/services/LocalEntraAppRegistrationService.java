@@ -77,4 +77,14 @@ public class LocalEntraAppRegistrationService extends EntraAppRegistrationServic
         roles.computeIfAbsent(consumerClientId, unknown -> new ArrayList<>()).add(roleValue);
         log.warn("ENTRA_BYPASS: granted {} on {} to {}", roleValue, resourceAppId, consumerClientId);
     }
+
+    @Override
+    public void revokeApiAccess(final String consumerClientId, final String resourceAppId,
+                                final String roleValue) {
+        List<String> held = roles.get(consumerClientId);
+        if (held != null) {
+            held.remove(roleValue);
+        }
+        log.warn("ENTRA_BYPASS: revoked {} on {} from {}", roleValue, resourceAppId, consumerClientId);
+    }
 }

@@ -118,6 +118,33 @@ class ApplicationServiceTest {
     }
 
     @Test
+    void revoking_access_should_resolve_the_resource_app_and_role_from_the_short_code() {
+        UserEntity user = signedIn();
+        when(users.requireSignedIn(OID)).thenReturn(user);
+        when(applications.findByClientId(CLIENT_ID)).thenReturn(Optional.of(owned(user)));
+        when(apis.findById("slc")).thenReturn(Optional.of(api("slc", "app.read")));
+
+        service.revokeAccess(OID, CLIENT_ID, "slc");
+
+        verify(registrations).revokeApiAccess(CLIENT_ID, RESOURCE_APP_ID, "app.read");
+    }
+
+    @Test
+    void revoking_a_role_on_someone_elses_application_should_not_reach_entra() {
+        UserEntity caller = signedIn();
+        UserEntity owner = new UserEntity();
+        owner.setId(2L);
+        when(users.requireSignedIn(OID)).thenReturn(caller);
+        when(applications.findByClientId(CLIENT_ID)).thenReturn(Optional.of(owned(owner)));
+
+        assertThatThrownBy(() -> service.revokeAccess(OID, CLIENT_ID, "slc"))
+            .isInstanceOf(ResponseStatusException.class)
+            .hasMessageContaining("No application with client id");
+
+        verify(registrations, never()).revokeApiAccess(any(), any(), any());
+    }
+
+    @Test
     void granting_access_to_an_api_with_no_resource_app_here_should_not_reach_entra() {
         UserEntity user = signedIn();
         when(users.requireSignedIn(OID)).thenReturn(user);

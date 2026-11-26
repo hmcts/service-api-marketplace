@@ -7,3 +7,6 @@ apim_resource_group  = "rg-sps-platform-aat"
 apim_service_name    = "sps-api-mgmt-aat"
 
 superseded_vault_id = "/subscriptions/1c4f0704-a29e-403d-b719-b90c34ef14c9/resourceGroups/amp-marketplace-aat/providers/Microsoft.KeyVault/vaults/amp-aat"
+
+# AUDIT_INGESTION_ENABLED is on in aat (cnp-flux-config), so audit is in AmpAudit_CL only.
+audit_in_own_table = true

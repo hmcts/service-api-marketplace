@@ -94,3 +94,8 @@ variable "grant_audit_publisher" {
   description = "Let amp-<env>-mi send audit entries to the data collection rule (see audit.tf)"
   default     = false
 }
+
+variable "audit_in_own_table" {
+  description = "True where the app sends audit to AmpAudit_CL (AUDIT_INGESTION_ENABLED in flux), so App Insights stops copying audit lines to AppTraces"
+  default     = false
+}

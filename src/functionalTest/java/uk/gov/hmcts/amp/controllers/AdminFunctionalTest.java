@@ -2,9 +2,10 @@ package uk.gov.hmcts.amp.controllers;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.net.http.HttpResponse;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -30,22 +31,28 @@ class AdminFunctionalTest {
 
     private final FunctionalClient http = new FunctionalClient();
 
+    // Every admin path, including ones not built yet: Spring Security closes /admin/** before routing.
+    static Stream<String> adminPaths() {
+        return Stream.of("/admin/users", "/admin/users/1", "/admin/users/lookup", "/admin/users/lookup/" + OID,
+            "/admin/applications", "/admin/applications/1");
+    }
+
     @ParameterizedTest
-    @ValueSource(strings = {"/admin/users", "/admin/users/1", "/admin/users/lookup", "/admin/users/lookup/" + OID})
+    @MethodSource("adminPaths")
     void an_admin_path_should_be_refused_without_a_token(final String path) throws Exception {
         assertRefused(http.get(path));
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/admin/users", "/admin/users/1", "/admin/users/lookup", "/admin/users/lookup/" + OID})
-    void an_admin_path_should_be_refused_for_a_signed_in_user_without_a_token(final String path) throws Exception {
+    @MethodSource("adminPaths")
+    void the_requesting_user_header_alone_should_not_open_an_admin_path(final String path) throws Exception {
         http.signIn(OID, EMAIL);
 
         assertRefused(http.get(path, REQUESTING_USER_ID, OID));
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/admin/users", "/admin/users/1", "/admin/users/lookup", "/admin/users/lookup/" + OID})
+    @MethodSource("adminPaths")
     void an_admin_path_should_be_refused_for_a_token_nobody_signed(final String path) throws Exception {
         assertRefused(http.get(path, "Authorization", FORGED_TOKEN));
     }

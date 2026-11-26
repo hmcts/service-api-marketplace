@@ -1,4 +1,4 @@
-package uk.gov.hmcts.amp.controllers;
+package uk.gov.hmcts.amp.functional;
 
 import org.junit.jupiter.api.Test;
 
@@ -9,7 +9,7 @@ import java.net.http.HttpResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class SampleFunctionalTest {
+class RootFunctionalTest {
 
     private final String testUrl = System.getenv().getOrDefault("TEST_URL", "http://localhost:8080");
 

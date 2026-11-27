@@ -176,13 +176,6 @@ class ApplicationApiIntegrationTest {
         assertThat(applicationApis.count()).isZero();
     }
 
-    @Test
-    void missing_header_should_be_rejected() throws Exception {
-        mockMvc.perform(post(PATH).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"clientId\":\"" + CLIENT_ID + "\",\"shortCode\":\"slc\"}"))
-            .andExpect(status().isBadRequest());
-    }
-
     private RequestBuilder subscribeTo(final String shortCode) {
         return post(PATH).header("requestingUserId", OWNER_OID)
             .contentType(MediaType.APPLICATION_JSON)

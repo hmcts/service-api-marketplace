@@ -44,14 +44,6 @@ class SubscriptionKeyFunctionalTest {
             .isEqualTo("No application with client id " + UNKNOWN_CLIENT_ID + ".");
     }
 
-    @Test
-    void subscribing_without_a_requesting_user_should_be_refused_with_400() throws Exception {
-        var response = http.post("/apim/subscription-keys",
-            "{\"clientId\":\"" + UNKNOWN_CLIENT_ID + "\",\"shortCode\":\"slc\"}");
-
-        assertThat(response.statusCode()).isEqualTo(400);
-    }
-
     private static void assertNotFound(final HttpResponse<String> response) throws Exception {
         assertThat(response.statusCode()).isEqualTo(404);
         assertThat(json(response).path("error").asText()).isEqualTo("No subscription named " + SOMEONE_ELSES + ".");

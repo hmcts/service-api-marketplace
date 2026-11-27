@@ -7,15 +7,12 @@ info:
     application and receives a Client ID, a Client Secret and one APIM
     subscription key per API, which together get them through the gateway.
 
-    Identity is supplied by the web app: after /session, every call carries the
-    person's Entra object id as requestingUserId and their ID token as a bearer
-    token. A verified token decides who is acted for; otherwise
-    requestingUserId does. The backend holds no session of its own.
+    After /session, every call carries the ID token the web app signed the
+    person in with, as a bearer token. The backend verifies it and acts for
+    the person its oid claim names. It holds no session of its own.
 
-    The /admin paths are the exception. They take no requestingUserId: the
-    caller sends the ID token the web app signed them in with, and the backend
-    verifies it and requires the amp_admin app role, which is assigned in
-    Entra.
+    The /admin paths also require the amp_admin app role, which is assigned
+    in Entra.
 
     /apim/subscription-keys is where subscriptions are created, read and
     revoked. A subscription belongs to whoever created it: the name carries
@@ -379,12 +376,12 @@ paths:
     get:
       summary: List the caller's applications
       description: >-
-        Rows owned by requestingUserId. Renders from stored data alone, with
+        Rows owned by the caller. Renders from stored data alone, with
         no call to Entra or APIM. Never includes a client secret.
       operationId: listApplications
       tags: [applications]
-      parameters:
-        - $ref: '#/components/parameters/RequestingUserId'
+      security:
+        - callerToken: []
       responses:
         '200':
           description: The caller's applications, oldest first
@@ -396,6 +393,8 @@ paths:
                   $ref: '#/components/schemas/Application'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NoCallerToken'
         '404':
           $ref: '#/components/responses/UnknownUser'
 
@@ -411,8 +410,8 @@ paths:
         once and has no call that reads it back.
       operationId: createApplication
       tags: [applications]
-      parameters:
-        - $ref: '#/components/parameters/RequestingUserId'
+      security:
+        - callerToken: []
       requestBody:
         required: true
         content:
@@ -428,6 +427,8 @@ paths:
                 $ref: '#/components/schemas/CreatedApplication'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NoCallerToken'
         '404':
           $ref: '#/components/responses/UnknownUser'
         '409':
@@ -443,13 +444,14 @@ paths:
 
   /applications/{clientId}:
     parameters:
-      - $ref: '#/components/parameters/RequestingUserId'
       - $ref: '#/components/parameters/ClientId'
     get:
       summary: Read one application
       description: The caller's own only, from stored data alone.
       operationId: getApplication
       tags: [applications]
+      security:
+        - callerToken: []
       responses:
         '200':
           description: The application. Never a secret
@@ -459,6 +461,8 @@ paths:
                 $ref: '#/components/schemas/Application'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NoCallerToken'
         '404':
           $ref: '#/components/responses/NotYours'
     delete:
@@ -469,11 +473,15 @@ paths:
         working immediately.
       operationId: deleteApplication
       tags: [applications]
+      security:
+        - callerToken: []
       responses:
         '204':
           description: Deleted
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NoCallerToken'
         '404':
           $ref: '#/components/responses/NotYours'
         '502':
@@ -493,8 +501,9 @@ paths:
         the application is created.
       operationId: grantRole
       tags: [applications]
+      security:
+        - callerToken: []
       parameters:
-        - $ref: '#/components/parameters/RequestingUserId'
         - $ref: '#/components/parameters/ClientId'
       requestBody:
         description: >-
@@ -510,15 +519,17 @@ paths:
           description: Granted
         '400':
           description: >-
-            requestingUserId or shortCode is missing, no API has that short
-            code, or it offers no such role
+            shortCode is missing, no API has that short code, or it offers no
+            such role
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/NoCallerToken'
         '404':
           description: >-
-            No user for that requestingUserId, no such application for this
+            No user for the caller's token, no such application for this
             caller, or no service principal yet for that Client ID (retryable)
           content:
             application/json:
@@ -550,8 +561,9 @@ paths:
         asked for, so this answers 204 either way.
       operationId: revokeRole
       tags: [applications]
+      security:
+        - callerToken: []
       parameters:
-        - $ref: '#/components/parameters/RequestingUserId'
         - $ref: '#/components/parameters/ClientId'
         - name: api
           in: path
@@ -565,15 +577,16 @@ paths:
           description: Revoked, or the application did not hold it
         '400':
           description: >-
-            requestingUserId is missing, no API has that short code, or it
-            offers no such role
+            No API has that short code, or it offers no such role
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/NoCallerToken'
         '404':
           description: >-
-            No user for that requestingUserId, no such application for this
+            No user for the caller's token, no such application for this
             caller, or no service principal for that Client ID
           content:
             application/json:
@@ -606,8 +619,9 @@ paths:
         reads it back.
       operationId: getSubscriptionKey
       tags: [applications]
+      security:
+        - callerToken: []
       parameters:
-        - $ref: '#/components/parameters/RequestingUserId'
         - $ref: '#/components/parameters/ClientId'
         - name: api
           in: path
@@ -625,6 +639,8 @@ paths:
                 $ref: '#/components/schemas/ApiKey'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NoCallerToken'
         '404':
           $ref: '#/components/responses/NotYours'
         '501':
@@ -642,8 +658,8 @@ paths:
       description: Theirs only, newest first.
       operationId: listProductionRequests
       tags: [production-requests]
-      parameters:
-        - $ref: '#/components/parameters/RequestingUserId'
+      security:
+        - callerToken: []
       responses:
         '200':
           description: The caller's requests, newest first
@@ -655,6 +671,8 @@ paths:
                   $ref: '#/components/schemas/ProductionRequest'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NoCallerToken'
         '404':
           $ref: '#/components/responses/UnknownUser'
     post:
@@ -669,8 +687,8 @@ paths:
         expected to read the existing one instead.
       operationId: createProductionRequest
       tags: [production-requests]
-      parameters:
-        - $ref: '#/components/parameters/RequestingUserId'
+      security:
+        - callerToken: []
       requestBody:
         required: true
         content:
@@ -695,6 +713,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/NoCallerToken'
         '404':
           $ref: '#/components/responses/UnknownUser'
         '409':
@@ -712,7 +732,6 @@ paths:
 
   /production-requests/{reference}:
     parameters:
-      - $ref: '#/components/parameters/RequestingUserId'
       - name: reference
         in: path
         required: true
@@ -726,6 +745,8 @@ paths:
         The list returns only the reference, status and date.
       operationId: getProductionRequest
       tags: [production-requests]
+      security:
+        - callerToken: []
       responses:
         '200':
           description: The request, with everything that was asked for
@@ -735,6 +756,8 @@ paths:
                 $ref: '#/components/schemas/ProductionRequestDetail'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NoCallerToken'
         '404':
           description: >-
             No request with that reference, or it belongs to someone else.
@@ -751,11 +774,15 @@ paths:
         readable.
       operationId: deleteProductionRequest
       tags: [production-requests]
+      security:
+        - callerToken: []
       responses:
         '204':
           description: Deleted
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NoCallerToken'
         '404':
           description: >-
             No request with that reference, or it belongs to someone else.
@@ -772,8 +799,7 @@ paths:
         Keyed by short code: what an API is, who owns it, and what subscribing
         to it needs.
 
-        Only listed APIs appear. Nothing of anyone's in it, so no
-        requestingUserId.
+        Only listed APIs appear. Nothing of anyone's in it, so no token.
       operationId: listCatalogue
       tags: [catalogue]
       responses:
@@ -824,8 +850,8 @@ paths:
         the caller's own, matched on the amp-user001- prefix in the name.
       operationId: listSubscriptionKeys
       tags: [subscription-keys]
-      parameters:
-        - $ref: '#/components/parameters/RequestingUserId'
+      security:
+        - callerToken: []
       responses:
         '200':
           description: The subscriptions
@@ -837,6 +863,8 @@ paths:
                   $ref: '#/components/schemas/SubscriptionKey'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NoCallerToken'
         '404':
           $ref: '#/components/responses/UnknownUser'
         '500':
@@ -860,8 +888,8 @@ paths:
         it as created.
       operationId: createSubscriptionKey
       tags: [subscription-keys]
-      parameters:
-        - $ref: '#/components/parameters/RequestingUserId'
+      security:
+        - callerToken: []
       requestBody:
         required: true
         content:
@@ -881,6 +909,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/NoCallerToken'
         '404':
           $ref: '#/components/responses/NotYours'
         '409':
@@ -902,8 +932,9 @@ paths:
         an access log, which it is not if every list quietly returns secrets.
       operationId: getSubscriptionKeyValues
       tags: [subscription-keys]
+      security:
+        - callerToken: []
       parameters:
-        - $ref: '#/components/parameters/RequestingUserId'
         - $ref: '#/components/parameters/SubscriptionName'
       responses:
         '200':
@@ -914,6 +945,8 @@ paths:
                 $ref: '#/components/schemas/SubscriptionKey'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NoCallerToken'
         '404':
           description: >-
             No subscription of that name, one belonging to someone else, or
@@ -939,14 +972,17 @@ paths:
         that was never there.
       operationId: deleteSubscriptionKey
       tags: [subscription-keys]
+      security:
+        - callerToken: []
       parameters:
-        - $ref: '#/components/parameters/RequestingUserId'
         - $ref: '#/components/parameters/SubscriptionName'
       responses:
         '204':
           description: Revoked
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NoCallerToken'
         '404':
           description: No subscription of that name, or it belongs to someone else
           content:
@@ -960,6 +996,13 @@ paths:
 
 components:
   securitySchemes:
+    callerToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        The ID token the web app signed the caller in with. Verified for
+        signature, issuer, audience and expiry; its oid claim names the caller.
     adminToken:
       type: http
       scheme: bearer
@@ -969,16 +1012,6 @@ components:
         signature, issuer and audience, and must carry the amp_admin app role.
 
   parameters:
-    RequestingUserId:
-      name: requestingUserId
-      in: header
-      required: true
-      description: >-
-        The caller's Entra object id. A verified bearer token overrides it.
-      schema:
-        type: string
-        example: 7c1d9f2e-4b58-4a31-9f0c-2e6d8a1b3c44
-
     SubscriptionName:
       name: name
       in: path
@@ -1005,11 +1038,15 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
     UnknownUser:
-      description: No user for that requestingUserId. Sign in again
+      description: No user for the caller's token. Sign in again
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+    NoCallerToken:
+      description: >-
+        No token, or one that fails verification: a bad signature, the wrong
+        issuer or audience, or expired. Sign in again
     NoAdminToken:
       description: >-
         No token, or one that fails verification: a bad signature, the wrong

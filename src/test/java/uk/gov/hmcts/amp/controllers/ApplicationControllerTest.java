@@ -1,5 +1,6 @@
 package uk.gov.hmcts.amp.controllers;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -12,6 +13,7 @@ import uk.gov.hmcts.amp.domain.ApiAccess;
 import uk.gov.hmcts.amp.domain.ApplicationRequest;
 import uk.gov.hmcts.amp.domain.ApplicationResponse;
 import uk.gov.hmcts.amp.services.ApplicationService;
+import uk.gov.hmcts.amp.services.SignedInCaller;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -32,8 +34,16 @@ class ApplicationControllerTest {
     @Spy
     private final ResponseMapper mapper = new ResponseMapperImpl();
 
+    @Mock
+    private SignedInCaller caller;
+
     @InjectMocks
     private ApplicationController controller;
+
+    @BeforeEach
+    void signedInAsOid() {
+        when(caller.objectId()).thenReturn(OID);
+    }
 
     private final ApplicationResponse response = new ApplicationResponse(1L, CLIENT_ID, "a-tenant", "Case Viewer",
         "case-viewer", "the", LocalDateTime.of(2028, 10, 15, 12, 0), LocalDateTime.of(2026, 10, 15, 12, 0), null);
@@ -42,14 +52,14 @@ class ApplicationControllerTest {
     void listing_should_return_what_the_service_found_for_that_user() {
         when(applications.list(OID)).thenReturn(List.of(response));
 
-        assertThat(controller.listApplications(OID)).containsExactly(mapper.toApplication(response));
+        assertThat(controller.listApplications()).containsExactly(mapper.toApplication(response));
     }
 
     @Test
     void reading_one_should_pass_the_user_and_the_client_id_through() {
         when(applications.get(OID, CLIENT_ID)).thenReturn(response);
 
-        assertThat(controller.getApplication(OID, CLIENT_ID)).isEqualTo(mapper.toApplication(response));
+        assertThat(controller.getApplication(CLIENT_ID)).isEqualTo(mapper.toApplication(response));
     }
 
     @Test
@@ -57,27 +67,27 @@ class ApplicationControllerTest {
         ApplicationRequest request = new ApplicationRequest("Case Viewer", List.of());
         when(applications.create(OID, request)).thenReturn(response.withSecret("shown-once"));
 
-        assertThat(controller.createApplication(OID, request).getClientSecret()).isEqualTo("shown-once");
+        assertThat(controller.createApplication(request).getClientSecret()).isEqualTo("shown-once");
         verify(applications).create(OID, request);
     }
 
     @Test
     void granting_access_should_delegate_with_the_short_code() {
-        controller.grantRole(OID, CLIENT_ID, new ApiAccess("slc"));
+        controller.grantRole(CLIENT_ID, new ApiAccess("slc"));
 
         verify(applications).grantAccess(OID, CLIENT_ID, "slc");
     }
 
     @Test
     void revoking_access_should_delegate_with_the_short_code() {
-        controller.revokeRole(OID, CLIENT_ID, "slc");
+        controller.revokeRole(CLIENT_ID, "slc");
 
         verify(applications).revokeAccess(OID, CLIENT_ID, "slc");
     }
 
     @Test
     void deleting_should_delegate_by_user_and_client_id() {
-        controller.deleteApplication(OID, CLIENT_ID);
+        controller.deleteApplication(CLIENT_ID);
 
         verify(applications).delete(OID, CLIENT_ID);
     }

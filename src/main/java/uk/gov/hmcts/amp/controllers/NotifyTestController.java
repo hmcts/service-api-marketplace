@@ -4,13 +4,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import uk.gov.hmcts.amp.domain.NotifyTestRequest;
 import uk.gov.hmcts.amp.notify.templates.ProductionRequestConsumerEmail;
 import uk.gov.hmcts.amp.entity.UserEntity;
 import uk.gov.hmcts.amp.services.NotifyService;
+import uk.gov.hmcts.amp.services.SignedInCaller;
 import uk.gov.hmcts.amp.services.UserService;
 
 import java.util.List;
@@ -31,15 +31,13 @@ import java.util.Map;
 @RequestMapping("/notify-test")
 public class NotifyTestController {
 
-    private static final String REQUESTING_USER_ID = "requestingUserId";
-
     private final NotifyService notify;
     private final UserService users;
+    private final SignedInCaller signedIn;
 
     @PostMapping
-    public Map<String, Object> sendToMyself(@RequestHeader(REQUESTING_USER_ID) final String requestingUserId,
-                                            @RequestBody(required = false) final NotifyTestRequest request) {
-        final UserEntity caller = users.requireSignedIn(requestingUserId);
+    public Map<String, Object> sendToMyself(@RequestBody(required = false) final NotifyTestRequest request) {
+        final UserEntity caller = users.requireSignedIn(signedIn.objectId());
         final ProductionRequestConsumerEmail email = new ProductionRequestConsumerEmail(
             caller.getEmail(),
             orElse(request == null ? null : request.consumerName(), displayName(caller)),

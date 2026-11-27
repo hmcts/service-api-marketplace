@@ -117,23 +117,19 @@ class TokenIdentityIntegrationTest {
     }
 
     @Test
-    void token_alone_should_be_enough_to_act_for_its_user() throws Exception {
+    void token_should_act_for_its_user() throws Exception {
         mockMvc.perform(get(APPLICATIONS).header("Authorization", bearer(token(ADA))))
             .andExpect(status().isOk());
     }
 
     @Test
-    void the_header_alone_should_still_be_served_as_before() throws Exception {
+    void header_alone_should_be_refused() throws Exception {
         mockMvc.perform(get(APPLICATIONS).header("requestingUserId", ADA))
-            .andExpect(status().isOk());
+            .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void the_token_should_decide_who_is_acting_when_the_header_names_someone_else() throws Exception {
-        mockMvc.perform(get(APPLICATIONS).header("Authorization", bearer(token(ADA)))
-                .header("requestingUserId", NOBODY))
-            .andExpect(status().isOk());
-
+    void token_should_decide_who_is_acting_whatever_the_header_says() throws Exception {
         mockMvc.perform(get(APPLICATIONS).header("Authorization", bearer(token(NOBODY)))
                 .header("requestingUserId", ADA))
             .andExpect(status().isNotFound())
@@ -141,26 +137,22 @@ class TokenIdentityIntegrationTest {
     }
 
     @Test
-    void token_that_is_not_accepted_should_fall_back_to_the_header() throws Exception {
-        final String forged = token(NOBODY, AUDIENCE, SOMEONE_ELSES_KEY, Instant.now().plusSeconds(600));
-
-        mockMvc.perform(get(APPLICATIONS).header("Authorization", bearer(forged)).header("requestingUserId", ADA))
-            .andExpect(status().isOk());
-    }
-
-    @Test
-    void token_that_is_not_accepted_should_not_stand_in_for_a_missing_header() throws Exception {
+    void token_that_is_not_accepted_should_be_refused() throws Exception {
         final String forged = token(ADA, AUDIENCE, SOMEONE_ELSES_KEY, Instant.now().plusSeconds(600));
 
-        mockMvc.perform(get(APPLICATIONS).header("Authorization", bearer(forged)))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("requestingUserId is required."));
+        mockMvc.perform(get(APPLICATIONS).header("Authorization", bearer(forged)).header("requestingUserId", ADA))
+            .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void the_audit_line_should_name_the_tokens_user() throws Exception {
-        mockMvc.perform(delete(APPLICATIONS + "/no-such-client").header("Authorization", bearer(token(ADA)))
-                .header("requestingUserId", NOBODY))
+    void token_without_an_oid_should_be_refused() throws Exception {
+        mockMvc.perform(get(APPLICATIONS).header("Authorization", bearer(token(null))))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void audit_line_should_name_the_tokens_user() throws Exception {
+        mockMvc.perform(delete(APPLICATIONS + "/no-such-client").header("Authorization", bearer(token(ADA))))
             .andExpect(status().isNotFound());
 
         assertThat(auditLines.list).singleElement().satisfies(line -> assertThat(line.getMDCPropertyMap())
@@ -185,7 +177,7 @@ class TokenIdentityIntegrationTest {
                 new JWTClaimsSet.Builder()
                     .issuer(ISSUER)
                     .audience(audience)
-                    .subject(oid)
+                    .subject(ADA)
                     .claim("oid", oid)
                     .issueTime(Date.from(expiry.minusSeconds(3600)))
                     .notBeforeTime(Date.from(expiry.minusSeconds(3600)))

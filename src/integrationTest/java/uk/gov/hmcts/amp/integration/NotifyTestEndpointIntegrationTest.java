@@ -13,6 +13,7 @@ import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.ProductionRequestRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
 
+import static uk.gov.hmcts.amp.integration.SignedIn.signedInAs;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
@@ -62,7 +63,7 @@ class NotifyTestEndpointIntegrationTest {
 
     @Test
     void an_empty_body_should_still_send_with_the_example_values() throws Exception {
-        mockMvc.perform(post(PATH).header("requestingUserId", OID))
+        mockMvc.perform(post(PATH).with(signedInAs(OID)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.applicationName").value("Case Viewer"))
             .andExpect(jsonPath("$.reference").value("PCR-TESTSEND"));
@@ -72,7 +73,7 @@ class NotifyTestEndpointIntegrationTest {
 
     @Test
     void what_the_body_supplies_should_reach_notify() throws Exception {
-        mockMvc.perform(post(PATH).header("requestingUserId", OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OID))
                 .contentType(MediaType.APPLICATION_JSON).content("""
                     {"consumerName":"Grace Hopper","applicationName":"Rota Viewer",
                      "apis":["Court Schedule"],"reference":"PCR-ABC123"}"""))
@@ -87,7 +88,7 @@ class NotifyTestEndpointIntegrationTest {
 
     @Test
     void it_should_send_to_the_caller_rather_than_anywhere_the_body_names() throws Exception {
-        mockMvc.perform(post(PATH).header("requestingUserId", OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"emailAddress\":\"somebody.else@example.com\"}"))
             .andExpect(status().isOk());
@@ -100,7 +101,7 @@ class NotifyTestEndpointIntegrationTest {
     void notify_refusing_should_surface_rather_than_look_like_a_send() throws Exception {
         stubRefused(400, "email_address Not a valid email address");
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OID))
+        mockMvc.perform(post(PATH).with(signedInAs(OID)))
             .andExpect(status().isBadGateway());
     }
 

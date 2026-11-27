@@ -79,23 +79,7 @@ class UserServiceTest {
     }
 
     @Test
-    void missing_requesting_user_id_should_be_rejected_before_any_lookup() {
-        assertThatThrownBy(() -> userService.requireSignedIn(null))
-            .isInstanceOf(ResponseStatusException.class)
-            .hasMessageContaining("Missing requestingUserId");
-
-        verifyNoInteractions(userRepository);
-    }
-
-    @Test
-    void blank_requesting_user_id_should_be_rejected_before_any_lookup() {
-        assertThatThrownBy(() -> userService.requireSignedIn("   "))
-            .isInstanceOf(ResponseStatusException.class)
-            .hasMessageContaining("Missing requestingUserId");
-    }
-
-    @Test
-    void requesting_user_id_should_be_looked_up_trimmed_and_lowercased() {
+    void caller_should_be_looked_up_trimmed_and_lowercased() {
         UserEntity found = new UserEntity();
         when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.of(found));
 
@@ -104,7 +88,7 @@ class UserServiceTest {
     }
 
     @Test
-    void requesting_user_with_no_row_should_be_told_to_sign_in_again() {
+    void caller_with_no_row_should_be_told_to_sign_in_again() {
         when(userRepository.findByEntraObjectId(OID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userService.requireSignedIn(OID))

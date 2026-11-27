@@ -10,6 +10,7 @@ import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtClaimValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -26,6 +27,7 @@ import java.time.Duration;
 public class EntraTokenDecoder {
 
     private static final int KEY_SET_SIZE_LIMIT_BYTES = 50 * 1024;
+    private static final String OBJECT_ID_CLAIM = "oid";
 
     private final AdminAuthProperties admin;
 
@@ -33,12 +35,17 @@ public class EntraTokenDecoder {
         return validated(NimbusJwtDecoder.withJwkSetUri(admin.jwkSetUri()).build());
     }
 
-    public JwtDecoder forThisApplicationWithin(final Duration keyFetchTimeout) {
+    public JwtDecoder forCallers(final Duration keyFetchTimeout) {
         final int timeoutMillis = Math.toIntExact(keyFetchTimeout.toMillis());
         final JWKSource<SecurityContext> keys = JWKSourceBuilder.<SecurityContext>create(
                 keySetUrl(), new DefaultResourceRetriever(timeoutMillis, timeoutMillis, KEY_SET_SIZE_LIMIT_BYTES))
             .build();
-        return validated(NimbusJwtDecoder.withJwkSource(keys).build());
+        final NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSource(keys).build();
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+            JwtValidators.createDefaultWithIssuer(admin.issuer()),
+            audienceIs(admin.audience()),
+            new JwtClaimValidator<String>(OBJECT_ID_CLAIM, objectId -> objectId != null && !objectId.isBlank())));
+        return decoder;
     }
 
     private NimbusJwtDecoder validated(final NimbusJwtDecoder decoder) {

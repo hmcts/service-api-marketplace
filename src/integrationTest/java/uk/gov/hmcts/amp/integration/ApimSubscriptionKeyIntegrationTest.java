@@ -13,6 +13,7 @@ import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
 
+import static uk.gov.hmcts.amp.integration.SignedIn.signedInAs;
 import static com.github.tomakehurst.wiremock.client.WireMock.deleteRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -63,7 +64,7 @@ class ApimSubscriptionKeyIntegrationTest {
     void listing_keys_should_return_the_subscriptions_without_their_values() throws Exception {
         stubSubscriptionList(mine);
 
-        mockMvc.perform(get(PATH).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(get(PATH).with(signedInAs(OWNER_OID)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].name").value(mine))
             .andExpect(jsonPath("$[0].scope").isNotEmpty())
@@ -76,7 +77,7 @@ class ApimSubscriptionKeyIntegrationTest {
     void listing_keys_should_leave_out_the_ones_belonging_to_someone_else() throws Exception {
         stubSubscriptionList(mine, SOMEONE_ELSES);
 
-        mockMvc.perform(get(PATH).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(get(PATH).with(signedInAs(OWNER_OID)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.length()").value(1))
             .andExpect(jsonPath("$[0].name").value(mine));
@@ -86,7 +87,7 @@ class ApimSubscriptionKeyIntegrationTest {
     void reading_someone_elses_key_values_should_be_not_found() throws Exception {
         stubSubscriptionLifecycle(SOMEONE_ELSES);
 
-        mockMvc.perform(get(PATH + "/" + SOMEONE_ELSES + "/values").header("requestingUserId", OWNER_OID))
+        mockMvc.perform(get(PATH + "/" + SOMEONE_ELSES + "/values").with(signedInAs(OWNER_OID)))
             .andExpect(status().isNotFound());
     }
 
@@ -94,7 +95,7 @@ class ApimSubscriptionKeyIntegrationTest {
     void deleting_someone_elses_subscription_should_be_not_found_and_leave_it_alone() throws Exception {
         stubSubscriptionLifecycle(SOMEONE_ELSES);
 
-        mockMvc.perform(delete(PATH + "/" + SOMEONE_ELSES).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(delete(PATH + "/" + SOMEONE_ELSES).with(signedInAs(OWNER_OID)))
             .andExpect(status().isNotFound());
 
         wireMockApim().verify(0, deleteRequestedFor(urlPathEqualTo(INSTANCE + "/subscriptions/" + SOMEONE_ELSES)));
@@ -106,7 +107,7 @@ class ApimSubscriptionKeyIntegrationTest {
         // instance. That is our deployment at fault, not a broken upstream.
         stubSubscriptionAnswering(mine, 403);
 
-        mockMvc.perform(get(PATH + "/" + mine + "/values").header("requestingUserId", OWNER_OID))
+        mockMvc.perform(get(PATH + "/" + mine + "/values").with(signedInAs(OWNER_OID)))
             .andExpect(status().isInternalServerError());
     }
 
@@ -114,7 +115,7 @@ class ApimSubscriptionKeyIntegrationTest {
     void api_management_failing_should_be_a_bad_gateway() throws Exception {
         stubSubscriptionAnswering(mine, 500);
 
-        mockMvc.perform(get(PATH + "/" + mine + "/values").header("requestingUserId", OWNER_OID))
+        mockMvc.perform(get(PATH + "/" + mine + "/values").with(signedInAs(OWNER_OID)))
             .andExpect(status().isBadGateway());
     }
 
@@ -122,7 +123,7 @@ class ApimSubscriptionKeyIntegrationTest {
     void not_found_should_name_the_instance_it_looked_in() throws Exception {
         stubSubscriptionAnswering(mine, 404);
 
-        mockMvc.perform(delete(PATH + "/" + mine).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(delete(PATH + "/" + mine).with(signedInAs(OWNER_OID)))
             .andExpect(status().isNotFound())
             // A missing instance returns 404 too, so the message has to say where it looked.
             .andExpect(jsonPath("$.error").value(
@@ -135,7 +136,7 @@ class ApimSubscriptionKeyIntegrationTest {
         stubSubscriptionLifecycle(neverCreated);
 
         // Azure answers this with success, which would not tell you whether anything was revoked.
-        mockMvc.perform(delete(PATH + "/" + neverCreated).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(delete(PATH + "/" + neverCreated).with(signedInAs(OWNER_OID)))
             .andExpect(status().isNotFound());
     }
 

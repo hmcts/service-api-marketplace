@@ -22,6 +22,7 @@ import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
 import uk.gov.hmcts.amp.audit.AuditInterceptor;
 
+import static uk.gov.hmcts.amp.integration.SignedIn.signedInAs;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -87,7 +88,7 @@ class AuditIntegrationTest {
         signIn();
         appender.list.clear();
 
-        mockMvc.perform(delete("/applications/no-such-client").header("requestingUserId", OID))
+        mockMvc.perform(delete("/applications/no-such-client").with(signedInAs(OID)))
             .andExpect(status().isNotFound());
 
         assertThat(appender.list).singleElement().satisfies(line -> assertThat(line.getMDCPropertyMap())

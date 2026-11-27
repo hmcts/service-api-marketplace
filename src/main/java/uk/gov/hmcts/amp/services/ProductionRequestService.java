@@ -51,23 +51,23 @@ public class ProductionRequestService {
     private final NotifyMapper notifyMapper;
     private final ClockService clockService;
 
-    public List<ProductionAccessResponse> list(final String requestingUserId) {
-        final UserEntity user = users.requireSignedIn(requestingUserId);
+    public List<ProductionAccessResponse> list(final String callerObjectId) {
+        final UserEntity user = users.requireSignedIn(callerObjectId);
         return requests.findByUserIdOrderBySubmittedAtDesc(user.getId()).stream()
             .map(ProductionAccessResponse::from)
             .toList();
     }
 
-    public ProductionAccessDetail get(final String requestingUserId, final String reference) {
-        final UserEntity user = users.requireSignedIn(requestingUserId);
+    public ProductionAccessDetail get(final String callerObjectId, final String reference) {
+        final UserEntity user = users.requireSignedIn(callerObjectId);
         return requests.findByUserIdAndReference(user.getId(), reference)
             .map(ProductionAccessDetail::from)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                 "No request with reference " + reference + "."));
     }
 
-    public void delete(final String requestingUserId, final String reference) {
-        final UserEntity user = users.requireSignedIn(requestingUserId);
+    public void delete(final String callerObjectId, final String reference) {
+        final UserEntity user = users.requireSignedIn(callerObjectId);
         final ProductionRequestEntity request = requests.findByUserIdAndReference(user.getId(), reference)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                 "No request with reference " + reference + "."));
@@ -75,9 +75,9 @@ public class ProductionRequestService {
         log.info("Deleted production request {} for userId {}", reference, user.getId());
     }
 
-    public ProductionAccessResponse create(final String requestingUserId,
+    public ProductionAccessResponse create(final String callerObjectId,
                                            final ProductionAccessRequest request) {
-        final UserEntity user = users.requireSignedIn(requestingUserId);
+        final UserEntity user = users.requireSignedIn(callerObjectId);
         final ApplicationEntity application = requireOwned(user, request.clientId());
         requireNoRequestYet(application.getId(), application.getName());
         final ProductionRequestEntity saved = requests.saveAndFlush(record(user, application, request));

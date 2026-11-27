@@ -134,6 +134,17 @@ says `ENTRA_BYPASS is on`. It is off by default and is never set in a chart. Wit
 application answers 503 locally until the onboarding secret is exported, and subscribing needs an
 Azure login with a role on the sandbox APIM instance.
 
+Consumer endpoints need a signed ID token whatever `ENTRA_BYPASS` says. Locally, use the Entra mock
+that web-api-marketplace runs (`yarn entra-mock` there) and point this service at it:
+
+```bash
+  ENTRA_TENANT_ID=00000000-0000-4000-8000-00000000c1a0 \
+  ADMIN_AUTH_AUDIENCE=local-web-api-marketplace \
+  ADMIN_AUTH_ISSUER=http://localhost:4600/00000000-0000-4000-8000-00000000c1a0 \
+  ADMIN_AUTH_JWK_SET_URI=http://localhost:4600/00000000-0000-4000-8000-00000000c1a0/jwks \
+  ENTRA_BYPASS=true ./gradlew bootRun
+```
+
 ### Running in Docker
 
 `docker-compose.yml` runs the application in a container, as it runs in AKS, next to Postgres.

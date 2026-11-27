@@ -14,6 +14,7 @@ import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
 import uk.gov.hmcts.amp.services.EntraAppRegistrationService;
 
+import static uk.gov.hmcts.amp.integration.SignedIn.signedInAs;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -59,7 +60,7 @@ class LocalBypassIntegrationTest {
 
     @Test
     void the_whole_journey_should_work_without_entra_or_apim() throws Exception {
-        String created = mockMvc.perform(post("/applications").header("requestingUserId", OID)
+        String created = mockMvc.perform(post("/applications").with(signedInAs(OID))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Case Viewer\"}"))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.clientId").isNotEmpty())
@@ -68,11 +69,11 @@ class LocalBypassIntegrationTest {
             .andReturn().getResponse().getContentAsString();
         String clientId = JsonPath.read(created, "$.clientId");
 
-        mockMvc.perform(post("/applications/" + clientId + "/roles").header("requestingUserId", OID)
+        mockMvc.perform(post("/applications/" + clientId + "/roles").with(signedInAs(OID))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"shortCode\":\"slc\"}"))
             .andExpect(status().isNoContent());
 
-        String subscribed = mockMvc.perform(post(KEYS).header("requestingUserId", OID)
+        String subscribed = mockMvc.perform(post(KEYS).with(signedInAs(OID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"clientId\":\"" + clientId + "\",\"shortCode\":\"slc\"}"))
             .andExpect(status().isCreated())
@@ -81,22 +82,22 @@ class LocalBypassIntegrationTest {
         String name = JsonPath.read(subscribed, "$.subscriptionName");
         String key = JsonPath.read(subscribed, "$.subscriptionKey");
 
-        mockMvc.perform(get(KEYS).header("requestingUserId", OID))
+        mockMvc.perform(get(KEYS).with(signedInAs(OID)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].name").value(name));
-        mockMvc.perform(get(KEYS + "/" + name + "/values").header("requestingUserId", OID))
+        mockMvc.perform(get(KEYS + "/" + name + "/values").with(signedInAs(OID)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.primaryKey").value(key));
 
-        mockMvc.perform(delete(KEYS + "/" + name).header("requestingUserId", OID))
+        mockMvc.perform(delete(KEYS + "/" + name).with(signedInAs(OID)))
             .andExpect(status().isNoContent());
-        mockMvc.perform(delete("/applications/" + clientId).header("requestingUserId", OID))
+        mockMvc.perform(delete("/applications/" + clientId).with(signedInAs(OID)))
             .andExpect(status().isNoContent());
     }
 
     @Test
     void an_application_the_bypass_has_never_seen_should_still_be_deletable() throws Exception {
-        String created = mockMvc.perform(post("/applications").header("requestingUserId", OID)
+        String created = mockMvc.perform(post("/applications").with(signedInAs(OID))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Case Viewer\"}"))
             .andReturn().getResponse().getContentAsString();
         String clientId = JsonPath.read(created, "$.clientId");
@@ -104,7 +105,12 @@ class LocalBypassIntegrationTest {
         // As after a restart: the row survives in Postgres, the in-memory registration does not.
         registrations.delete(clientId);
 
-        mockMvc.perform(delete("/applications/" + clientId).header("requestingUserId", OID))
+        mockMvc.perform(delete("/applications/" + clientId).with(signedInAs(OID)))
             .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void call_without_a_token_should_still_be_refused() throws Exception {
+        mockMvc.perform(get(KEYS).header("requestingUserId", OID)).andExpect(status().isUnauthorized());
     }
 }

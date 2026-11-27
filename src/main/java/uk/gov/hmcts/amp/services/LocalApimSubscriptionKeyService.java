@@ -34,16 +34,16 @@ public class LocalApimSubscriptionKeyService extends ApimSubscriptionKeyService 
     }
 
     @Override
-    public List<SubscriptionKey> list(final String requestingUserId) {
-        final String prefix = callerPrefix(requestingUserId);
+    public List<SubscriptionKey> list(final String callerObjectId) {
+        final String prefix = callerPrefix(callerObjectId);
         return subscriptions.values().stream()
             .filter(subscription -> subscription.name().startsWith(prefix))
             .toList();
     }
 
     @Override
-    public SubscriptionKey create(final String requestingUserId, final String name, final String productId) {
-        final String prefix = callerPrefix(requestingUserId);
+    public SubscriptionKey create(final String callerObjectId, final String name, final String productId) {
+        final String prefix = callerPrefix(callerObjectId);
         if (!name.startsWith(prefix)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "A subscription name must start with " + prefix + ".");
@@ -59,24 +59,24 @@ public class LocalApimSubscriptionKeyService extends ApimSubscriptionKeyService 
     }
 
     @Override
-    public SubscriptionKey keyValues(final String requestingUserId, final String name) {
-        requireCallerOwns(requestingUserId, name);
+    public SubscriptionKey keyValues(final String callerObjectId, final String name) {
+        requireCallerOwns(callerObjectId, name);
         return SubscriptionKey.keysOnly(name, key(name, "primary"), key(name, "secondary"));
     }
 
     @Override
-    public void delete(final String requestingUserId, final String name) {
-        requireCallerOwns(requestingUserId, name);
+    public void delete(final String callerObjectId, final String name) {
+        requireCallerOwns(callerObjectId, name);
         subscriptions.remove(name);
         log.warn("ENTRA_BYPASS: forgot APIM subscription {}", name);
     }
 
-    private String callerPrefix(final String requestingUserId) {
-        return UserService.namePrefix(users.requireSignedIn(requestingUserId));
+    private String callerPrefix(final String callerObjectId) {
+        return UserService.namePrefix(users.requireSignedIn(callerObjectId));
     }
 
-    private void requireCallerOwns(final String requestingUserId, final String name) {
-        if (!name.startsWith(callerPrefix(requestingUserId))) {
+    private void requireCallerOwns(final String callerObjectId, final String name) {
+        if (!name.startsWith(callerPrefix(callerObjectId))) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No subscription named " + name + ".");
         }
     }

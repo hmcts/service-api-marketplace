@@ -12,6 +12,7 @@ import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
 
+import static uk.gov.hmcts.amp.integration.SignedIn.signedInAs;
 import static com.github.tomakehurst.wiremock.client.WireMock.deleteRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
@@ -74,7 +75,7 @@ class ApplicationIntegrationTest {
     void creating_should_return_the_secret_once_and_record_the_application() throws Exception {
         stubRegistration();
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Case Viewer\"}"))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.clientId").value(CLIENT_ID))
@@ -90,11 +91,11 @@ class ApplicationIntegrationTest {
     void listing_should_show_only_the_callers_own_applications() throws Exception {
         create(OWNER_OID, "Case Viewer");
 
-        mockMvc.perform(get(PATH).header("requestingUserId", OTHER_OID))
+        mockMvc.perform(get(PATH).with(signedInAs(OTHER_OID)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$").isEmpty());
 
-        mockMvc.perform(get(PATH).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(get(PATH).with(signedInAs(OWNER_OID)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].appname").value("case-viewer"))
             .andExpect(jsonPath("$[0].clientSecret").doesNotExist());
@@ -104,7 +105,7 @@ class ApplicationIntegrationTest {
     void reading_someone_elses_application_should_be_404() throws Exception {
         create(OWNER_OID, "Case Viewer");
 
-        mockMvc.perform(get(PATH + "/" + CLIENT_ID).header("requestingUserId", OTHER_OID))
+        mockMvc.perform(get(PATH + "/" + CLIENT_ID).with(signedInAs(OTHER_OID)))
             .andExpect(status().isNotFound());
     }
 
@@ -113,10 +114,10 @@ class ApplicationIntegrationTest {
         create(OWNER_OID, "Case Viewer");
         stubNoApplications();
 
-        mockMvc.perform(delete(PATH + "/" + CLIENT_ID).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(delete(PATH + "/" + CLIENT_ID).with(signedInAs(OWNER_OID)))
             .andExpect(status().isNoContent());
 
-        mockMvc.perform(get(PATH).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(get(PATH).with(signedInAs(OWNER_OID)))
             .andExpect(jsonPath("$").isEmpty());
     }
 
@@ -125,11 +126,11 @@ class ApplicationIntegrationTest {
         create(OWNER_OID, "Case Viewer");
         stubApplicationDelete();
 
-        mockMvc.perform(delete(PATH + "/" + CLIENT_ID).header("requestingUserId", OTHER_OID))
+        mockMvc.perform(delete(PATH + "/" + CLIENT_ID).with(signedInAs(OTHER_OID)))
             .andExpect(status().isNotFound());
 
         wireMockGraph().verify(0, deleteRequestedFor(urlPathEqualTo("/applications/" + OBJECT_ID)));
-        mockMvc.perform(get(PATH).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(get(PATH).with(signedInAs(OWNER_OID)))
             .andExpect(jsonPath("$[0].appname").value("case-viewer"));
     }
 
@@ -139,11 +140,11 @@ class ApplicationIntegrationTest {
         stubApplicationList();
         stubApplicationDelete();
 
-        mockMvc.perform(delete(PATH + "/" + CLIENT_ID).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(delete(PATH + "/" + CLIENT_ID).with(signedInAs(OWNER_OID)))
             .andExpect(status().isNoContent());
 
         wireMockGraph().verify(deleteRequestedFor(urlPathEqualTo("/applications/" + OBJECT_ID)));
-        mockMvc.perform(get(PATH).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(get(PATH).with(signedInAs(OWNER_OID)))
             .andExpect(jsonPath("$").isEmpty());
     }
 
@@ -153,7 +154,7 @@ class ApplicationIntegrationTest {
         stubServicePrincipals();
         stubRoleAssignment();
 
-        mockMvc.perform(post(PATH + "/" + CLIENT_ID + "/roles").header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH + "/" + CLIENT_ID + "/roles").with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"shortCode\":\"slc\"}"))
             .andExpect(status().isNoContent());
 
@@ -166,7 +167,7 @@ class ApplicationIntegrationTest {
         stubServicePrincipals();
         stubRoleAssignment();
 
-        mockMvc.perform(post(PATH + "/" + CLIENT_ID + "/roles").header("requestingUserId", OTHER_OID)
+        mockMvc.perform(post(PATH + "/" + CLIENT_ID + "/roles").with(signedInAs(OTHER_OID))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"shortCode\":\"slc\"}"))
             .andExpect(status().isNotFound());
 
@@ -177,7 +178,7 @@ class ApplicationIntegrationTest {
     void the_same_name_twice_should_conflict_without_creating_anything() throws Exception {
         create(OWNER_OID, "Case Viewer");
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Case Viewer\"}"))
             .andExpect(status().isConflict());
 
@@ -189,39 +190,49 @@ class ApplicationIntegrationTest {
         create(OWNER_OID, "Case Viewer");
         stubRegistrationAs("77777777-7777-7777-7777-777777777777", "client-other");
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OTHER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OTHER_OID))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Case Viewer\"}"))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.appname").value("case-viewer"));
 
-        mockMvc.perform(get(PATH).header("requestingUserId", OTHER_OID))
+        mockMvc.perform(get(PATH).with(signedInAs(OTHER_OID)))
             .andExpect(jsonPath("$[0].clientId").value("client-other"));
     }
 
     @Test
     void an_unknown_requesting_user_should_be_told_to_sign_in_again() throws Exception {
-        mockMvc.perform(get(PATH).header("requestingUserId", "cccccccc-1111-2222-3333-444444444444"))
+        mockMvc.perform(get(PATH).with(signedInAs("cccccccc-1111-2222-3333-444444444444")))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.error").value("Sign in again."));
     }
 
     @Test
     void name_under_eight_characters_should_be_rejected() throws Exception {
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Reports\"}"))
             .andExpect(status().isBadRequest());
 
         stubRegistration();
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Report X\"}"))
             .andExpect(status().isCreated());
     }
 
     @Test
     void name_with_punctuation_should_be_rejected_before_entra() throws Exception {
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"My App!! (v2)\"}"))
             .andExpect(status().isBadRequest());
+
+        wireMockGraph().verify(0, postRequestedFor(urlPathEqualTo("/applications")));
+    }
+
+    @Test
+    void api_nobody_publishes_should_be_refused_before_entra() throws Exception {
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Case Viewer\",\"apis\":[\"nope\"]}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").value("No API with short code nope."));
 
         wireMockGraph().verify(0, postRequestedFor(urlPathEqualTo("/applications")));
     }
@@ -234,7 +245,7 @@ class ApplicationIntegrationTest {
 
     private void create(final String oid, final String name) throws Exception {
         stubRegistration();
-        mockMvc.perform(post(PATH).header("requestingUserId", oid)
+        mockMvc.perform(post(PATH).with(signedInAs(oid))
             .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"" + name + "\"}"))
             .andExpect(status().isCreated());
     }

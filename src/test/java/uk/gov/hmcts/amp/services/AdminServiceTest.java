@@ -9,6 +9,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.domain.AdminApplicationDetail;
 import uk.gov.hmcts.amp.domain.AdminApplicationSummary;
+import uk.gov.hmcts.amp.domain.AdminProductionRequestDetail;
+import uk.gov.hmcts.amp.domain.AdminProductionRequestSummary;
 import uk.gov.hmcts.amp.domain.AdminUserDetail;
 import uk.gov.hmcts.amp.domain.AdminUserSummary;
 import uk.gov.hmcts.amp.entity.ApplicationApiEntity;
@@ -24,6 +26,7 @@ import uk.gov.hmcts.amp.repository.MarketplaceApiRepository;
 import uk.gov.hmcts.amp.repository.ProductionRequestRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -83,6 +86,67 @@ class AdminServiceTest {
         when(userRepository.findById(9L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.getUser(9L))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+    }
+
+    @Test
+    void request_list_should_keep_the_repositorys_order_and_carry_the_application_id() {
+        final ProductionRequestEntity withApplication = request("PCR-OLDER001", "Example Legal Ltd");
+        withApplication.setApplication(application(10L, "Case Viewer", user(2L, "Grace", "Hopper")));
+        when(productionRequestRepository.findAllByOrderBySubmittedAtAsc())
+            .thenReturn(List.of(withApplication, request("PCR-NEWER001", "Old Org")));
+
+        final List<AdminProductionRequestSummary> requests = service.listProductionRequests();
+
+        assertThat(requests).extracting(AdminProductionRequestSummary::reference)
+            .containsExactly("PCR-OLDER001", "PCR-NEWER001");
+        assertThat(requests).extracting(AdminProductionRequestSummary::applicationId).containsExactly(10L, null);
+        assertThat(requests.get(0).organisation()).isEqualTo("Example Legal Ltd");
+    }
+
+    @Test
+    void request_should_carry_who_asked_its_application_apis_and_answers() {
+        final ProductionRequestEntity request = request("PCR-ABCD2345", "Northshire Police");
+        request.setUser(user(2L, "Grace", "Hopper"));
+        request.setApplication(application(10L, "Case Viewer", user(2L, "Grace", "Hopper")));
+        request.setGoLiveDate(LocalDate.of(2026, 12, 1));
+        request.setCallVolume("medium");
+        request.setDataRequest("Daily hearing lists");
+        request.setDataRecipients(List.of("own-team"));
+        when(productionRequestRepository.findByReference("PCR-ABCD2345")).thenReturn(Optional.of(request));
+        when(applicationApiRepository.findByApplicationIdOrderBySubscribedAtAsc(10L))
+            .thenReturn(List.of(subscription("slc")));
+        when(marketplaceApiRepository.findAllById(any())).thenReturn(List.of(marketplaceApi("slc", "Court Schedule")));
+
+        final AdminProductionRequestDetail detail = service.getProductionRequest("PCR-ABCD2345");
+
+        assertThat(detail.requester()).isEqualTo(
+            new AdminApplicationSummary.Owner(2L, "Grace Hopper", "grace@example.com"));
+        assertThat(detail.applicationId()).isEqualTo(10L);
+        assertThat(detail.apis()).containsExactly("Court Schedule");
+        assertThat(detail.goLiveDate()).isEqualTo(LocalDate.of(2026, 12, 1));
+        assertThat(detail.callVolume()).isEqualTo("medium");
+        assertThat(detail.dataRecipients()).containsExactly("own-team");
+    }
+
+    @Test
+    void request_whose_application_was_deleted_should_have_no_apis() {
+        when(productionRequestRepository.findByReference("PCR-ABCD2345"))
+            .thenReturn(Optional.of(request("PCR-ABCD2345", "Northshire Police")));
+
+        final AdminProductionRequestDetail detail = service.getProductionRequest("PCR-ABCD2345");
+
+        assertThat(detail.applicationId()).isNull();
+        assertThat(detail.applicationName()).isEqualTo("Case Viewer");
+        assertThat(detail.apis()).isEmpty();
+    }
+
+    @Test
+    void unknown_request_should_be_not_found() {
+        when(productionRequestRepository.findByReference("PCR-NOTHERE1")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getProductionRequest("PCR-NOTHERE1"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
     }

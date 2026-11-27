@@ -48,6 +48,12 @@ public interface ResponseMapper {
     uk.gov.hmcts.amp.openapi.model.AdminApplicationDetail toAdminApplicationDetail(
         uk.gov.hmcts.amp.domain.AdminApplicationDetail application);
 
+    List<uk.gov.hmcts.amp.openapi.model.AdminProductionRequestSummary> toAdminProductionRequestSummaries(
+        List<uk.gov.hmcts.amp.domain.AdminProductionRequestSummary> requests);
+
+    uk.gov.hmcts.amp.openapi.model.AdminProductionRequestDetail toAdminProductionRequestDetail(
+        uk.gov.hmcts.amp.domain.AdminProductionRequestDetail request);
+
     Application toApplication(ApplicationResponse application);
 
     List<Application> toApplications(List<ApplicationResponse> applications);

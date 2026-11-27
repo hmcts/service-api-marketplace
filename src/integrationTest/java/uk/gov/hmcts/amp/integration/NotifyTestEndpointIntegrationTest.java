@@ -112,7 +112,8 @@ class NotifyTestEndpointIntegrationTest {
     @Test
     void an_unknown_requesting_user_should_be_told_to_sign_in_again() throws Exception {
         mockMvc.perform(post(PATH).header("requestingUserId", "cccccccc-1111-2222-3333-444444444444"))
-            .andExpect(status().isNotFound());
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.error").value("Sign in again."));
     }
 
     private void signIn(final String oid, final String email) throws Exception {

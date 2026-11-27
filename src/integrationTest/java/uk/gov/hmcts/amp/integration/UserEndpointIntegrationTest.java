@@ -16,6 +16,9 @@ import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
 
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -70,11 +73,21 @@ class UserEndpointIntegrationTest {
 
     @Test
     void listing_should_not_expose_anything_a_sign_in_does_not() throws Exception {
-        mockMvc.perform(adminGet(PATH))
+        final String signIn = mockMvc.perform(post("/session").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"objectId\":\"" + ADA
+                    + "\",\"email\":\"ada.lovelace@hmcts.net\",\"name\":\"Ada Lovelace\"}"))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        final String listing = mockMvc.perform(adminGet(PATH))
             .andExpect(jsonPath("$[0].userReference").value("user%03d".formatted(adaId)))
             .andExpect(jsonPath("$[0].name").value("Ada Lovelace"))
             .andExpect(jsonPath("$[0].status").value("ACTIVE"))
-            .andExpect(jsonPath("$[0].lastLoginAt").isNotEmpty());
+            .andExpect(jsonPath("$[0].lastLoginAt").isNotEmpty())
+            .andReturn().getResponse().getContentAsString();
+
+        final Map<String, Object> signedIn = JsonPath.read(signIn, "$");
+        final Map<String, Object> listed = JsonPath.read(listing, "$[0]");
+        assertThat(listed.keySet()).isEqualTo(signedIn.keySet());
     }
 
     @Test

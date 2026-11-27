@@ -293,7 +293,7 @@ class ProductionRequestIntegrationTest {
     }
 
     @Test
-    void listing_should_show_only_the_callers_own_requests_newest_first() throws Exception {
+    void listing_should_show_only_the_callers_own_requests() throws Exception {
         createApplication(OWNER_OID);
         mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID))).andExpect(status().isCreated());
@@ -306,6 +306,29 @@ class ProductionRequestIntegrationTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.length()").value(1))
             .andExpect(jsonPath("$[0].status").value("SUBMITTED"));
+    }
+
+    @Test
+    void listing_should_show_the_newest_request_first() throws Exception {
+        createApplication(OWNER_OID);
+        // One request per application, so a second request needs a second application.
+        mockMvc.perform(post("/applications").header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Case Reader\"}"))
+            .andExpect(status().isCreated());
+        String older = reference(post(PATH).header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
+        String newer = reference(post(PATH).header("requestingUserId", OWNER_OID)
+            .contentType(MediaType.APPLICATION_JSON).content(form("client-other")));
+        // Submitted an hour apart, so the order never rests on two timestamps a millisecond apart
+        productionRequests.findAll().stream().filter(r -> r.getReference().equals(older)).forEach(r -> {
+            r.setSubmittedAt(r.getSubmittedAt().minusHours(1));
+            productionRequests.save(r);
+        });
+
+        mockMvc.perform(get(PATH).header("requestingUserId", OWNER_OID))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].reference").value(newer))
+            .andExpect(jsonPath("$[1].reference").value(older));
     }
 
     @Test
@@ -441,7 +464,8 @@ class ProductionRequestIntegrationTest {
     @Test
     void an_unknown_requesting_user_should_be_told_to_sign_in_again() throws Exception {
         mockMvc.perform(get(PATH).header("requestingUserId", "cccccccc-1111-2222-3333-444444444444"))
-            .andExpect(status().isNotFound());
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.error").value("Sign in again."));
     }
 
     @Test

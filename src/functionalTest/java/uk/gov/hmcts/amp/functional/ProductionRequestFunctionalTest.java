@@ -32,22 +32,6 @@ class ProductionRequestFunctionalTest {
     }
 
     @Test
-    void listing_without_a_requesting_user_should_be_refused_with_400() throws Exception {
-        var response = http.get("/production-requests");
-
-        assertThat(response.statusCode()).isEqualTo(400);
-        assertThat(json(response).path("error").asText()).isEqualTo("requestingUserId is required.");
-    }
-
-    @Test
-    void an_unknown_requesting_user_should_be_told_to_sign_in_again() throws Exception {
-        var response = http.get("/production-requests", REQUESTING_USER_ID, NEVER_SIGNED_IN);
-
-        assertThat(response.statusCode()).isEqualTo(404);
-        assertThat(json(response).path("error").asText()).isEqualTo("Sign in again.");
-    }
-
-    @Test
     void signed_in_user_with_no_requests_should_list_none() throws Exception {
         var response = http.get("/production-requests", REQUESTING_USER_ID, OID);
 

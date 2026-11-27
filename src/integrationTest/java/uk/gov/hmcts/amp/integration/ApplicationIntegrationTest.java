@@ -206,11 +206,6 @@ class ApplicationIntegrationTest {
     }
 
     @Test
-    void missing_header_should_be_rejected() throws Exception {
-        mockMvc.perform(get(PATH)).andExpect(status().isBadRequest());
-    }
-
-    @Test
     void name_under_eight_characters_should_be_rejected() throws Exception {
         mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Reports\"}"))

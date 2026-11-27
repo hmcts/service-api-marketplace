@@ -38,6 +38,7 @@ class AdminEndpointIntegrationTest {
 
     private static final String USERS = "/admin/users";
     private static final String APPLICATIONS = "/admin/applications";
+    private static final String REQUESTS = "/admin/production-requests";
     private static final String ADA = "aaaaaaaa-1111-2222-3333-444444444444";
     private static final String GRACE = "bbbbbbbb-1111-2222-3333-444444444444";
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 19, 10, 0);
@@ -289,6 +290,76 @@ class AdminEndpointIntegrationTest {
         api.setKeyHint("abc");
         api.setSubscribedAt(NOW);
         return api;
+    }
+
+    @Test
+    void an_admin_should_see_every_production_request_oldest_first() throws Exception {
+        final UserEntity grace = users.findById(graceId).orElseThrow();
+        final ApplicationEntity caseViewer = applications.save(application(grace, "Case Viewer", "client-1"));
+        productionRequests.save(productionRequest(grace, caseViewer, "PCR-NEWER001", "Example Legal Ltd",
+            NOW.plusDays(2)));
+        productionRequests.save(productionRequest(grace, caseViewer, "PCR-OLDER001", "Old Org Ltd", NOW));
+
+        mockMvc.perform(adminGet(REQUESTS))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(2))
+            .andExpect(jsonPath("$[0].reference").value("PCR-OLDER001"))
+            .andExpect(jsonPath("$[0].applicationId").value(caseViewer.getId()))
+            .andExpect(jsonPath("$[0].applicationName").value("Case Viewer"))
+            .andExpect(jsonPath("$[0].organisation").value("Old Org Ltd"))
+            .andExpect(jsonPath("$[0].status").value("SUBMITTED"))
+            .andExpect(jsonPath("$[0].submittedAt").isNotEmpty())
+            .andExpect(jsonPath("$[1].reference").value("PCR-NEWER001"));
+    }
+
+    @Test
+    void an_admin_should_see_one_production_request_with_who_asked_and_every_answer() throws Exception {
+        final UserEntity grace = users.findById(graceId).orElseThrow();
+        final ApplicationEntity caseViewer = applications.save(application(grace, "Case Viewer", "client-1"));
+        applicationApis.save(api(caseViewer, "slc", "amp-user-case-viewer-slc"));
+        final ProductionRequestEntity request =
+            productionRequest(grace, caseViewer, "PCR-ABCD2345", "Northshire Police", NOW);
+        request.setDataRequest("Daily hearing lists");
+        request.setOrganisationType("other-government");
+        request.setDataRecipients(java.util.List.of("own-team", "supplier"));
+        request.setDataRecipientsExplanation("Our supplier hosts the system");
+        request.setDataCombined("no");
+        productionRequests.save(request);
+
+        mockMvc.perform(adminGet(REQUESTS + "/PCR-ABCD2345"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.reference").value("PCR-ABCD2345"))
+            .andExpect(jsonPath("$.status").value("SUBMITTED"))
+            .andExpect(jsonPath("$.requester.id").value(graceId))
+            .andExpect(jsonPath("$.requester.name").value("Grace Hopper"))
+            .andExpect(jsonPath("$.requester.email").value("grace.hopper@hmcts.net"))
+            .andExpect(jsonPath("$.organisation").value("Northshire Police"))
+            .andExpect(jsonPath("$.applicationId").value(caseViewer.getId()))
+            .andExpect(jsonPath("$.applicationName").value("Case Viewer"))
+            .andExpect(jsonPath("$.apis[0]").value("Scheduling and Listing Court Schedule"))
+            .andExpect(jsonPath("$.goLiveDate").value("2027-03-27"))
+            .andExpect(jsonPath("$.callVolume").value("low"))
+            .andExpect(jsonPath("$.dataRequest").value("Daily hearing lists"))
+            .andExpect(jsonPath("$.organisationType").value("other-government"))
+            .andExpect(jsonPath("$.dataRecipients[1]").value("supplier"))
+            .andExpect(jsonPath("$.dataRecipientsExplanation").value("Our supplier hosts the system"))
+            .andExpect(jsonPath("$.dataCombined").value("no"))
+            .andExpect(jsonPath("$.requester.entraObjectId").doesNotExist())
+            .andExpect(jsonPath("$.clientId").doesNotExist());
+    }
+
+    @Test
+    void an_unknown_production_request_should_be_not_found() throws Exception {
+        mockMvc.perform(adminGet(REQUESTS + "/PCR-NOTHERE1"))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void user_who_is_not_an_admin_should_be_refused_the_production_requests() throws Exception {
+        mockMvc.perform(nonAdminGet(REQUESTS))
+            .andExpect(status().isForbidden());
+        mockMvc.perform(nonAdminGet(REQUESTS + "/PCR-ABCD2345"))
+            .andExpect(status().isForbidden());
     }
 
     private static ProductionRequestEntity productionRequest(final UserEntity owner,

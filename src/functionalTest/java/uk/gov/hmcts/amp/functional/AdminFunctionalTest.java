@@ -29,7 +29,8 @@ class AdminFunctionalTest {
     // Every admin path, including ones not built yet: Spring Security closes /admin/** before routing.
     static Stream<String> adminPaths() {
         return Stream.of("/admin/users", "/admin/users/1", "/admin/users/lookup", "/admin/users/lookup/" + OID,
-            "/admin/applications", "/admin/applications/1");
+            "/admin/applications", "/admin/applications/1", "/admin/production-requests",
+            "/admin/production-requests/PCR-ABCD2345");
     }
 
     @ParameterizedTest

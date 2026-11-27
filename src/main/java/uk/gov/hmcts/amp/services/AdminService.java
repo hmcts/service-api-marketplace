@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.domain.AdminApplicationDetail;
 import uk.gov.hmcts.amp.domain.AdminApplicationSummary;
+import uk.gov.hmcts.amp.domain.AdminProductionRequestDetail;
+import uk.gov.hmcts.amp.domain.AdminProductionRequestSummary;
 import uk.gov.hmcts.amp.domain.AdminUserDetail;
 import uk.gov.hmcts.amp.domain.AdminUserSummary;
 import uk.gov.hmcts.amp.entity.ApplicationApiEntity;
@@ -77,12 +79,6 @@ public class AdminService {
         final ApplicationEntity application = applicationRepository.findById(applicationId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                 "No application " + applicationId + "."));
-        final List<ApplicationApiEntity> subscriptions =
-            applicationApiRepository.findByApplicationIdOrderBySubscribedAtAsc(applicationId);
-        final Map<String, String> titles = marketplaceApiRepository
-            .findAllById(subscriptions.stream().map(ApplicationApiEntity::getShortCode).distinct().toList())
-            .stream()
-            .collect(Collectors.toMap(MarketplaceApiEntity::getShortCode, MarketplaceApiEntity::getTitle));
         final AdminUserDetail.ProductionRequest latest =
             productionRequestRepository.findByApplicationIdOrderBySubmittedAtDesc(applicationId).stream()
                 .findFirst()
@@ -90,9 +86,43 @@ public class AdminService {
                     request.getApplicationName(), request.getStatus(), request.getSubmittedAt()))
                 .orElse(null);
         return new AdminApplicationDetail(application.getId(), application.getName(), application.getClientId(),
-            application.getCreatedAt(), ownerOf(application),
-            subscriptions.stream().map(api -> titles.getOrDefault(api.getShortCode(), api.getShortCode())).toList(),
-            latest);
+            application.getCreatedAt(), ownerOf(application), apiTitles(applicationId), latest);
+    }
+
+    public List<AdminProductionRequestSummary> listProductionRequests() {
+        return productionRequestRepository.findAllByOrderBySubmittedAtAsc().stream()
+            .map(request -> new AdminProductionRequestSummary(request.getReference(),
+                request.getApplication() == null ? null : request.getApplication().getId(),
+                request.getApplicationName(), request.getOrganisation(), request.getSubmittedAt(),
+                request.getStatus()))
+            .toList();
+    }
+
+    public AdminProductionRequestDetail getProductionRequest(final String reference) {
+        final ProductionRequestEntity request = productionRequestRepository.findByReference(reference)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No request " + reference + "."));
+        final ApplicationEntity application = request.getApplication();
+        final UserEntity user = request.getUser();
+        return new AdminProductionRequestDetail(request.getReference(), request.getStatus(),
+            request.getSubmittedAt(),
+            user == null ? null : new AdminApplicationSummary.Owner(user.getId(), nameOf(user), user.getEmail()),
+            request.getOrganisation(), application == null ? null : application.getId(),
+            request.getApplicationName(), application == null ? List.of() : apiTitles(application.getId()),
+            request.getGoLiveDate(), request.getCallVolume(), request.getDataRequest(),
+            request.getProposedOutputs(), request.getOrganisationType(), request.getDataRecipients(),
+            request.getDataRecipientsExplanation(), request.getDataCombined(),
+            request.getDataCombinedDescription());
+    }
+
+    /** An application's API titles in subscription order; a short code with no catalogue row names itself. */
+    private List<String> apiTitles(final long applicationId) {
+        final List<ApplicationApiEntity> subscriptions =
+            applicationApiRepository.findByApplicationIdOrderBySubscribedAtAsc(applicationId);
+        final Map<String, String> titles = marketplaceApiRepository
+            .findAllById(subscriptions.stream().map(ApplicationApiEntity::getShortCode).distinct().toList())
+            .stream()
+            .collect(Collectors.toMap(MarketplaceApiEntity::getShortCode, MarketplaceApiEntity::getTitle));
+        return subscriptions.stream().map(api -> titles.getOrDefault(api.getShortCode(), api.getShortCode())).toList();
     }
 
     private static AdminApplicationSummary.Owner ownerOf(final ApplicationEntity application) {

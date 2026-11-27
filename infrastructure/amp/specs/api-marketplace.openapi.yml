@@ -313,6 +313,68 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /admin/production-requests:
+    get:
+      summary: List every production credentials request, for an admin
+      description: >-
+        Every production credentials request, oldest first, with its
+        application, organisation and status. Admins only.
+      operationId: listAdminProductionRequests
+      tags: [admin]
+      security:
+        - adminToken: []
+      responses:
+        '200':
+          description: The requests, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminProductionRequestSummary'
+        '401':
+          $ref: '#/components/responses/NoAdminToken'
+        '403':
+          $ref: '#/components/responses/NotAnAdmin'
+
+  /admin/production-requests/{reference}:
+    get:
+      summary: Read one production credentials request, for an admin
+      description: >-
+        The request with who asked, its application and that application's
+        APIs, and every answer given. The APIs are the ones the application
+        subscribes to now. Admins only.
+      operationId: getAdminProductionRequest
+      tags: [admin]
+      security:
+        - adminToken: []
+      parameters:
+        - name: reference
+          in: path
+          required: true
+          description: The request's reference
+          schema:
+            type: string
+            pattern: '^PCR-[A-Z0-9]{8}$'
+          example: PCR-7K2MHQ4D
+      responses:
+        '200':
+          description: The request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductionRequestDetail'
+        '401':
+          $ref: '#/components/responses/NoAdminToken'
+        '403':
+          $ref: '#/components/responses/NotAnAdmin'
+        '404':
+          description: No request with that reference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /applications:
     get:
       summary: List the caller's applications
@@ -1316,6 +1378,108 @@ components:
           description: The latest production credentials request for it, if there is one
           allOf:
             - $ref: '#/components/schemas/AdminProductionRequest'
+
+    AdminProductionRequestSummary:
+      type: object
+      description: One production credentials request as the admin list shows it.
+      properties:
+        reference:
+          type: string
+          example: PCR-7K2MHQ4D
+        applicationId:
+          type: integer
+          format: int64
+          nullable: true
+          description: The application's row id, if it still exists
+          example: 1
+        applicationName:
+          type: string
+          description: The application's name when the request was made
+          example: Custody listings feed
+        organisation:
+          type: string
+          example: Northshire Police, custody team
+        submittedAt:
+          type: string
+          format: local-date-time
+          description: Date and time with no offset
+          example: '2026-09-08T10:15:30'
+        status:
+          type: string
+          example: SUBMITTED
+
+    AdminProductionRequestDetail:
+      type: object
+      description: >-
+        One production credentials request as the admin request page shows
+        it. Answers given as codes (call volume, organisation type, data
+        recipients, data combined) are the codes the form submits.
+      properties:
+        reference:
+          type: string
+          example: PCR-7K2MHQ4D
+        status:
+          type: string
+          example: SUBMITTED
+        submittedAt:
+          type: string
+          format: local-date-time
+          description: Date and time with no offset
+          example: '2026-09-08T10:15:30'
+        requester:
+          $ref: '#/components/schemas/AdminApplicationOwner'
+        organisation:
+          type: string
+          example: Northshire Police, custody team
+        applicationId:
+          type: integer
+          format: int64
+          nullable: true
+          description: The application's row id, if it still exists
+          example: 1
+        applicationName:
+          type: string
+          example: Custody listings feed
+        apis:
+          type: array
+          description: The titles of the APIs the application subscribes to, in the order it subscribed
+          items:
+            type: string
+            example: Scheduling and Listing Court Schedule
+        goLiveDate:
+          type: string
+          format: date
+          example: '2026-12-01'
+        callVolume:
+          type: string
+          example: medium
+        dataRequest:
+          type: string
+          nullable: true
+          example: Daily hearing lists for the courts our custody suites serve.
+        proposedOutputs:
+          type: string
+          nullable: true
+          example: A morning production list for custody sergeants.
+        organisationType:
+          type: string
+          nullable: true
+          example: other-government
+        dataRecipients:
+          type: array
+          items:
+            type: string
+            example: own-team
+        dataRecipientsExplanation:
+          type: string
+          nullable: true
+        dataCombined:
+          type: string
+          nullable: true
+          example: 'no'
+        dataCombinedDescription:
+          type: string
+          nullable: true
 
     NewApplication:
       type: object

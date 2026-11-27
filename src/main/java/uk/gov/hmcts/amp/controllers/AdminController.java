@@ -9,6 +9,8 @@ import uk.gov.hmcts.amp.mappers.ResponseMapper;
 import uk.gov.hmcts.amp.openapi.api.AdminApi;
 import uk.gov.hmcts.amp.openapi.model.AdminApplicationDetail;
 import uk.gov.hmcts.amp.openapi.model.AdminApplicationSummary;
+import uk.gov.hmcts.amp.openapi.model.AdminProductionRequestDetail;
+import uk.gov.hmcts.amp.openapi.model.AdminProductionRequestSummary;
 import uk.gov.hmcts.amp.openapi.model.AdminUser;
 import uk.gov.hmcts.amp.openapi.model.AdminUserDetail;
 import uk.gov.hmcts.amp.services.AdminService;
@@ -49,5 +51,19 @@ public class AdminController implements AdminApi {
     public AdminApplicationDetail getAdminApplication(final Long applicationId) {
         log.info("Read application {} for an admin", applicationId);
         return mapper.toAdminApplicationDetail(admin.getApplication(applicationId));
+    }
+
+    @Override
+    @LogAudit(action = AuditAction.ADMIN_PRODUCTION_REQUESTS_LISTED)
+    public List<AdminProductionRequestSummary> listAdminProductionRequests() {
+        log.info("List production credentials requests for an admin");
+        return mapper.toAdminProductionRequestSummaries(admin.listProductionRequests());
+    }
+
+    @Override
+    @LogAudit(action = AuditAction.ADMIN_PRODUCTION_REQUEST_VIEWED, target = "#reference")
+    public AdminProductionRequestDetail getAdminProductionRequest(final String reference) {
+        log.info("Read production credentials request {} for an admin", reference);
+        return mapper.toAdminProductionRequestDetail(admin.getProductionRequest(reference));
     }
 }

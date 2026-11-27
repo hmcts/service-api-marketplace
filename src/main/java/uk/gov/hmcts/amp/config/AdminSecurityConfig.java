@@ -8,25 +8,18 @@ import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
-import org.springframework.security.oauth2.core.OAuth2Error;
-import org.springframework.security.oauth2.core.OAuth2TokenValidator;
-import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtValidators;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import uk.gov.hmcts.amp.audit.AdminAccessDeniedHandler;
+import uk.gov.hmcts.amp.filters.TokenIdentityFilter;
 
+import java.time.Duration;
 import java.util.Collection;
 
 /**
- * Admin endpoints are the only paths this service currently authenticates.
- *
- * <p>A caller of {@code /admin/**} must present a token this service verified itself - signature,
+ * A caller of {@code /admin/**} must present a token this service verified itself - signature,
  * issuer and audience - carrying the {@code amp_admin} app role in its {@code roles} claim.
  * The role is assigned to people in Entra.
  */
@@ -36,6 +29,8 @@ import java.util.Collection;
 public class AdminSecurityConfig {
 
     static final String ADMIN_PATHS = "/admin/**";
+    // Consumer endpoints never waited on Entra; past this they fall back to the header.
+    private static final Duration KEY_FETCH_TIMEOUT = Duration.ofSeconds(3);
 
     @Bean
     @Order(1)
@@ -43,6 +38,7 @@ public class AdminSecurityConfig {
     @SuppressWarnings("java:S4502")
     public SecurityFilterChain adminFilterChain(final HttpSecurity http,
                                                 final AdminAuthProperties admin,
+                                                final EntraTokenDecoder tokens,
                                                 final AdminAccessDeniedHandler accessDenied) throws Exception {
         http.securityMatcher(ADMIN_PATHS)
             // Exempt because this is a stateless API: nothing here reads a cookie or a session.
@@ -60,17 +56,24 @@ public class AdminSecurityConfig {
             .authorizeHttpRequests(request -> request.anyRequest().hasAuthority(authority))
             .exceptionHandling(handling -> handling.accessDeniedHandler(accessDenied))
             .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
-                .decoder(decoder(admin))
+                .decoder(tokens.forThisApplication())
                 .jwtAuthenticationConverter(roleConverter())))
             .build();
     }
 
-    /** Every other path as it was: this service has never authenticated them and this does not start. */
     @Bean
     @Order(2)
     // S4502 is the CSRF rule; see the exemption below for why it does not apply here.
     @SuppressWarnings("java:S4502")
-    public SecurityFilterChain openFilterChain(final HttpSecurity http) throws Exception {
+    public SecurityFilterChain openFilterChain(final HttpSecurity http,
+                                               final AdminAuthProperties admin,
+                                               final EntraTokenDecoder tokens) throws Exception {
+        if (admin.usable()) {
+            http.addFilterBefore(new TokenIdentityFilter(tokens.forThisApplicationWithin(KEY_FETCH_TIMEOUT)),
+                AuthorizationFilter.class);
+        } else {
+            log.warn("No Entra tenant or audience for this environment; the signed-in user comes from the header");
+        }
         return http
             // Disabled because this is a stateless API: nothing here reads a cookie or a session.
             .csrf(csrf -> csrf.disable())
@@ -78,28 +81,6 @@ public class AdminSecurityConfig {
             .headers(headers -> headers.disable())
             .authorizeHttpRequests(request -> request.anyRequest().permitAll())
             .build();
-    }
-
-    /**
-     * Reads the tenant's signing keys from Entra, so no key material is held here. The keys are
-     * named rather than discovered because {@code withIssuerLocation} fetches the discovery
-     * document while the bean is being built, which would make the tenant's availability a
-     * condition of this service starting at all.
-     */
-    private static JwtDecoder decoder(final AdminAuthProperties admin) {
-        final NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(admin.jwkSetUri()).build();
-        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
-            JwtValidators.createDefaultWithIssuer(admin.issuer()),
-            audienceIs(admin.audience())));
-        return decoder;
-    }
-
-    /** A token minted for some other application in the same directory is not a token for us. */
-    private static OAuth2TokenValidator<Jwt> audienceIs(final String audience) {
-        return jwt -> jwt.getAudience() != null && jwt.getAudience().contains(audience)
-            ? OAuth2TokenValidatorResult.success()
-            : OAuth2TokenValidatorResult.failure(
-                new OAuth2Error("invalid_token", "The token was not issued for this application.", null));
     }
 
     /**

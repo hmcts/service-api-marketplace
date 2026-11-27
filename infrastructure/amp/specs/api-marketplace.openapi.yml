@@ -7,10 +7,10 @@ info:
     application and receives a Client ID, a Client Secret and one APIM
     subscription key per API, which together get them through the gateway.
 
-    Identity is supplied by the web app: it signs the person in against Entra,
-    parses the token, and sends their Entra object id as requestingUserId on
-    every call after /session. The backend takes that at face value and holds
-    no session of its own.
+    Identity is supplied by the web app: after /session, every call carries the
+    person's Entra object id as requestingUserId and their ID token as a bearer
+    token. A verified token decides who is acted for; otherwise
+    requestingUserId does. The backend holds no session of its own.
 
     The /admin paths are the exception. They take no requestingUserId: the
     caller sends the ID token the web app signed them in with, and the backend
@@ -974,8 +974,7 @@ components:
       in: header
       required: true
       description: >-
-        The caller's Entra object id, taken from the token by the web app. The
-        backend takes this at face value; the protection today is the network.
+        The caller's Entra object id. A verified bearer token overrides it.
       schema:
         type: string
         example: 7c1d9f2e-4b58-4a31-9f0c-2e6d8a1b3c44

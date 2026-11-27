@@ -1,4 +1,4 @@
-package uk.gov.hmcts.amp.controllers;
+package uk.gov.hmcts.amp.functional;
 
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -7,7 +7,7 @@ import java.net.http.HttpResponse;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static uk.gov.hmcts.amp.controllers.FunctionalClient.REQUESTING_USER_ID;
+import static uk.gov.hmcts.amp.functional.FunctionalClient.REQUESTING_USER_ID;
 
 /**
  * Every admin path is refused to anyone without an admin token. An environment with no Entra tenant

@@ -1,4 +1,4 @@
-package uk.gov.hmcts.amp.controllers;
+package uk.gov.hmcts.amp.functional;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static uk.gov.hmcts.amp.controllers.FunctionalClient.json;
+import static uk.gov.hmcts.amp.functional.FunctionalClient.json;
 
 class CatalogueApiFunctionalTest {
 

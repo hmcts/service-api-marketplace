@@ -1,4 +1,4 @@
-package uk.gov.hmcts.amp.controllers;
+package uk.gov.hmcts.amp.functional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -6,8 +6,8 @@ import org.junit.jupiter.api.Test;
 import java.net.http.HttpResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static uk.gov.hmcts.amp.controllers.FunctionalClient.REQUESTING_USER_ID;
-import static uk.gov.hmcts.amp.controllers.FunctionalClient.json;
+import static uk.gov.hmcts.amp.functional.FunctionalClient.REQUESTING_USER_ID;
+import static uk.gov.hmcts.amp.functional.FunctionalClient.json;
 
 // A key belongs to the user whose prefix starts its name; another user's is refused before APIM is asked.
 class SubscriptionKeyFunctionalTest {

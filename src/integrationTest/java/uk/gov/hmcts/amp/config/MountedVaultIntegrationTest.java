@@ -15,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * application.yaml imports them by wildcard. Naming them instead reads only the ones listed, and
  * says nothing about the rest: the secret never arrives and the request needing it fails far away.
  */
-@SpringBootTest(properties = "spring.config.import=optional:configtree:src/test/resources/vaults/*/")
+@SpringBootTest(properties = "spring.config.import=optional:configtree:src/integrationTest/resources/vaults/*/")
 @ContextConfiguration(initializers = TestContainersInitialise.class)
 class MountedVaultIntegrationTest {
 

@@ -1,4 +1,4 @@
-package uk.gov.hmcts.amp.controllers;
+package uk.gov.hmcts.amp.functional;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,8 +12,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static uk.gov.hmcts.amp.controllers.FunctionalClient.REQUESTING_USER_ID;
-import static uk.gov.hmcts.amp.controllers.FunctionalClient.json;
+import static uk.gov.hmcts.amp.functional.FunctionalClient.REQUESTING_USER_ID;
+import static uk.gov.hmcts.amp.functional.FunctionalClient.json;
 
 // Never reaches a real application, so nothing is recorded and no GOV.UK Notify email is sent.
 class ProductionRequestFunctionalTest {

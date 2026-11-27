@@ -42,7 +42,7 @@ public class WireMockApimInitialise implements ApplicationContextInitializer<Con
         return WIREMOCK_APIM;
     }
 
-    /** A captured 200 from src/test/resources/__files, named for the subscription under test. */
+    /** A captured 200 from src/integrationTest/resources/__files, named for the subscription under test. */
     public static ResponseDefinitionBuilder json(final String fixture, final String name) {
         return aResponse().withStatus(200).withHeader("Content-Type", "application/json")
             .withBody(captured(fixture).replace("team-alpha", name));

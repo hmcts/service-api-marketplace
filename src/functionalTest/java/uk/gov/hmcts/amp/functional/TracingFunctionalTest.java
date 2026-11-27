@@ -1,10 +1,10 @@
-package uk.gov.hmcts.amp.controllers;
+package uk.gov.hmcts.amp.functional;
 
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static uk.gov.hmcts.amp.controllers.FunctionalClient.CORRELATION_ID;
-import static uk.gov.hmcts.amp.controllers.FunctionalClient.json;
+import static uk.gov.hmcts.amp.functional.FunctionalClient.CORRELATION_ID;
+import static uk.gov.hmcts.amp.functional.FunctionalClient.json;
 
 class TracingFunctionalTest {
 

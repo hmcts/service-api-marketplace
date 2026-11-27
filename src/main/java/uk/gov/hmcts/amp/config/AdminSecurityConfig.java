@@ -29,8 +29,6 @@ import java.util.Collection;
  * <p>A caller of {@code /admin/**} must present a token this service verified itself - signature,
  * issuer and audience - carrying the {@code amp_admin} app role in its {@code roles} claim.
  * The role is assigned to people in Entra.
- *
- * <p>aat and preview will have real entra users setup shortly for Func Tests
  */
 @Slf4j
 @Configuration

@@ -9,11 +9,10 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import uk.gov.hmcts.amp.audit.AdminAccessDeniedHandler;
-import uk.gov.hmcts.amp.filters.TokenIdentityFilter;
 
 import java.time.Duration;
 import java.util.Collection;
@@ -29,7 +28,12 @@ import java.util.Collection;
 public class AdminSecurityConfig {
 
     static final String ADMIN_PATHS = "/admin/**";
-    // Consumer endpoints never waited on Entra; past this they fall back to the header.
+    static final String[] CONSUMER_PATHS = {
+        "/applications", "/applications/**",
+        "/production-requests", "/production-requests/**",
+        "/apim/subscription-keys", "/apim/subscription-keys/**",
+        "/notify-test"};
+    // A slow key fetch refuses the call rather than holding it while Entra answers.
     private static final Duration KEY_FETCH_TIMEOUT = Duration.ofSeconds(3);
 
     @Bean
@@ -65,15 +69,33 @@ public class AdminSecurityConfig {
     @Order(2)
     // S4502 is the CSRF rule; see the exemption below for why it does not apply here.
     @SuppressWarnings("java:S4502")
-    public SecurityFilterChain openFilterChain(final HttpSecurity http,
-                                               final AdminAuthProperties admin,
-                                               final EntraTokenDecoder tokens) throws Exception {
+    public SecurityFilterChain consumerFilterChain(final HttpSecurity http,
+                                                   final AdminAuthProperties admin,
+                                                   final EntraTokenDecoder tokens) throws Exception {
+        http.securityMatcher(CONSUMER_PATHS)
+            // Disabled because this is a stateless API: nothing here reads a cookie or a session.
+            .csrf(csrf -> csrf.disable())
+            // SecurityHeadersFilter already sets these on every response, error responses included.
+            .headers(headers -> headers.disable())
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(request -> request.anyRequest().authenticated())
+            .exceptionHandling(handling -> handling
+                .authenticationEntryPoint(new BearerTokenAuthenticationEntryPoint()));
+
         if (admin.usable()) {
-            http.addFilterBefore(new TokenIdentityFilter(tokens.forThisApplicationWithin(KEY_FETCH_TIMEOUT)),
-                AuthorizationFilter.class);
+            http.oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
+                .decoder(tokens.forCallers(KEY_FETCH_TIMEOUT))));
         } else {
-            log.warn("No Entra tenant or audience for this environment; the signed-in user comes from the header");
+            log.warn("No Entra tenant or audience for this environment; signed-in endpoints refuse every token");
         }
+        return http.build();
+    }
+
+    @Bean
+    @Order(3)
+    // S4502 is the CSRF rule; see the exemption below for why it does not apply here.
+    @SuppressWarnings("java:S4502")
+    public SecurityFilterChain openFilterChain(final HttpSecurity http) {
         return http
             // Disabled because this is a stateless API: nothing here reads a cookie or a session.
             .csrf(csrf -> csrf.disable())

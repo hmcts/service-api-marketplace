@@ -26,7 +26,7 @@ import java.util.List;
 
 /**
  * Applications belong to the person who registered them. Everything here resolves
- * requestingUserId to a user first, and nothing crosses between users.
+ * the caller to a user first, and nothing crosses between users.
  */
 @Slf4j
 @Service
@@ -44,23 +44,23 @@ public class ApplicationService {
     private final ClockService clockService;
     private final EntraProperties entra;
 
-    public List<ApplicationResponse> list(final String requestingUserId) {
-        final UserEntity user = users.requireSignedIn(requestingUserId);
+    public List<ApplicationResponse> list(final String callerObjectId) {
+        final UserEntity user = users.requireSignedIn(callerObjectId);
         return applications.findByUserIdOrderByCreatedAtAsc(user.getId()).stream()
             .map(this::response)
             .toList();
     }
 
-    public ApplicationResponse get(final String requestingUserId, final String clientId) {
-        return response(requireOwned(users.requireSignedIn(requestingUserId), clientId));
+    public ApplicationResponse get(final String callerObjectId, final String clientId) {
+        return response(requireOwned(users.requireSignedIn(callerObjectId), clientId));
     }
 
     /**
      * Entra first, then the row. If the row cannot be written the registration is taken away again,
      * because an application nobody owns is one nobody can find or delete.
      */
-    public ApplicationResponse create(final String requestingUserId, final ApplicationRequest request) {
-        final UserEntity user = users.requireSignedIn(requestingUserId);
+    public ApplicationResponse create(final String callerObjectId, final ApplicationRequest request) {
+        final UserEntity user = users.requireSignedIn(callerObjectId);
         final String appname = request.appname();
         if (applications.existsByUserIdAndAppname(user.getId(), appname)) {
             throw new ResponseStatusException(
@@ -80,16 +80,16 @@ public class ApplicationService {
         }
     }
 
-    public ApiSubscriptionResponse subscribe(final String requestingUserId, final String clientId,
+    public ApiSubscriptionResponse subscribe(final String callerObjectId, final String clientId,
                                              final String shortCode) {
-        final UserEntity user = users.requireSignedIn(requestingUserId);
+        final UserEntity user = users.requireSignedIn(callerObjectId);
         final ApplicationEntity application = requireOwned(user, clientId);
         final MarketplaceApiEntity api = requireKnownApi(shortCode);
         requireNotAlreadySubscribed(application, api);
 
         final String name = UserService.namePrefix(user) + application.getAppname()
             + "-" + api.getShortCode();
-        final SubscriptionKey created = subscriptionKeys.create(requestingUserId, name, api.getProductId());
+        final SubscriptionKey created = subscriptionKeys.create(callerObjectId, name, api.getProductId());
 
         record(application, api, name, created.primaryKey());
         log.info("Subscribed application {} to {} as {}", clientId, api.getShortCode(), name);
@@ -120,23 +120,23 @@ public class ApplicationService {
             .ifPresent(applicationApis::delete);
     }
 
-    public void grantAccess(final String requestingUserId, final String clientId,
+    public void grantAccess(final String callerObjectId, final String clientId,
                             final String shortCode) {
-        requireOwned(users.requireSignedIn(requestingUserId), clientId);
+        requireOwned(users.requireSignedIn(callerObjectId), clientId);
         final ApiGrant grant = grantFor(shortCode);
         registrations.grantApiAccess(clientId, grant.resourceAppId(), grant.role());
     }
 
-    public void revokeAccess(final String requestingUserId, final String clientId,
+    public void revokeAccess(final String callerObjectId, final String clientId,
                              final String shortCode) {
-        requireOwned(users.requireSignedIn(requestingUserId), clientId);
+        requireOwned(users.requireSignedIn(callerObjectId), clientId);
         final ApiGrant grant = grantFor(shortCode);
         registrations.revokeApiAccess(clientId, grant.resourceAppId(), grant.role());
     }
 
-    public void delete(final String requestingUserId, final String clientId) {
-        final ApplicationEntity application = requireOwned(users.requireSignedIn(requestingUserId), clientId);
-        revokeKeys(requestingUserId, application);
+    public void delete(final String callerObjectId, final String clientId) {
+        final ApplicationEntity application = requireOwned(users.requireSignedIn(callerObjectId), clientId);
+        revokeKeys(callerObjectId, application);
         forgetInEntra(clientId);
         applications.delete(application);
         log.info("Deleted application {} for userId {}", clientId, application.getUser().getId());
@@ -146,10 +146,10 @@ public class ApplicationService {
      * A subscription key outlives the application it was issued for: the row goes with the
      * application but APIM holds the key, and it keeps opening the gateway.
      */
-    private void revokeKeys(final String requestingUserId, final ApplicationEntity application) {
+    private void revokeKeys(final String callerObjectId, final ApplicationEntity application) {
         applicationApis.findByApplicationId(application.getId()).forEach(subscribed -> {
             try {
-                subscriptionKeys.delete(requestingUserId, subscribed.getSubscriptionName());
+                subscriptionKeys.delete(callerObjectId, subscribed.getSubscriptionName());
             } catch (final ResponseStatusException refused) {
                 if (refused.getStatusCode() != HttpStatus.NOT_FOUND) {
                     throw refused;

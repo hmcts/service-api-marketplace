@@ -14,17 +14,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.stream.Stream;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Every endpoint that acts for a signed-in user requires the requestingUserId header. Each endpoint
- * declares it in the OpenAPI spec, so each is checked here, in one place.
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ContextConfiguration(initializers = TestContainersInitialise.class)
-class RequestingUserHeaderIntegrationTest {
+class ConsumerTokenRequiredIntegrationTest {
+
+    private static final String OID = "aaaaaaaa-1111-2222-3333-444444444444";
 
     @Autowired
     private MockMvc mockMvc;
@@ -32,6 +29,7 @@ class RequestingUserHeaderIntegrationTest {
     static Stream<Arguments> endpoints() {
         return Stream.of(
             Arguments.of("GET", "/applications", null),
+            Arguments.of("GET", "/applications/client-1", null),
             Arguments.of("GET", "/apim/subscription-keys", null),
             Arguments.of("POST", "/apim/subscription-keys", "{\"clientId\":\"client-1\",\"shortCode\":\"slc\"}"),
             Arguments.of("GET", "/production-requests", null),
@@ -40,15 +38,13 @@ class RequestingUserHeaderIntegrationTest {
 
     @ParameterizedTest(name = "{0} {1}")
     @MethodSource("endpoints")
-    void missing_header_should_be_refused_with_400_naming_it(
+    void call_without_a_token_should_be_refused_even_when_it_names_a_user(
         final String method, final String path, final String body) throws Exception {
-        final var request = request(HttpMethod.valueOf(method), path);
+        final var request = request(HttpMethod.valueOf(method), path).header("requestingUserId", OID);
         if (body != null) {
             request.contentType(MediaType.APPLICATION_JSON).content(body);
         }
 
-        mockMvc.perform(request)
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("requestingUserId is required."));
+        mockMvc.perform(request).andExpect(status().isUnauthorized());
     }
 }

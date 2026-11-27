@@ -30,8 +30,8 @@ public class ApimSubscriptionKeyService {
 
 
 
-    public List<SubscriptionKey> list(final String requestingUserId) {
-        final String prefix = prefixFor(requestingUserId);
+    public List<SubscriptionKey> list(final String callerObjectId) {
+        final String prefix = prefixFor(callerObjectId);
         // The listing is paged lazily, so Azure is only called, and can only fail, inside the stream
         try {
             return apim.subscriptions().list(apimProperties.resourceGroup(), apimProperties.serviceName()).stream()
@@ -43,8 +43,8 @@ public class ApimSubscriptionKeyService {
         }
     }
 
-    public SubscriptionKey create(final String requestingUserId, final String name, final String productId) {
-        final String prefix = prefixFor(requestingUserId);
+    public SubscriptionKey create(final String callerObjectId, final String name, final String productId) {
+        final String prefix = prefixFor(callerObjectId);
         if (!name.startsWith(prefix)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "A subscription name must start with " + prefix + ".");
@@ -69,8 +69,8 @@ public class ApimSubscriptionKeyService {
         }
     }
 
-    public SubscriptionKey keyValues(final String requestingUserId, final String name) {
-        requireOwned(requestingUserId, name);
+    public SubscriptionKey keyValues(final String callerObjectId, final String name) {
+        requireOwned(callerObjectId, name);
         try {
             SubscriptionKeysContract secrets = apim.subscriptions()
                 .listSecrets(apimProperties.resourceGroup(), apimProperties.serviceName(), name);
@@ -80,8 +80,8 @@ public class ApimSubscriptionKeyService {
         }
     }
 
-    public void delete(final String requestingUserId, final String name) {
-        requireOwned(requestingUserId, name);
+    public void delete(final String callerObjectId, final String name) {
+        requireOwned(callerObjectId, name);
         // Azure answers a delete of something absent with success, which on a shared instance
         // leaves you unable to tell a revoked key from one that was never there.
         if (!exists(name)) {
@@ -96,13 +96,13 @@ public class ApimSubscriptionKeyService {
         }
     }
 
-    private String prefixFor(final String requestingUserId) {
-        return UserService.namePrefix(users.requireSignedIn(requestingUserId));
+    private String prefixFor(final String callerObjectId) {
+        return UserService.namePrefix(users.requireSignedIn(callerObjectId));
     }
 
     /** 404 rather than 403, so a name outside the caller's own reads the same as one that does not exist. */
-    private void requireOwned(final String requestingUserId, final String name) {
-        if (!name.startsWith(prefixFor(requestingUserId))) {
+    private void requireOwned(final String callerObjectId, final String name) {
+        if (!name.startsWith(prefixFor(callerObjectId))) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No subscription named " + name + ".");
         }
     }

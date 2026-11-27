@@ -31,11 +31,8 @@ public class UserService {
     private final ClockService clockService;
 
     /** 404 rather than 401: the caller is signed in to Entra, it is this service that has no row for them. */
-    public UserEntity requireSignedIn(final String requestingUserId) {
-        if (requestingUserId == null || requestingUserId.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing requestingUserId.");
-        }
-        return userRepository.findByEntraObjectId(requestingUserId.trim().toLowerCase(Locale.UK))
+    public UserEntity requireSignedIn(final String callerObjectId) {
+        return userRepository.findByEntraObjectId(callerObjectId.trim().toLowerCase(Locale.UK))
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sign in again."));
     }
 

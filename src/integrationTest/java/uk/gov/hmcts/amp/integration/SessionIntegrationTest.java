@@ -19,6 +19,7 @@ import uk.gov.hmcts.amp.repository.UserRepository;
 import java.time.LocalDateTime;
 import org.springframework.test.web.servlet.ResultActions;
 
+import static uk.gov.hmcts.amp.integration.SignedIn.signedInAs;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -116,9 +117,9 @@ class SessionIntegrationTest {
         signIn(OID, "{\"email\":\"joe@example.com\"}").andExpect(status().isOk());
         signIn(OTHER_OID, "{\"email\":\"joe@example.com\"}").andExpect(status().isOk());
 
-        mockMvc.perform(get("/applications").header("requestingUserId", OID))
+        mockMvc.perform(get("/applications").with(signedInAs(OID)))
             .andExpect(status().isNotFound());
-        mockMvc.perform(get("/applications").header("requestingUserId", OTHER_OID))
+        mockMvc.perform(get("/applications").with(signedInAs(OTHER_OID)))
             .andExpect(status().isOk());
     }
 

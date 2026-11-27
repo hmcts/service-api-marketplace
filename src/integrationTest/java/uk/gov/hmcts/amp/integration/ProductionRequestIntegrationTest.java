@@ -19,6 +19,7 @@ import uk.gov.hmcts.amp.repository.UserRepository;
 
 import java.time.LocalDateTime;
 
+import static uk.gov.hmcts.amp.integration.SignedIn.signedInAs;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
@@ -95,7 +96,7 @@ class ProductionRequestIntegrationTest {
     void submitting_should_return_a_reference_and_record_the_request() throws Exception {
         createApplication(OWNER_OID);
 
-        String body = mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        String body = mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.status").value("SUBMITTED"))
@@ -110,7 +111,7 @@ class ProductionRequestIntegrationTest {
     void the_long_answers_should_take_two_thousand_characters() throws Exception {
         createApplication(OWNER_OID);
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID, 2000)))
             .andExpect(status().isCreated());
 
@@ -121,7 +122,7 @@ class ProductionRequestIntegrationTest {
     void an_answer_past_two_thousand_characters_should_say_so_rather_than_be_cut_short() throws Exception {
         createApplication(OWNER_OID);
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID, 2001)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.error").value(containsString("2000 characters or fewer")));
@@ -133,7 +134,7 @@ class ProductionRequestIntegrationTest {
     void submitting_should_email_the_requester_with_the_reference_it_minted() throws Exception {
         createApplication(OWNER_OID);
 
-        String reference = reference(post(PATH).header("requestingUserId", OWNER_OID)
+        String reference = reference(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
 
         wireMockNotify().verify(postRequestedFor(urlPathEqualTo(SEND_EMAIL))
@@ -149,7 +150,7 @@ class ProductionRequestIntegrationTest {
         subscribedTo("rcc");
         subscribedTo("slc");
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
 
         // Titles from the catalogue rather than the short codes the subscription rows hold.
@@ -163,7 +164,7 @@ class ProductionRequestIntegrationTest {
     void an_unsubscribed_application_should_send_an_empty_list_rather_than_no_key() throws Exception {
         createApplication(OWNER_OID);
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
 
         // Notify treats an absent placeholder as an error, so the key has to be there either way.
@@ -177,7 +178,7 @@ class ProductionRequestIntegrationTest {
         createApplication(OWNER_OID);
         subscribedTo("slc");
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
 
         wireMockNotify().verify(postRequestedFor(urlPathEqualTo(SEND_EMAIL))
@@ -198,7 +199,7 @@ class ProductionRequestIntegrationTest {
     void the_review_email_should_carry_the_triage_answers_as_wording_not_as_slugs() throws Exception {
         createApplication(OWNER_OID);
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(triageForm(CLIENT_ID)));
 
         wireMockNotify().verify(postRequestedFor(urlPathEqualTo(SEND_EMAIL))
@@ -218,7 +219,7 @@ class ProductionRequestIntegrationTest {
     void submitting_should_send_the_requester_the_panel_and_the_team_one_email_each() throws Exception {
         createApplication(OWNER_OID);
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
 
         wireMockNotify().verify(3, postRequestedFor(urlPathEqualTo(SEND_EMAIL)));
@@ -228,7 +229,7 @@ class ProductionRequestIntegrationTest {
     void the_team_email_should_go_to_the_team_inbox_and_say_a_request_arrived() throws Exception {
         createApplication(OWNER_OID);
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(triageForm(CLIENT_ID)));
 
         wireMockNotify().verify(postRequestedFor(urlPathEqualTo(SEND_EMAIL))
@@ -244,11 +245,11 @@ class ProductionRequestIntegrationTest {
     @Test
     void second_request_for_the_same_application_should_conflict() throws Exception {
         createApplication(OWNER_OID);
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)))
             .andExpect(status().isCreated());
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)))
             .andExpect(status().isConflict());
 
@@ -258,12 +259,12 @@ class ProductionRequestIntegrationTest {
     @Test
     void deleting_a_request_should_let_the_application_be_asked_about_again() throws Exception {
         createApplication(OWNER_OID);
-        String reference = reference(post(PATH).header("requestingUserId", OWNER_OID)
+        String reference = reference(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
-        mockMvc.perform(delete(PATH + "/" + reference).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(delete(PATH + "/" + reference).with(signedInAs(OWNER_OID)))
             .andExpect(status().isNoContent());
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)))
             .andExpect(status().isCreated());
     }
@@ -271,11 +272,11 @@ class ProductionRequestIntegrationTest {
     @Test
     void the_list_should_name_the_application_so_a_caller_can_tell_which_is_which() throws Exception {
         createApplication(OWNER_OID);
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
 
         // Without this the web cannot tell which application already has a request.
-        mockMvc.perform(get(PATH).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(get(PATH).with(signedInAs(OWNER_OID)))
             .andExpect(jsonPath("$[0].clientId").value(CLIENT_ID))
             .andExpect(jsonPath("$[0].applicationName").value("Case Viewer"));
     }
@@ -285,7 +286,7 @@ class ProductionRequestIntegrationTest {
         createApplication(OWNER_OID);
         stubRefused(400, "email_address Not a valid email address");
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)))
             .andExpect(status().isCreated());
 
@@ -295,14 +296,14 @@ class ProductionRequestIntegrationTest {
     @Test
     void listing_should_show_only_the_callers_own_requests() throws Exception {
         createApplication(OWNER_OID);
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID))).andExpect(status().isCreated());
 
-        mockMvc.perform(get(PATH).header("requestingUserId", OTHER_OID))
+        mockMvc.perform(get(PATH).with(signedInAs(OTHER_OID)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$").isEmpty());
 
-        mockMvc.perform(get(PATH).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(get(PATH).with(signedInAs(OWNER_OID)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.length()").value(1))
             .andExpect(jsonPath("$[0].status").value("SUBMITTED"));
@@ -312,12 +313,12 @@ class ProductionRequestIntegrationTest {
     void listing_should_show_the_newest_request_first() throws Exception {
         createApplication(OWNER_OID);
         // One request per application, so a second request needs a second application.
-        mockMvc.perform(post("/applications").header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post("/applications").with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Case Reader\"}"))
             .andExpect(status().isCreated());
-        String older = reference(post(PATH).header("requestingUserId", OWNER_OID)
+        String older = reference(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
-        String newer = reference(post(PATH).header("requestingUserId", OWNER_OID)
+        String newer = reference(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(form("client-other")));
         // Submitted an hour apart, so the order never rests on two timestamps a millisecond apart
         productionRequests.findAll().stream().filter(r -> r.getReference().equals(older)).forEach(r -> {
@@ -325,7 +326,7 @@ class ProductionRequestIntegrationTest {
             productionRequests.save(r);
         });
 
-        mockMvc.perform(get(PATH).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(get(PATH).with(signedInAs(OWNER_OID)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].reference").value(newer))
             .andExpect(jsonPath("$[1].reference").value(older));
@@ -335,7 +336,7 @@ class ProductionRequestIntegrationTest {
     void naming_someone_elses_application_should_be_rejected_and_stored_nowhere() throws Exception {
         createApplication(OWNER_OID);
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OTHER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OTHER_OID))
                 .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)))
             .andExpect(status().isBadRequest());
 
@@ -344,7 +345,7 @@ class ProductionRequestIntegrationTest {
 
     @Test
     void an_unknown_client_id_should_be_rejected_rather_than_pointing_at_nothing() throws Exception {
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON).content(form("no-such-client")))
             .andExpect(status().isBadRequest());
 
@@ -355,7 +356,7 @@ class ProductionRequestIntegrationTest {
     void missing_data_request_should_be_rejected_by_the_server() throws Exception {
         createApplication(OWNER_OID);
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(form(CLIENT_ID).replace("Hearing outcomes for listed cases.", "")))
             .andExpect(status().isBadRequest());
@@ -367,7 +368,7 @@ class ProductionRequestIntegrationTest {
     void requests_without_proposed_outputs_should_be_accepted_now_the_form_stopped_asking() throws Exception {
         createApplication(OWNER_OID);
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(triageForm(CLIENT_ID)))
             .andExpect(status().isCreated());
@@ -378,11 +379,11 @@ class ProductionRequestIntegrationTest {
     @Test
     void the_triage_answers_should_be_stored_and_read_back() throws Exception {
         createApplication(OWNER_OID);
-        final String reference = reference(post(PATH).header("requestingUserId", OWNER_OID)
+        final String reference = reference(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON)
             .content(triageForm(CLIENT_ID)));
 
-        mockMvc.perform(get(PATH + "/" + reference).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(get(PATH + "/" + reference).with(signedInAs(OWNER_OID)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.organisationType").value("external"))
             .andExpect(jsonPath("$.dataRecipients").value(hasItems("own-team", "supplier")))
@@ -396,7 +397,7 @@ class ProductionRequestIntegrationTest {
     void data_leaving_the_requesters_own_team_should_need_an_explanation() throws Exception {
         createApplication(OWNER_OID);
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(triageForm(CLIENT_ID)
                     .replace("Our delivery partner builds the case view on our behalf.", "")))
@@ -409,7 +410,7 @@ class ProductionRequestIntegrationTest {
     void the_requesters_own_team_alone_should_need_no_explanation() throws Exception {
         createApplication(OWNER_OID);
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(triageForm(CLIENT_ID)
                     .replace("\"own-team\",\"supplier\"", "\"own-team\"")
@@ -423,7 +424,7 @@ class ProductionRequestIntegrationTest {
         createApplication(OWNER_OID);
 
         for (final String answer : new String[] {"yes", "unsure"}) {
-            mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+            mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(triageForm(CLIENT_ID)
                         .replace("\"dataCombined\":\"yes\"", "\"dataCombined\":\"" + answer + "\"")
@@ -438,7 +439,7 @@ class ProductionRequestIntegrationTest {
     void an_answer_outside_the_published_list_should_be_rejected() throws Exception {
         createApplication(OWNER_OID);
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(triageForm(CLIENT_ID).replace("\"external\",", "\"nonsense\",")))
             .andExpect(status().isBadRequest());
@@ -450,7 +451,7 @@ class ProductionRequestIntegrationTest {
     void an_answer_outside_the_allowed_set_should_be_rejected() throws Exception {
         createApplication(OWNER_OID);
 
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(form(CLIENT_ID).replace("\"low\"", "\"enormous\"")))
             .andExpect(status().isBadRequest());
@@ -460,13 +461,13 @@ class ProductionRequestIntegrationTest {
     void two_requests_should_get_different_references() throws Exception {
         createApplication(OWNER_OID);
         // One request per application, so a second reference needs a second application.
-        mockMvc.perform(post("/applications").header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post("/applications").with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Case Reader\"}"))
             .andExpect(status().isCreated());
 
-        String first = reference(post(PATH).header("requestingUserId", OWNER_OID)
+        String first = reference(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
-        String second = reference(post(PATH).header("requestingUserId", OWNER_OID)
+        String second = reference(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(form("client-other")));
 
         assertThat(first).isNotEqualTo(second);
@@ -475,10 +476,10 @@ class ProductionRequestIntegrationTest {
     @Test
     void reading_one_request_should_return_the_answers_the_list_leaves_out() throws Exception {
         createApplication(OWNER_OID);
-        String reference = reference(post(PATH).header("requestingUserId", OWNER_OID)
+        String reference = reference(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
 
-        mockMvc.perform(get(PATH + "/" + reference).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(get(PATH + "/" + reference).with(signedInAs(OWNER_OID)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.reference").value(reference))
             .andExpect(jsonPath("$.status").value("SUBMITTED"))
@@ -494,10 +495,10 @@ class ProductionRequestIntegrationTest {
     @Test
     void the_list_should_not_carry_the_answers_only_the_detail_does() throws Exception {
         createApplication(OWNER_OID);
-        mockMvc.perform(post(PATH).header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID))).andExpect(status().isCreated());
 
-        mockMvc.perform(get(PATH).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(get(PATH).with(signedInAs(OWNER_OID)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].dataRequest").doesNotExist())
             .andExpect(jsonPath("$[0].proposedOutputs").doesNotExist())
@@ -507,20 +508,20 @@ class ProductionRequestIntegrationTest {
     @Test
     void reading_another_users_request_should_be_not_found() throws Exception {
         createApplication(OWNER_OID);
-        String reference = reference(post(PATH).header("requestingUserId", OWNER_OID)
+        String reference = reference(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
 
-        mockMvc.perform(get(PATH + "/" + reference).header("requestingUserId", OTHER_OID))
+        mockMvc.perform(get(PATH + "/" + reference).with(signedInAs(OTHER_OID)))
             .andExpect(status().isNotFound());
     }
 
     @Test
     void deleting_a_request_should_remove_it_and_leave_the_application_alone() throws Exception {
         createApplication(OWNER_OID);
-        String reference = reference(post(PATH).header("requestingUserId", OWNER_OID)
+        String reference = reference(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
 
-        mockMvc.perform(delete(PATH + "/" + reference).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(delete(PATH + "/" + reference).with(signedInAs(OWNER_OID)))
             .andExpect(status().isNoContent());
 
         assertThat(productionRequests.count()).isZero();
@@ -530,10 +531,10 @@ class ProductionRequestIntegrationTest {
     @Test
     void deleting_another_users_request_should_be_not_found_and_leave_it_there() throws Exception {
         createApplication(OWNER_OID);
-        String reference = reference(post(PATH).header("requestingUserId", OWNER_OID)
+        String reference = reference(post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content(form(CLIENT_ID)));
 
-        mockMvc.perform(delete(PATH + "/" + reference).header("requestingUserId", OTHER_OID))
+        mockMvc.perform(delete(PATH + "/" + reference).with(signedInAs(OTHER_OID)))
             .andExpect(status().isNotFound());
 
         assertThat(productionRequests.count()).isEqualTo(1);
@@ -541,13 +542,13 @@ class ProductionRequestIntegrationTest {
 
     @Test
     void deleting_a_reference_that_does_not_exist_should_be_not_found() throws Exception {
-        mockMvc.perform(delete(PATH + "/PCR-NOSUCH12").header("requestingUserId", OWNER_OID))
+        mockMvc.perform(delete(PATH + "/PCR-NOSUCH12").with(signedInAs(OWNER_OID)))
             .andExpect(status().isNotFound());
     }
 
     @Test
     void reading_a_reference_that_does_not_exist_should_be_not_found() throws Exception {
-        mockMvc.perform(get(PATH + "/PCR-NOSUCH99").header("requestingUserId", OWNER_OID))
+        mockMvc.perform(get(PATH + "/PCR-NOSUCH99").with(signedInAs(OWNER_OID)))
             .andExpect(status().isNotFound());
     }
 
@@ -602,7 +603,7 @@ class ProductionRequestIntegrationTest {
 
     private void createApplication(final String oid) throws Exception {
         stubRegistration();
-        mockMvc.perform(post("/applications").header("requestingUserId", oid)
+        mockMvc.perform(post("/applications").with(signedInAs(oid))
             .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Case Viewer\"}"))
             .andExpect(status().isCreated());
         stubRegistrationAs("77777777-7777-7777-7777-777777777777", "client-other");

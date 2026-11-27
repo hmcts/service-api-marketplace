@@ -1,5 +1,6 @@
 package uk.gov.hmcts.amp.controllers;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -13,6 +14,7 @@ import uk.gov.hmcts.amp.domain.ApiSubscriptionResponse;
 import uk.gov.hmcts.amp.domain.SubscriptionKey;
 import uk.gov.hmcts.amp.services.ApimSubscriptionKeyService;
 import uk.gov.hmcts.amp.services.ApplicationService;
+import uk.gov.hmcts.amp.services.SignedInCaller;
 
 import java.util.List;
 
@@ -35,8 +37,16 @@ class SubscriptionKeyControllerTest {
     @Spy
     private final ResponseMapper mapper = new ResponseMapperImpl();
 
+    @Mock
+    private SignedInCaller caller;
+
     @InjectMocks
     private SubscriptionKeyController controller;
+
+    @BeforeEach
+    void signedInAsOid() {
+        when(caller.objectId()).thenReturn(OID);
+    }
 
     private final SubscriptionKey key =
         new SubscriptionKey("team-alpha", "Team Alpha", "scope", "hearing-results", "active", null, null);
@@ -45,7 +55,7 @@ class SubscriptionKeyControllerTest {
     void listing_keys_should_return_what_the_service_found() {
         when(subscriptionKeys.list(OID)).thenReturn(List.of(key));
 
-        assertThat(controller.listSubscriptionKeys(OID)).containsExactly(mapper.toSubscriptionKey(key));
+        assertThat(controller.listSubscriptionKeys()).containsExactly(mapper.toSubscriptionKey(key));
     }
 
     @Test
@@ -55,7 +65,7 @@ class SubscriptionKeyControllerTest {
             "cp-crime-schedulingandlisting", "amp-user001-case-viewer-slc", "a-key");
         when(applications.subscribe(OID, CLIENT_ID, "slc")).thenReturn(subscribed);
 
-        assertThat(controller.createSubscriptionKey(OID, request)).isEqualTo(mapper.toApiSubscription(subscribed));
+        assertThat(controller.createSubscriptionKey(request)).isEqualTo(mapper.toApiSubscription(subscribed));
     }
 
     @Test
@@ -63,14 +73,14 @@ class SubscriptionKeyControllerTest {
         SubscriptionKey values = SubscriptionKey.keysOnly("team-alpha", "primary", "secondary");
         when(subscriptionKeys.keyValues(OID, "team-alpha")).thenReturn(values);
 
-        assertThat(controller.getSubscriptionKeyValues(OID, "team-alpha")).isEqualTo(mapper.toSubscriptionKey(values));
+        assertThat(controller.getSubscriptionKeyValues("team-alpha")).isEqualTo(mapper.toSubscriptionKey(values));
         // Reading values must not also go and list, which would be a second secret read.
         verify(subscriptionKeys).keyValues(OID, "team-alpha");
     }
 
     @Test
     void deleting_a_key_should_remove_the_subscription_and_the_row_that_recorded_it() {
-        controller.deleteSubscriptionKey(OID, "team-alpha");
+        controller.deleteSubscriptionKey("team-alpha");
 
         verify(subscriptionKeys).delete(OID, "team-alpha");
         verify(applications).forgetApi("team-alpha");

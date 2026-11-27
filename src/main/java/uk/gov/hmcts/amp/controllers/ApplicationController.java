@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.amp.domain.ApiAccess;
 import uk.gov.hmcts.amp.domain.ApplicationRequest;
 import uk.gov.hmcts.amp.mappers.ResponseMapper;
+import uk.gov.hmcts.amp.services.SignedInCaller;
 import uk.gov.hmcts.amp.openapi.api.ApplicationsApi;
 import uk.gov.hmcts.amp.openapi.model.ApiKey;
 import uk.gov.hmcts.amp.openapi.model.Application;
@@ -25,50 +26,51 @@ public class ApplicationController implements ApplicationsApi {
 
     private final ApplicationService applications;
     private final ResponseMapper mapper;
+    private final SignedInCaller caller;
 
     @Override
-    public List<Application> listApplications(final String requestingUserId) {
+    public List<Application> listApplications() {
         log.info("List applications");
-        return mapper.toApplications(applications.list(requestingUserId));
+        return mapper.toApplications(applications.list(caller.objectId()));
     }
 
     @Override
-    public Application getApplication(final String requestingUserId, final String clientId) {
+    public Application getApplication(final String clientId) {
         log.info("Read application {}", clientId);
-        return mapper.toApplication(applications.get(requestingUserId, clientId));
+        return mapper.toApplication(applications.get(caller.objectId(), clientId));
     }
 
     @Override
     @LogAudit(action = AuditAction.CONSUMER_APPLICATION_CREATED, target = "#result?.clientId")
-    public CreatedApplication createApplication(final String requestingUserId, final ApplicationRequest request) {
+    public CreatedApplication createApplication(final ApplicationRequest request) {
         log.info("Register application '{}'", request.name());
-        return mapper.toCreatedApplication(applications.create(requestingUserId, request));
+        return mapper.toCreatedApplication(applications.create(caller.objectId(), request));
     }
 
     @Override
     @LogAudit(action = AuditAction.CONSUMER_APPLICATION_ROLES_GRANTED, target = "#clientId",
         api = "#request.shortCode()")
-    public void grantRole(final String requestingUserId, final String clientId, final ApiAccess request) {
+    public void grantRole(final String clientId, final ApiAccess request) {
         log.info("Grant access to {} for application {}", request.shortCode(), clientId);
-        applications.grantAccess(requestingUserId, clientId, request.shortCode());
+        applications.grantAccess(caller.objectId(), clientId, request.shortCode());
     }
 
     @Override
     @LogAudit(action = AuditAction.CONSUMER_APPLICATION_ROLES_REVOKED, target = "#clientId", api = "#api")
-    public void revokeRole(final String requestingUserId, final String clientId, final String api) {
+    public void revokeRole(final String clientId, final String api) {
         log.info("Revoke access to {} for application {}", api, clientId);
-        applications.revokeAccess(requestingUserId, clientId, api);
+        applications.revokeAccess(caller.objectId(), clientId, api);
     }
 
     @Override
-    public ApiKey getSubscriptionKey(final String requestingUserId, final String clientId, final String api) {
+    public ApiKey getSubscriptionKey(final String clientId, final String api) {
         throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not built yet.");
     }
 
     @Override
     @LogAudit(action = AuditAction.CONSUMER_APPLICATION_DELETED, target = "#clientId")
-    public void deleteApplication(final String requestingUserId, final String clientId) {
+    public void deleteApplication(final String clientId) {
         log.info("Delete application {}", clientId);
-        applications.delete(requestingUserId, clientId);
+        applications.delete(caller.objectId(), clientId);
     }
 }

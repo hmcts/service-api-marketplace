@@ -7,6 +7,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
@@ -16,6 +17,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerMapping;
 import uk.gov.hmcts.amp.services.ClockService;
+import uk.gov.hmcts.amp.services.SignedInCaller;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -24,6 +26,7 @@ import java.time.ZoneOffset;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AuditInterceptorTest {
@@ -31,6 +34,9 @@ class AuditInterceptorTest {
     private static final Instant FIXED_NOW = Instant.parse("2026-11-18T10:15:02Z");
     private static final String ACTOR_OID = "9b1c4e2a-0000-0000-0000-000000000001";
     private static final String SIGNED_IN_OID = "aaaaaaaa-0000-0000-0000-000000000002";
+
+    @Mock
+    private SignedInCaller caller;
 
     @Spy
     private ClockService clockService = new ClockService(Clock.fixed(FIXED_NOW, ZoneOffset.UTC));
@@ -44,7 +50,7 @@ class AuditInterceptorTest {
 
     @BeforeEach
     void captureAuditLines() {
-        interceptor = new AuditInterceptor(new AuditWriter(clockService));
+        interceptor = new AuditInterceptor(new AuditWriter(clockService), caller);
         appender.start();
         auditLogger.addAppender(appender);
     }
@@ -57,7 +63,7 @@ class AuditInterceptorTest {
     @Test
     void afterCompletion_should_write_a_success_line_with_the_captured_details_and_requesting_user()
         throws Exception {
-        request.addHeader(AuditInterceptor.REQUESTING_USER_ID_HEADER, ACTOR_OID);
+        when(caller.objectIdOrNull()).thenReturn(ACTOR_OID);
         request.setAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE, "/apim/subscription-keys");
         request.setAttribute(AuditAspect.AUDIT_DETAILS_ATTRIBUTE,
             new AuditDetails(null, "amp-user003-acme-case-viewer-slc", "slc"));
@@ -79,7 +85,7 @@ class AuditInterceptorTest {
 
     @Test
     void afterCompletion_should_prefer_the_captured_actor_whenTheEndpointNamesOne() throws Exception {
-        request.addHeader(AuditInterceptor.REQUESTING_USER_ID_HEADER, ACTOR_OID);
+        when(caller.objectIdOrNull()).thenReturn(ACTOR_OID);
         request.setAttribute(AuditAspect.AUDIT_DETAILS_ATTRIBUTE, new AuditDetails(SIGNED_IN_OID, null, null));
 
         interceptor.afterCompletion(request, response, handler("audited"), null);

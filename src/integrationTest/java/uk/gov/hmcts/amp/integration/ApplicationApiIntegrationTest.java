@@ -14,6 +14,7 @@ import uk.gov.hmcts.amp.repository.ApplicationApiRepository;
 import uk.gov.hmcts.amp.repository.ApplicationRepository;
 import uk.gov.hmcts.amp.repository.UserRepository;
 
+import static uk.gov.hmcts.amp.integration.SignedIn.signedInAs;
 import static com.github.tomakehurst.wiremock.client.WireMock.deleteRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.putRequestedFor;
@@ -137,7 +138,7 @@ class ApplicationApiIntegrationTest {
 
     @Test
     void subscribing_someone_elses_application_should_be_not_found() throws Exception {
-        mockMvc.perform(post(PATH).header("requestingUserId", OTHER_OID)
+        mockMvc.perform(post(PATH).with(signedInAs(OTHER_OID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"clientId\":\"" + CLIENT_ID + "\",\"shortCode\":\"slc\"}"))
             .andExpect(status().isNotFound());
@@ -149,14 +150,14 @@ class ApplicationApiIntegrationTest {
     void deleting_the_subscription_should_take_the_row_with_it() throws Exception {
         mockMvc.perform(subscribeTo("slc")).andExpect(status().isCreated());
 
-        mockMvc.perform(get(PATH + "/" + subscriptionName + "/values").header("requestingUserId", OWNER_OID))
+        mockMvc.perform(get(PATH + "/" + subscriptionName + "/values").with(signedInAs(OWNER_OID)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.primaryKey").isNotEmpty());
 
-        mockMvc.perform(delete(PATH + "/" + subscriptionName).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(delete(PATH + "/" + subscriptionName).with(signedInAs(OWNER_OID)))
             .andExpect(status().isNoContent());
 
-        mockMvc.perform(get(PATH + "/" + subscriptionName + "/values").header("requestingUserId", OWNER_OID))
+        mockMvc.perform(get(PATH + "/" + subscriptionName + "/values").with(signedInAs(OWNER_OID)))
             .andExpect(status().isNotFound());
         assertThat(applicationApis.count()).isZero();
     }
@@ -167,7 +168,7 @@ class ApplicationApiIntegrationTest {
         stubApplicationList();
         stubApplicationDelete();
 
-        mockMvc.perform(delete("/applications/" + CLIENT_ID).header("requestingUserId", OWNER_OID))
+        mockMvc.perform(delete("/applications/" + CLIENT_ID).with(signedInAs(OWNER_OID)))
             .andExpect(status().isNoContent());
 
         // The row goes with the application either way; the key only stops working if APIM is told.
@@ -177,7 +178,7 @@ class ApplicationApiIntegrationTest {
     }
 
     private RequestBuilder subscribeTo(final String shortCode) {
-        return post(PATH).header("requestingUserId", OWNER_OID)
+        return post(PATH).with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"clientId\":\"" + CLIENT_ID + "\",\"shortCode\":\"" + shortCode + "\"}");
     }
@@ -190,7 +191,7 @@ class ApplicationApiIntegrationTest {
 
     private void createApplication() throws Exception {
         stubRegistration();
-        mockMvc.perform(post("/applications").header("requestingUserId", OWNER_OID)
+        mockMvc.perform(post("/applications").with(signedInAs(OWNER_OID))
             .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Case Viewer\"}"))
             .andExpect(status().isCreated());
     }

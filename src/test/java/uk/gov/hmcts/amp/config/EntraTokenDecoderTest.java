@@ -64,7 +64,7 @@ class EntraTokenDecoderTest {
         final String token = token(AUDIENCE, ISSUER, Instant.now().plusSeconds(600));
 
         assertThat(tokens.forThisApplication().decode(token).getClaimAsString("oid")).isEqualTo(ADA);
-        assertThat(tokens.forThisApplicationWithin(TIMEOUT).decode(token).getClaimAsString("oid")).isEqualTo(ADA);
+        assertThat(tokens.forCallers(TIMEOUT).decode(token).getClaimAsString("oid")).isEqualTo(ADA);
     }
 
     @Test
@@ -72,7 +72,7 @@ class EntraTokenDecoderTest {
         keysAt(KEYS.baseUrl() + "/keys");
         final String token = token("another-app", ISSUER, Instant.now().plusSeconds(600));
 
-        assertThatThrownBy(() -> tokens.forThisApplicationWithin(TIMEOUT).decode(token))
+        assertThatThrownBy(() -> tokens.forCallers(TIMEOUT).decode(token))
             .isInstanceOf(JwtException.class)
             .hasMessageContaining("not issued for this application");
     }
@@ -82,7 +82,7 @@ class EntraTokenDecoderTest {
         keysAt(KEYS.baseUrl() + "/keys");
         final String token = token(AUDIENCE, "https://elsewhere.example/v2.0", Instant.now().plusSeconds(600));
 
-        assertThatThrownBy(() -> tokens.forThisApplicationWithin(TIMEOUT).decode(token))
+        assertThatThrownBy(() -> tokens.forCallers(TIMEOUT).decode(token))
             .isInstanceOf(JwtException.class);
     }
 
@@ -91,7 +91,7 @@ class EntraTokenDecoderTest {
         keysAt(KEYS.baseUrl() + "/keys");
         final String token = token(AUDIENCE, ISSUER, Instant.now().minusSeconds(3600));
 
-        assertThatThrownBy(() -> tokens.forThisApplicationWithin(TIMEOUT).decode(token))
+        assertThatThrownBy(() -> tokens.forCallers(TIMEOUT).decode(token))
             .isInstanceOf(JwtException.class);
     }
 
@@ -100,7 +100,7 @@ class EntraTokenDecoderTest {
         keysAt("http://127.0.0.1:1/keys");
         final String token = token(AUDIENCE, ISSUER, Instant.now().plusSeconds(600));
 
-        assertThatThrownBy(() -> tokens.forThisApplicationWithin(TIMEOUT).decode(token))
+        assertThatThrownBy(() -> tokens.forCallers(TIMEOUT).decode(token))
             .isInstanceOf(JwtException.class);
     }
 
@@ -108,7 +108,7 @@ class EntraTokenDecoderTest {
     void key_set_address_that_is_not_a_url_should_be_reported() {
         when(admin.jwkSetUri()).thenReturn("unknown-scheme://keys");
 
-        assertThatThrownBy(() -> tokens.forThisApplicationWithin(TIMEOUT))
+        assertThatThrownBy(() -> tokens.forCallers(TIMEOUT))
             .isInstanceOf(IllegalStateException.class);
     }
 

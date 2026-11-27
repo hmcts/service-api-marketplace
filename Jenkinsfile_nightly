@@ -22,4 +22,10 @@ withNightlyPipeline(type, product, component) {
   env.TEST_URL = params.URL_TO_TEST
   env.SecurityRules = params.SecurityRules
   enableSecurityScan()
+
+  // Fortify on Demand static scan. It uses the platform's FoD credential, so our vault needs no FoD
+  // secrets, and finds the FoD release by repo name. The vault is named because the library's
+  // default, amp-aat, is the name from before the rename. Needs the library release with
+  // cnp-jenkins-library#1602, which stops a vault without FoD secrets failing the nightly
+  enableFortifyScan('amp-marketplace-aat')
 }

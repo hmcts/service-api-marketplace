@@ -36,4 +36,15 @@ withPipeline(type, product, component) {
   afterAlways('functionalTest:aat') {
     publishTestReport('functional', 'Functional Test Report')
   }
+
+  // Flux takes the promoted image to AAT a few minutes later, so the web's journeys are started
+  // against it then: a service change that breaks the site is caught within the hour, not the next
+  // morning. The run reports to #amp-ci-alerts and doesn't hold up or fail this build.
+  afterSuccess('prod:promotion') {
+    build job: 'HMCTS_j_to_z_Nightly/web-api-marketplace/master',
+      parameters: [booleanParam(name: 'AFTER_SERVICE_DEPLOY', value: true)],
+      quietPeriod: 900,
+      wait: false,
+      propagate: false
+  }
 }

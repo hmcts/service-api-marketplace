@@ -6,6 +6,34 @@ def type = "java"
 def product = "amp"
 def component = "marketplace"
 
+// Gradle's HTML report for a stage's tests, as a link on the build next to the web's reports
+def publishTestReport(String task, String name) {
+  publishHTML target: [
+    allowMissing          : true,
+    alwaysLinkToLastBuild : true,
+    keepAll               : true,
+    reportDir             : "build/reports/tests/${task}",
+    reportFiles           : 'index.html',
+    reportName            : name,
+  ]
+}
+
 withPipeline(type, product, component) {
   disableLegacyDeployment()
+
+  afterAlways('smoketest:preview') {
+    publishTestReport('smoke', 'Smoke Test Report')
+  }
+
+  afterAlways('smoketest:aat') {
+    publishTestReport('smoke', 'Smoke Test Report')
+  }
+
+  afterAlways('functionalTest:preview') {
+    publishTestReport('functional', 'Functional Test Report')
+  }
+
+  afterAlways('functionalTest:aat') {
+    publishTestReport('functional', 'Functional Test Report')
+  }
 }

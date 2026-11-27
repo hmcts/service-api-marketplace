@@ -23,7 +23,3 @@ java:
         #   alias: ENTRA_ONBOARDING_CLIENT_ID
         # - name: marketplace-ENTRA-ONBOARDING-CLIENT-SECRET
         #   alias: ENTRA_ONBOARDING_CLIENT_SECRET
-        # - name: marketplace-APIM-CLIENT-ID
-        #   alias: APIM_CLIENT_ID
-        # - name: marketplace-APIM-CLIENT-SECRET
-        #   alias: APIM_CLIENT_SECRET

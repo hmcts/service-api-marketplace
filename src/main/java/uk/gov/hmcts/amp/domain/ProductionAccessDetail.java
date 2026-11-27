@@ -9,7 +9,7 @@ import java.util.List;
 /**
  * One request in full, for the page that shows what was asked for. The list returns
  * ProductionAccessResponse instead: the account page renders only the reference, status and date,
- * and every use case it never shows would travel with it.
+ * and every answer it never shows would travel with it.
  *
  * <p>applicationName is the name as it stood when the request was made, so the request still reads
  * sensibly once the application it names has been deleted.

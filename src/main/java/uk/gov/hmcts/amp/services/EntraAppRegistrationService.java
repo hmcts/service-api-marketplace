@@ -34,7 +34,7 @@ import static java.util.Comparator.naturalOrder;
 import static java.util.Comparator.nullsLast;
 
 /**
- * Registers an Entra application and grants it app roles on the marketplace API, so the credentials it
+ * Registers an Entra application and grants it app roles on each API's resource app, so the credentials it
  * hands back carry a roles claim that APIM's validate-jwt policy accepts.
  */
 @Slf4j
@@ -155,7 +155,7 @@ public class EntraAppRegistrationService {
     }
 
     /**
-     * Assigns an app role on the marketplace API's service principal. Nothing in APIM changes: its
+     * Assigns an app role on the API's service principal. Nothing in APIM changes: its
      * validate-jwt policy already requires the role, and the consumer's token starts carrying it.
      */
     public void grantApiAccess(final String consumerClientId, final String resourceAppId,
